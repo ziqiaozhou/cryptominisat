@@ -3,7 +3,7 @@
 #include <fstream>
 
 #include "cryptominisat4/cryptominisat.h"
-#include "cryptominisat4/solverconf.h"
+#include "src/solverconf.h"
 using namespace CMSat;
 #include <vector>
 using std::vector;

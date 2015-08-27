@@ -74,6 +74,10 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/utils/sha1-sat sha1-sat)
 include_directories(
     ${PROJECT_SOURCE_DIR}
 )
+include_directories(
+    ${PROJECT_BINARY_DIR}/cmsat4-src
+)
+
 
 if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
@@ -143,12 +147,13 @@ target_link_libraries(clause_test
     libcryptominisat4
 )
 
-if (NOT SLOW_DEBUG)
-    add_executable(library_speed_test
-        library_speed_test.cpp
-    )
-
-    target_link_libraries(library_speed_test
-        libcryptominisat4
-    )
-endif()
+# This test is not stable enough, depends on CPU speed
+# if (NOT SLOW_DEBUG)
+#     add_executable(library_speed_test
+#         library_speed_test.cpp
+#     )
+#
+#     target_link_libraries(library_speed_test
+#         libcryptominisat4
+#     )
+# endif()

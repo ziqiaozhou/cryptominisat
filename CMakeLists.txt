@@ -41,14 +41,6 @@ endforeach()
 
 PROJECT(cryptominisat4)
 
-option(ENABLE_ASSERTIONS "Build with assertions enabled" ON)
-if (ENABLE_ASSERTIONS)
-    # NDEBUG was already removed.
-else()
-    # Note this definition doesn't appear in the cache variables.
-    add_definitions(-DNDEBUG)
-endif()
-
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake) #m4-extra contains some library search cmake stuff
 
 macro(add_cxx_flag flagname)
@@ -96,6 +88,16 @@ macro(add_cxx_flag_if_supported flagname)
   endif()
 endmacro()
 
+option(ENABLE_ASSERTIONS "Build with assertions enabled" ON)
+if (ENABLE_ASSERTIONS)
+    # NDEBUG was already removed.
+else()
+    # Note this definition doesn't appear in the cache variables.
+    add_definitions(-DNDEBUG)
+    add_cxx_flag_if_supported("-fno-stack-protector")
+    add_definitions(-D_FORTIFY_SOURCE=0)
+endif()
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -g")
 SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -mtune=native")
 SET(CMAKE_CXX_FLAGS_RELEASE "-O2 -g0 -DNDEBUG -mtune=native")
@@ -132,8 +134,6 @@ add_cxx_flag_if_supported("-Winit-self")
 add_cxx_flag_if_supported("-Wunreachable-code")
 add_cxx_flag("-fPIC")
 #add_cxx_flag_if_supported("-fno-exceptions")
-add_cxx_flag_if_supported("-fno-stack-protector")
-add_definitions(-D_FORTIFY_SOURCE=0)
 
 
 option(COVERAGE "Build with coverage check" OFF)
@@ -141,7 +141,9 @@ if (COVERAGE)
     add_cxx_flag("--coverage")
 endif()
 
-set(CMAKE_EXE_LINKER_FLAGS " -Wl,-O1 -Wl,--discard-all -Wl,--build-id=sha1")
+if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    set(CMAKE_EXE_LINKER_FLAGS " -Wl,-O1 -Wl,--discard-all -Wl,--build-id=sha1")
+endif()
 
 # -----------------------------------------------------------------------------
 # Uncomment these for static compilation under Linux (messes up Valgrind)
@@ -184,7 +186,7 @@ if (GIT_EXECUTABLE)
 else()
   set(GIT_SHA "GIT-hash-notfound")
 endif()
-set(CMS_FULL_VERSION "4.4.0")
+set(CMS_FULL_VERSION "4.5.3")
 
 string(REPLACE "." ";" CMS_FULL_VERSION_LIST ${CMS_FULL_VERSION})
 SetVersionNumber("PROJECT" ${CMS_FULL_VERSION_LIST})
@@ -282,26 +284,35 @@ if (NOT NOM4RI)
     ENDIF (M4RI_FOUND)
 endif()
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+#query definitions
+get_directory_property( DirDefs DIRECTORY ${CMAKE_SOURCE_DIR} COMPILE_DEFINITIONS )
+set(COMPILE_DEFINES)
+foreach( d ${DirDefs} )
+    # message( STATUS "Found Define: " ${d} )
+    set(COMPILE_DEFINES "${COMPILE_DEFINES} -D${d}")
+endforeach()
+message(STATUS "All defines at startup: ${COMPILE_DEFINES}")
+
+
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 macro(cmsat_add_public_header LIBTARGET HEADER)
-    set(HEADER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${HEADER}")
-    if(EXISTS "${HEADER_PATH}")
+    if(EXISTS "${HEADER}")
         # Get existing PUBLIC_HEADER
         get_target_property(EXISTING_PUBLIC_HEADERS ${LIBTARGET} PUBLIC_HEADER)
         if(EXISTING_PUBLIC_HEADERS)
-            list(APPEND EXISTING_PUBLIC_HEADERS "${HEADER_PATH}")
+            list(APPEND EXISTING_PUBLIC_HEADERS "${HEADER}")
         else()
             # Do not append to empty list
-            set(EXISTING_PUBLIC_HEADERS "${HEADER_PATH}")
+            set(EXISTING_PUBLIC_HEADERS "${HEADER}")
         endif()
         set_target_properties(${LIBTARGET}
                               PROPERTIES
                               PUBLIC_HEADER "${EXISTING_PUBLIC_HEADERS}"
                              )
     else()
-        message(FATAL_ERROR "Cannot add public header, file ${HEADER_PATH} does not exist.")
+        message(FATAL_ERROR "Cannot add public header, file ${HEADER} does not exist.")
     endif()
 endmacro()
 
@@ -314,7 +325,7 @@ endif()
 # -----------------------------------------------------------------------------
 set(CRYPTOMINISAT4_EXPORT_NAME "cryptominisat4Targets")
 
-add_subdirectory(cryptominisat4 cmsat4-src)
+add_subdirectory(src cmsat4-src)
 
 # -----------------------------------------------------------------------------
 # Look for python
@@ -351,9 +362,10 @@ if (ENABLE_TESTING)
     add_test (NAME readme_test COMMAND tests/readme_test --log_level=test_suite)
     add_test (NAME heap_test COMMAND tests/heap_test --log_level=test_suite)
     add_test (NAME clause_test COMMAND tests/clause_test --log_level=test_suite)
-    if (NOT STATS)
-        add_test (NAME library_speed_test COMMAND tests/library_speed_test --log_level=test_suite)
-    endif()
+    # too unstable to add (depends on CPU)
+    #if (NOT STATS AND NOT SLOW_DEBUG)
+        #add_test (NAME library_speed_test COMMAND tests/library_speed_test --log_level=test_suite)
+    #endif()
 
     message(STATUS "Testing is enabled")
     set(UNIT_TEST_EXE_SUFFIX "Tests" CACHE STRING "Suffix for Unit test executable")
@@ -376,20 +388,20 @@ set(CRYPTOMINISAT4_STATIC_DEPS
 )
 
 # Export targets
-set(MY_TARGETS libcryptominisat4 cryptominisat_simple)
+set(MY_TARGETS libcryptominisat4 cryptominisat4_simple)
 if (NOT ONLY_SIMPLE)
-    set(MY_TARGETS ${MY_TARGETS} cryptominisat)
+    set(MY_TARGETS ${MY_TARGETS} cryptominisat4)
 endif()
 if (ALSO_BUILD_STATIC_LIB)
     set(MY_TARGETS ${MY_TARGETS} libcryptominisat4_static)
 endif()
-export(TARGETS ${MY_TARGETS} FILE "${PROJECT_BINARY_DIR}/${CRYPTOMINISAT4_TARGETS_FILENAME}")
+export(TARGETS ${MY_TARGETS} FILE "${CMAKE_CURRENT_BINARY_DIR}/${CRYPTOMINISAT4_TARGETS_FILENAME}")
 
 # Create cryptominisat4Config file
 set(EXPORT_TYPE "Build-tree")
-set(CONF_INCLUDE_DIRS "${PROJECT_BINARY_DIR}/include")
+set(CONF_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/include")
 configure_file(cryptominisat4Config.cmake.in
-    "${PROJECT_BINARY_DIR}/${CRYPTOMINISAT4_CONFIG_FILENAME}" @ONLY
+    "${CMAKE_CURRENT_BINARY_DIR}/${CRYPTOMINISAT4_CONFIG_FILENAME}" @ONLY
 )
 
 if(WIN32 AND NOT CYGWIN)
@@ -404,11 +416,11 @@ set(CRYPTOMINISAT4_INSTALL_CMAKE_DIR ${DEF_INSTALL_CMAKE_DIR} CACHE PATH
 set(EXPORT_TYPE "installed")
 set(CONF_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/include")
 configure_file(cryptominisat4Config.cmake.in
-   "${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${CRYPTOMINISAT4_CONFIG_FILENAME}" @ONLY
+   "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${CRYPTOMINISAT4_CONFIG_FILENAME}" @ONLY
 )
 
 install(FILES
-    "${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${CRYPTOMINISAT4_CONFIG_FILENAME}"
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${CRYPTOMINISAT4_CONFIG_FILENAME}"
     DESTINATION "${CRYPTOMINISAT4_INSTALL_CMAKE_DIR}"
 )
 

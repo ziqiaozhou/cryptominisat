@@ -9,8 +9,8 @@
 # export CC="gcc-4.7"
 # export CXX="g++-4.7"
 
-SOURCE_DIR="$1"
-THIS_DIR="$2"
+SOURCE_DIR="../"
+THIS_DIR="build"
 COMMON_CMAKE_ARGS="-G \"Unix Makefiles\" -DENABLE_TESTING:BOOL=ON"
 set -e
 
@@ -106,9 +106,18 @@ case $CMS_CONFIG in
                    ${SOURCE_DIR}
     ;;
 
-    PYTHON)
+    NOPYTHON)
         sudo apt-get install libboost-program-options-dev
         sudo apt-get remove python2.7-dev python-dev
+        eval cmake ${COMMON_CMAKE_ARGS} \
+                   ${SOURCE_DIR}
+    ;;
+
+    INTREE_BUILD)
+        cd ..
+        SOURCE_DIR="."
+        THIS_DIR="."
+        sudo apt-get install libboost-program-options-dev
         eval cmake ${COMMON_CMAKE_ARGS} \
                    ${SOURCE_DIR}
     ;;
@@ -166,15 +175,15 @@ fi
 
 case $CMS_CONFIG in
     MYSQL|WEB)
-        echo "1 2 0" | ./cryptominisat --sql 2 --wsql 2 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --sql 2 --wsql 2 --zero-exit-status
     ;;
 
     SQLITE)
-        echo "1 2 0" | ./cryptominisat --sql 2 --wsql 3 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --sql 2 --wsql 3 --zero-exit-status
     ;;
 
     M4RI)
-        echo "1 2 0" | ./cryptominisat --xor 1 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --xor 1 --zero-exit-status
     ;;
 
     *)
@@ -182,10 +191,10 @@ case $CMS_CONFIG in
     ;;
 esac
 
-#do regression testing
-if [ "$CMS_CONFIG" != "ONLY_SIMPLE" ] && [ "$CMS_CONFIG" != "AWS" ] && [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "PYTHON" ]; then
+#do fuzz testing
+if [ "$CMS_CONFIG" != "ONLY_SIMPLE" ] && [ "$CMS_CONFIG" != "AWS" ] && [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "PYTHON" ] && [ "$CMS_CONFIG" != "COVERAGE" ] && [ "$CMS_CONFIG" != "INTREE_BUILD" ]; then
     cd ../scripts/
-    ./regression_test.py -f --novalgrind --fuzzlim 30
+    ./fuzz_test.py --novalgrind --fuzzlim 30
 fi
 
 cd ..

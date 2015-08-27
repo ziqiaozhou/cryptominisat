@@ -21,7 +21,7 @@ import string
 import glob
 sys.path.append(os.getcwd())
 from common_aws import *
-import spotrequester
+import RequestSpotClient
 
 
 last_termination_sent = None
@@ -90,7 +90,7 @@ parser.add_option("--dir", default="/home/ubuntu/", dest="base_dir", type=str,
                   )
 
 parser.add_option("--solver",
-                  default="cryptominisat/build/cryptominisat",
+                  default="cryptominisat/build/cryptominisat4",
                   dest="solver",
                   help="Solver executable"
                   "[default: %default]",
@@ -150,7 +150,7 @@ options.s3_folder += "-mark-%s" % rnd_id()
 
 def get_revision():
     _, solvername = os.path.split(options.base_dir + options.solver)
-    if solvername != "cryptominisat":
+    if solvername != "cryptominisat4":
         return solvername
 
     pwd = os.getcwd()
@@ -407,7 +407,7 @@ class SpotManager (threading.Thread):
 
     def __init__(self):
         threading.Thread.__init__(self)
-        self.spot_creator = spotrequester.SpotRequester()
+        self.spot_creator = RequestSpotClient.RequestSpotClient()
 
     def run(self):
         while True:
