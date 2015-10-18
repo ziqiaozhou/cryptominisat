@@ -19,8 +19,8 @@
  * MA 02110-1301  USA
 */
 
-#ifndef __STRENGTHENER_H__
-#define __STRENGTHENER_H__
+#ifndef __DISTILLERWITHBIN_H__
+#define __DISTILLERWITHBIN_H__
 
 #include <vector>
 #include "clause.h"
@@ -36,10 +36,10 @@ using std::vector;
 class Solver;
 class Clause;
 
-class Strengthener {
+class DistillerWithBin {
     public:
-        Strengthener(Solver* solver);
-        bool strengthen(bool alsoStrengthen);
+        DistillerWithBin(Solver* solver);
+        bool distill_with_bin(bool alsoStrengthen);
         bool strengthen_implicit();
 
         struct Stats
@@ -132,7 +132,7 @@ class Strengthener {
         StrImplicitData str_impl_data;
 
         bool remove_or_shrink_clause(Clause& cl, ClOffset& offset);
-        void str_and_sub_cl_with_cache_for_all_lits(
+        void strsub_with_cache_and_watch(
             bool alsoStrengthen
             , Clause& cl
         );
@@ -194,7 +194,7 @@ class Strengthener {
         void remove_lits_through_stamping_irred();
         Stats::CacheBased tmpStats;
         //bool needToFinish;
-        bool shorten_clause_with_cache_watch_stamp(
+        bool sub_str_cl_with_cache_watch_stamp(
             ClOffset& offset
             , bool red
             , const bool alsoStrengthen
@@ -226,11 +226,11 @@ class Strengthener {
 
 };
 
-inline const Strengthener::Stats& Strengthener::get_stats() const
+inline const DistillerWithBin::Stats& DistillerWithBin::get_stats() const
 {
     return globalStats;
 }
 
 } //end namespace
 
-#endif //CLAUSEDistiller_H
+#endif //__DISTILLERWITHBIN_H__

@@ -590,16 +590,16 @@ inline vector<Lit> sortLits(const vector<Lit>& lits)
     return tmp;
 }
 
-inline vector<Lit> vars_to_lits(const vector<Var>& vars)
+inline vector<Lit> vars_to_lits(const vector<uint32_t>& vars)
 {
     vector<Lit> ret;
-    for(Var var: vars) {
+    for(uint32_t var: vars) {
         ret.push_back(Lit(var, false));
     }
     return ret;
 }
 
-inline double calc_percentage(const double a, const double b)
+inline double float_div(const double a, const double b)
 {
     if (b != 0)
         return a/b;

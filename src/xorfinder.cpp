@@ -118,6 +118,7 @@ void XorFinder::find_xors_based_on_short_clauses()
 
 void XorFinder::find_xors()
 {
+    assert(solver->watches.get_smudged_list().empty());
     double myTime = cpuTime();
     const int64_t orig_xor_find_time_limit =
         1000LL*1000LL*solver->conf.xor_finder_time_limitM
@@ -138,7 +139,7 @@ void XorFinder::find_xors()
     solver->clean_occur_from_idx_types_only_smudged();
 
     const bool time_out = (xor_find_time_limit < 0);
-    const double time_remain = calc_percentage(xor_find_time_limit, orig_xor_find_time_limit);
+    const double time_remain = float_div(xor_find_time_limit, orig_xor_find_time_limit);
     runStats.findTime = cpuTime() - myTime;
     runStats.time_outs += time_out;
     assert(runStats.foundXors == xors.size());
@@ -193,7 +194,7 @@ bool XorFinder::extractInfo()
 
     vector<uint32_t> varsIn(solver->nVars(), 0);
     for(const Xor& x: xors) {
-        for(const Var v: x.vars) {
+        for(const uint32_t v: x.vars) {
             varsIn[v]++;
         }
     }
@@ -209,7 +210,7 @@ bool XorFinder::extractInfo()
     ) {
         const Xor& thisXor = *it;
         bool makeItIn = false;
-        for(Var v: thisXor.vars) {
+        for(uint32_t v: thisXor.vars) {
             if (varsIn[v] > 1) {
                 makeItIn = true;
                 break;
@@ -236,7 +237,7 @@ bool XorFinder::extractInfo()
 
     //Go through all blocks, and extract info
     i = 0;
-    for(vector<vector<Var> >::const_iterator
+    for(vector<vector<uint32_t> >::const_iterator
         it = blocks.begin(), end = blocks.end()
         ; it != end
         ; ++it, i++
@@ -271,7 +272,7 @@ end:
 }
 
 bool XorFinder::extractInfoFromBlock(
-    const vector<Var>& block
+    const vector<uint32_t>& block
     , const size_t blockNum
 ) {
     assert(solver->okay());
@@ -281,7 +282,7 @@ bool XorFinder::extractInfoFromBlock(
 
     //Outer-inner var mapping is needed because not all vars are in the matrix
     size_t num = 0;
-    for(vector<Var>::const_iterator
+    for(vector<uint32_t>::const_iterator
         it2 = block.begin(), end2 = block.end()
         ; it2 != end2
         ; it2++, num++
@@ -317,12 +318,12 @@ bool XorFinder::extractInfoFromBlock(
         const Xor& thisXor = xors[*it];
         assert(thisXor.vars.size() > 2 && "All XORs must be larger than 2-long");
         //Put XOR into the matrix
-        for(vector<Var>::const_iterator
+        for(vector<uint32_t>::const_iterator
             it2 = thisXor.vars.begin(), end3 = thisXor.vars.end()
             ; it2 != end3
             ; it2++
         ) {
-            const Var var = outerToInterVarMap[*it2];
+            const uint32_t var = outerToInterVarMap[*it2];
             assert(var < numCols-1);
             mzd_write_bit(mat, row, var, 1);
         }
@@ -402,7 +403,7 @@ vector<uint32_t> XorFinder::getXorsForBlock(const size_t blockNum)
         if (varToBlock[thisXor.vars[0]] == blockNum) {
             xorsInThisBlock.push_back(i);
 
-            for(vector<Var>::const_iterator it = thisXor.vars.begin(), end = thisXor.vars.end(); it != end; ++it) {
+            for(vector<uint32_t>::const_iterator it = thisXor.vars.begin(), end = thisXor.vars.end(); it != end; ++it) {
                 assert(varToBlock[*it] == blockNum && "if any vars are in this block, ALL block are in this block");
             }
         }
@@ -426,7 +427,7 @@ void XorFinder::cutIntoBlocks(const vector<size_t>& xorsToUse)
 
         //Calc blocks for this XOR
         set<size_t> blocksBelongTo;
-        for(vector<Var>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
+        for(vector<uint32_t>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
             if (varToBlock[*it2] != std::numeric_limits<uint32_t>::max())
                 blocksBelongTo.insert(varToBlock[*it2]);
         }
@@ -434,8 +435,8 @@ void XorFinder::cutIntoBlocks(const vector<size_t>& xorsToUse)
         switch(blocksBelongTo.size()) {
             case 0: {
                 //Create new block
-                vector<Var> block;
-                for(vector<Var>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
+                vector<uint32_t> block;
+                for(vector<uint32_t>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
                     varToBlock[*it2] = blocks.size();
                     block.push_back(*it2);
                 }
@@ -448,8 +449,8 @@ void XorFinder::cutIntoBlocks(const vector<size_t>& xorsToUse)
             case 1: {
                 //Add to existing block
                 const size_t blockNum = *blocksBelongTo.begin();
-                vector<Var>& block = blocks[blockNum];
-                for(vector<Var>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
+                vector<uint32_t>& block = blocks[blockNum];
+                for(vector<uint32_t>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
                     if (varToBlock[*it2] == std::numeric_limits<uint32_t>::max()) {
                         block.push_back(*it2);
                         varToBlock[*it2] = blockNum;
@@ -462,10 +463,10 @@ void XorFinder::cutIntoBlocks(const vector<size_t>& xorsToUse)
                 //Merge blocks into first block
                 const size_t blockNum = *blocksBelongTo.begin();
                 set<size_t>::const_iterator it2 = blocksBelongTo.begin();
-                vector<Var>& finalBlock = blocks[blockNum];
+                vector<uint32_t>& finalBlock = blocks[blockNum];
                 it2++; //don't merge the first into the first
                 for(set<size_t>::const_iterator end2 = blocksBelongTo.end(); it2 != end2; it2++) {
-                    for(vector<Var>::const_iterator
+                    for(vector<uint32_t>::const_iterator
                         it3 = blocks[*it2].begin(), end3 = blocks[*it2].end()
                         ; it3 != end3
                         ; it3++
@@ -478,7 +479,7 @@ void XorFinder::cutIntoBlocks(const vector<size_t>& xorsToUse)
                 }
 
                 //add remaining vars
-                for(vector<Var>::const_iterator
+                for(vector<uint32_t>::const_iterator
                     it3 = thisXor.vars.begin(), end3 = thisXor.vars.end()
                     ; it3 != end3
                     ; it3++
@@ -493,7 +494,7 @@ void XorFinder::cutIntoBlocks(const vector<size_t>& xorsToUse)
     }
 
     //caclulate stats
-    for(vector<vector<Var> >::const_iterator
+    for(vector<vector<uint32_t> >::const_iterator
         it = blocks.begin(), end = blocks.end()
         ; it != end
         ; ++it
@@ -608,7 +609,7 @@ void XorFinder::findXorMatchExt(
         ; ++it
     ) {
         //Deal with binary
-        if (it->isBinary()) {
+        if (it->isBin()) {
             if (seen[it->lit2().var()]) {
                 tmpClause.clear();
                 tmpClause.push_back(lit);
@@ -715,7 +716,7 @@ void XorFinder::findXorMatch(
         }
 
         //Deal with binary
-        if (it->isBinary()) {
+        if (it->isBin()) {
             if (//Only once per binary
                 lit < it->lit2()
                 //only for correct binary
@@ -810,9 +811,9 @@ size_t XorFinder::mem_used() const
 {
     size_t mem = 0;
     mem += xors.capacity()*sizeof(Xor);
-    mem += blocks.capacity()*sizeof(vector<Var>);
+    mem += blocks.capacity()*sizeof(vector<uint32_t>);
     for(size_t i = 0; i< blocks.size(); i++) {
-        mem += blocks[i].capacity()*sizeof(Var);
+        mem += blocks[i].capacity()*sizeof(uint32_t);
     }
     mem += varToBlock.capacity()*sizeof(size_t);
 
@@ -830,20 +831,20 @@ size_t XorFinder::mem_used() const
 void XorFinder::Stats::print_short(const Solver* solver) const
 {
     cout
-    << "c [xor] found " << std::setw(6) << foundXors
+    << "c [occ-xor] found " << std::setw(6) << foundXors
     << " avg sz " << std::setw(4) << std::fixed << std::setprecision(1)
-    << ((double)sumSizeXors/(double)foundXors)
+    << float_div(sumSizeXors, foundXors)
     << solver->conf.print_times(findTime, time_outs)
     << endl;
 
     cout
-    << "c [xor] cut into blocks " << numBlocks
+    << "c [occ-xor] cut into blocks " << numBlocks
     << " vars in blcks " << numVarsInBlocks
     << solver->conf.print_times(blockCutTime)
     << endl;
 
     cout
-    << "c [xor] extr info "
+    << "c [occ-xor] extr info "
     << " unit " << newUnits
     << " bin " << newBins
     << " 0-depth-ass: " << zeroDepthAssigns
@@ -855,12 +856,12 @@ void XorFinder::Stats::print(const size_t numCalls) const
 {
     cout << "c --------- XOR STATS ----------" << endl;
     print_stats_line("c num XOR found on avg"
-        , (double)foundXors/(double)numCalls
+        , float_div(foundXors, numCalls)
         , "avg size"
     );
 
     print_stats_line("c XOR avg size"
-        , (double)sumSizeXors/(double)foundXors
+        , float_div(sumSizeXors, foundXors)
     );
 
     print_stats_line("c XOR 0-depth assings"
@@ -877,7 +878,7 @@ void XorFinder::Stats::print(const size_t numCalls) const
 
     print_stats_line("c XOR finding time"
         , findTime
-        , (double)time_outs/(double)numCalls*100.0
+        , float_div(time_outs, numCalls)*100.0
         , "time-out"
     );
     cout << "c --------- XOR STATS END ----------" << endl;

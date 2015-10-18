@@ -26,6 +26,7 @@ THE SOFTWARE.
 #include <string>
 #include <cstdlib>
 #include <assert.h>
+#include "gaussianconfig.h"
 
 using std::string;
 
@@ -136,7 +137,7 @@ class SolverConf
         //Clause cleaning
         unsigned  max_temporary_learnt_clauses;
         unsigned  cur_max_temp_red_cls;
-        unsigned protect_clause_if_imrpoved_glue_below_this_glue_for_one_turn;
+        unsigned protect_cl_if_improved_glue_below_this_glue_for_one_turn;
         double    clean_confl_multiplier;
         double    clean_prop_multiplier;
         int       doPreClauseCleanPropAndConfl;
@@ -180,7 +181,6 @@ class SolverConf
         int  doPrintConflDot; ///< Print DOT file for each conflict
         int  print_all_stats;
         int  verbStats;
-        int  doPrintBestRedClauses;
         int do_print_times; ///Print times during verbose output
         int print_restart_line_every_n_confl;
 
@@ -203,10 +203,10 @@ class SolverConf
         int       whichSQL;
         bool      dump_individual_search_time;
         std::string sqlite_filename;
-        std::string    sqlServer;
-        std::string    sqlUser;
-        std::string    sqlPass;
-        std::string    sqlDatabase;
+        std::string sqlServer;
+        std::string sqlUser;
+        std::string sqlPass;
+        std::string sqlDatabase;
 
         //Var-elim
         int      doVarElim;          ///<Perform variable elimination
@@ -276,8 +276,9 @@ class SolverConf
         int      never_stop_search;
         uint64_t num_conflicts_of_search;
         double   num_conflicts_of_search_inc;
-        string   simplify_at_startup_sequence;
-        string   simplify_nonstartup_sequence;
+        string   simplify_schedule_startup;
+        string   simplify_schedule_nonstartup;
+        string   simplify_schedule_preproc;
 
         //Simplification
         int      perform_occur_based_simp;
@@ -287,8 +288,6 @@ class SolverConf
         unsigned maxOccurRedMB;
         unsigned long long maxOccurRedLitLinkedM;
         double   subsume_gothrough_multip;
-        string   occsimp_schedule_startup;
-        string   occsimp_schedule_nonstartup;
 
         //Distillation
         int      do_distill_clauses;
@@ -301,7 +300,6 @@ class SolverConf
         int       doSaveMem;
 
         //Component handling
-        int       doFindComps;
         int       doCompHandler;
         unsigned  handlerFromSimpNum;
         size_t    compVarLimit;
@@ -326,6 +324,9 @@ class SolverConf
         long long shorten_with_gates_time_limitM;
         long long remove_cl_with_gates_time_limitM;
 
+        //Gauss
+        GaussConf gaussconf;
+
         //interrupting & dumping
         double orig_global_timeout_multiplier;
         double global_timeout_multiplier;
@@ -336,6 +337,10 @@ class SolverConf
         double clean_after_perc_zero_depth_assigns;
         unsigned reconfigure_val;
         unsigned reconfigure_at;
+        unsigned preprocess;
+        std::string simplified_cnf;
+        std::string solution_file;
+        std::string saved_state_file;
 };
 
 } //end namespace

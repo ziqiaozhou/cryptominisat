@@ -24,13 +24,14 @@
 
 //#define DEBUG_ROW
 
-#include <vector>
 #include "constants.h"
 #include "solvertypes.h"
 #include <string.h>
 #include <iostream>
 #include <algorithm>
 #include <limits>
+#include <vector>
+using std::vector;
 
 namespace CMSat {
 
@@ -204,7 +205,7 @@ public:
         is_true_internal = !v.xorEqualFalse();
     }
 
-    bool fill(vector<Lit>& tmp_clause, const vector<lbool>& assigns, const vector<Var>& col_to_var_original) const;
+    bool fill(vector<Lit>& tmp_clause, const vector<lbool>& assigns, const vector<uint32_t>& col_to_var_original) const;
 
     unsigned long int scan(const unsigned long int var) const
     {

@@ -66,7 +66,7 @@ desc = """Fuzz the solver with fuzz-generator: ./fuzz_test.py
 parser = optparse.OptionParser(usage=usage, description=desc,
                                formatter=PlainHelpFormatter())
 parser.add_option("--exec", metavar="SOLVER", dest="solver",
-                  default="../build/cryptominisat4",
+                  default="../../build/cryptominisat4",
                   help="SAT solver executable. Default: %default")
 
 parser.add_option("--extraopts", "-e", metavar="OPTS",
@@ -85,8 +85,17 @@ parser.add_option("--fuzzlim", dest="fuzz_test_lim", type=int,
 parser.add_option("--novalgrind", dest="novalgrind", default=False,
                   action="store_true", help="No valgrind installed")
 
+parser.add_option("--small", dest="small", default=False,
+                  action="store_true", help="Don't run 'large' fuzzer (may mem-out on smaller systems)")
+
 
 (options, args) = parser.parse_args()
+
+
+def fuzzer_call_failed():
+    print "OOps, fuzzer executable call failed!"
+    print "Did you build with TESTING_ENABLED? Did you do git submodules init & update?"
+    exit(-1)
 
 
 class solution_parser:
@@ -264,53 +273,53 @@ class solution_parser:
 class create_fuzz:
 
     @staticmethod
-    def unique_fuzz_file(file_name_begin):
+    def unique_file(fname_begin):
         counter = 1
         while 1:
-            file_name = file_name_begin + '_' + str(counter) + ".cnf"
+            fname = fname_begin + '_' + str(counter) + ".cnf"
             try:
                 fd = os.open(
-                    file_name, os.O_CREAT | os.O_EXCL, stat.S_IREAD | stat.S_IWRITE)
+                    fname, os.O_CREAT | os.O_EXCL, stat.S_IREAD | stat.S_IWRITE)
                 os.fdopen(fd).close()
-                return file_name
+                return fname
             except OSError:
                 pass
 
             counter += 1
 
-    def call_from_fuzzer(self, fuzzer, file_name):
+    def call_from_fuzzer(self, fuzzer, fname):
         if len(fuzzer) == 1:
-            seed = struct.unpack("<L", os.urandom(4))[0]
-            call = "{0} {1} > {2}".format(fuzzer[0], seed, file_name)
+            seed = random.randint(0, 1000000)
+            call = "{0} {1} > {2}".format(fuzzer[0], seed, fname)
         elif len(fuzzer) == 2:
-            seed = struct.unpack("<L", os.urandom(4))[0]
+            seed = random.randint(0, 1000000)
             call = "{0} {1} {2} > {3}".format(
-                fuzzer[0], fuzzer[1], seed, file_name)
+                fuzzer[0], fuzzer[1], seed, fname)
         elif len(fuzzer) == 3:
-            seed = struct.unpack("<L", os.urandom(4))[0]
-            hashbits = (random.getrandbits(20) % 79) + 1
+            seed = random.randint(0, 1000000)
+            hashbits = (random.getrandbits(20) % 80) + 1
             call = "%s %s %d %s %d > %s" % (
-                fuzzer[0], fuzzer[1], hashbits, fuzzer[2], seed, file_name)
+                fuzzer[0], fuzzer[1], hashbits, fuzzer[2], seed, fname)
         else:
             assert False, "Fuzzer must have at most 2 arguments"
 
         return call
 
-    def create_fuzz_file(self, fuzzer, file_name):
+    def create_fuzz_file(self, fuzzer, fuzzers, fname):
         # handle special fuzzer
-        file_names_multi = []
+        fnames_multi = []
         if len(fuzzer) == 2 and fuzzer[1] == "special":
 
             # sometimes just fuzz with all SAT problems
             fixed = random.getrandbits(1) == 1
 
             for i in range(random.randrange(2, 4)):
-                file_name2 = create_fuzz.unique_fuzz_file("fuzzTest")
-                file_names_multi.append(file_name2)
+                fname2 = create_fuzz.unique_file("fuzzTest")
+                fnames_multi.append(fname2)
 
                 # chose a ranom fuzzer, not multipart
                 fuzzer2 = ["multipart.py", "special"]
-                while (fuzzer2[0] == "multipart.py"):
+                while os.path.basename(fuzzer2[0]) == "multipart.py":
                     fuzzer2 = choice(fuzzers)
 
                 # sometimes fuzz with SAT problems only
@@ -318,23 +327,25 @@ class create_fuzz:
                     fuzzer2 = fuzzers[0]
 
                 print "fuzzer2 used: ", fuzzer2
-                call = self.call_from_fuzzer(fuzzer2, file_name2)
+                call = self.call_from_fuzzer(fuzzer2, fname2)
                 print "calling sub-fuzzer:", call
-                out = commands.getstatusoutput(call)
+                status, _ = commands.getstatusoutput(call)
+                if status != 0:
+                    fuzzer_call_failed()
 
             # construct multi-fuzzer call
             call = ""
             call += fuzzer[0]
             call += " "
-            for name in file_names_multi:
+            for name in fnames_multi:
                 call += " " + name
-            call += " > " + file_name
+            call += " > " + fname
 
-            return call, file_names_multi
+            return call, fnames_multi
 
         # handle normal fuzzer
         else:
-            return self.call_from_fuzzer(fuzzer, file_name), []
+            return self.call_from_fuzzer(fuzzer, fname), []
 
 
 def setlimits():
@@ -357,23 +368,37 @@ def print_version():
     consoleOutput, err = p.communicate()
     print "Version values:", consoleOutput.strip()
 
-fuzzers = [
-    ["../build/tests/sha1-sat/sha1-gen --attack preimage --rounds 18 --cnf", "--hash-bits", "--seed"],
-    ["../build/tests/sha1-sat/sha1-gen --xor --attack preimage --rounds 18 --cnf", "--hash-bits", "--seed"],
+fuzzers_noxor = [
+    ["../../build/tests/sha1-sat/sha1-gen --attack preimage --rounds 20",
+     "--hash-bits", "--seed"],
+    ["../../build/tests/sha1-sat/sha1-gen --attack preimage --zero --message-bits 400 --rounds 8 --hash-bits 60",
+     "--seed"],
     # ["build/cnf-fuzz-nossum"],
-    # ["build/largefuzzer"],
-    ["../build/tests/cnf-utils/cnf-fuzz-biere"],
-    ["../build/tests/cnf-utils/sgen4 -unsat -n 50", "-s"],
-    ["../build/tests/cnf-utils//sgen4 -sat -n 50", "-s"],
-    ["../utils/cnf-utils/cnf-fuzz-brummayer.py", "-s"],
-    ["../utils/cnf-utils/cnf-fuzz-xor.py", "--seed"],
-    ["../utils/cnf-utils/multipart.py", "special"]
+    ["../../build/tests/cnf-utils/largefuzzer"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/cnf-fuzz-biere"],
+    ["../../build/tests/cnf-utils/sgen4 -unsat -n 50", "-s"],
+    ["../../build/tests/cnf-utils//sgen4 -sat -n 50", "-s"],
+    ["../../utils/cnf-utils/cnf-fuzz-brummayer.py", "-s"],
+    ["../../utils/cnf-utils/cnf-fuzz-xor.py", "--seed"],
+    ["../../utils/cnf-utils/multipart.py", "special"]
+]
+fuzzers_xor = [
+    ["../../utils/cnf-utils/xortester.py", "--seed"],
+    ["../../build/tests/sha1-sat/sha1-gen --xor --attack preimage --rounds 21",
+     "--hash-bits", "--seed"],
 ]
 
 class Tester:
 
     def __init__(self):
-        self.check_for_unsat = False
         self.ignoreNoSolution = False
         self.extra_options_if_supported = self.list_options_if_supported(
             ["xor", "sql"])
@@ -388,7 +413,7 @@ class Tester:
 
     def option_supported(self, option_name):
         command = options.solver
-        command += " --help"
+        command += " --hhelp"
         p = subprocess.Popen(
             command.rsplit(), stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
         consoleOutput, err = p.communicate()
@@ -400,55 +425,56 @@ class Tester:
 
         return False
 
-    def random_options(self):
+    def random_options(self, preproc=False):
         cmd = " --zero-exit-status "
 
         if random.choice([True, False]):
             cmd += " --reconf %d " % random.randint(0, 13)
             cmd += " --reconfat %d " % random.randint(0, 2)
-
-        cmd += "--burst %d " % random.choice([0, 100, random.randint(0, 10000)])
-        cmd += "--restart %s " % random.choice(
-            ["geom", "glue", "luby"])
-        cmd += "--gluehist %s " % random.randint(1, 500)
-        cmd += "--updateglueonprop %s " % random.randint(0, 1)
-        cmd += "--updateglueonanalysis %s " % random.randint(0, 1)
-        cmd += "--otfhyper %s " % random.randint(0, 1)
-        # cmd += "--clean %s " % random.choice(["size", "glue", "activity",
-        # "prconf"])
-        cmd += "--clearstat %s " % random.randint(0, 1)
-        cmd += "--cacheformoreminim %d " % random.choice([0, 1, 1, 1, 1])
-        cmd += "--stampformoreminim %d " % random.choice([0, 1, 1, 1, 1])
-        cmd += "--maxredratio %s " % random.randint(2, 20)
-        cmd += "--dompickf %s " % random.randint(1, 20)
-        cmd += "--alwaysmoremin %s " % random.randint(0, 1)
-        cmd += "--rewardotfsubsume %s " % random.randint(0, 100)
-        cmd += "--bothprop %s " % random.randint(0, 1)
-        cmd += "--probemaxm %s " % random.choice([0, 10, 100, 1000])
-        cmd += "--cachesize %s " % random.randint(10, 100)
-        cmd += "--calcreach %s " % random.randint(0, 1)
-        cmd += "--cachecutoff %s " % random.randint(0, 2000)
-        cmd += "--elimstrgy %s " % random.choice(["heuristic", "calculate"])
-        cmd += "--elimcplxupd %s " % random.randint(0, 1)
-        cmd += "--occredmax %s " % random.randint(0, 100)
-        cmd += "--noextbinsubs %s " % random.randint(0, 1)
-        cmd += "--extscc %s " % random.randint(0, 1)
-        cmd += "--distill %s " % random.randint(0, 1)
-        cmd += "--sortwatched %s " % random.randint(0, 1)
-        cmd += "--recur %s " % random.randint(0, 1)
-        cmd += "--compsfrom %d " % random.randint(0, 2)
-        cmd += "--compsvar %d " % random.randint(20000, 500000)
-        cmd += "--compslimit %d " % random.randint(0, 3000)
-        cmd += "--implicitmanip %s " % random.randint(0, 1)
-        cmd += "--occsimp %s " % random.randint(0, 1)
-        cmd += "--occirredmaxmb %s " % random.randint(0, 10)
-        cmd += "--occredmaxmb %s " % random.randint(0, 10)
-        cmd += "--skipresol %d " % random.choice([1, 1, 1, 0])
-        cmd += "--implsubsto %s " % random.choice([0, 10, 1000])
-        cmd += "--sync %d " % random.choice([100, 1000, 6000, 100000])
+            cmd += "--burst %d " % random.choice([0, 100, random.randint(0, 10000)])
+            cmd += "--restart %s " % random.choice(
+                ["geom", "glue", "luby"])
+            cmd += "--gluehist %s " % random.randint(1, 500)
+            cmd += "--updateglueonprop %s " % random.randint(0, 1)
+            cmd += "--updateglueonanalysis %s " % random.randint(0, 1)
+            cmd += "--otfhyper %s " % random.randint(0, 1)
+            # cmd += "--clean %s " % random.choice(["size", "glue", "activity",
+            # "prconf"])
+            cmd += "--clearstat %s " % random.randint(0, 1)
+            cmd += "--cacheformoreminim %d " % random.choice([0, 1, 1, 1, 1])
+            cmd += "--stampformoreminim %d " % random.choice([0, 1, 1, 1, 1])
+            cmd += "--maxredratio %s " % random.randint(2, 20)
+            cmd += "--dompickf %s " % random.randint(1, 20)
+            cmd += "--alwaysmoremin %s " % random.randint(0, 1)
+            cmd += "--rewardotfsubsume %s " % random.randint(0, 100)
+            cmd += "--bothprop %s " % random.randint(0, 1)
+            cmd += "--probemaxm %s " % random.choice([0, 10, 100, 1000])
+            cmd += "--cachesize %s " % random.randint(10, 100)
+            cmd += "--calcreach %s " % random.randint(0, 1)
+            cmd += "--cachecutoff %s " % random.randint(0, 2000)
+            cmd += "--elimstrgy %s " % random.choice(["heuristic", "calculate"])
+            cmd += "--elimcplxupd %s " % random.randint(0, 1)
+            cmd += "--occredmax %s " % random.randint(0, 100)
+            cmd += "--noextbinsubs %s " % random.randint(0, 1)
+            cmd += "--extscc %s " % random.randint(0, 1)
+            cmd += "--distill %s " % random.randint(0, 1)
+            cmd += "--sortwatched %s " % random.randint(0, 1)
+            cmd += "--recur %s " % random.randint(0, 1)
+            cmd += "--compsfrom %d " % random.randint(0, 2)
+            cmd += "--compsvar %d " % random.randint(20000, 500000)
+            cmd += "--compslimit %d " % random.randint(0, 3000)
+            cmd += "--implicitmanip %s " % random.randint(0, 1)
+            cmd += "--occsimp %s " % random.randint(0, 1)
+            cmd += "--occirredmaxmb %s " % random.randint(0, 10)
+            cmd += "--occredmaxmb %s " % random.randint(0, 10)
+            cmd += "--skipresol %d " % random.choice([1, 1, 1, 0])
+            cmd += "--implsubsto %s " % random.choice([0, 10, 1000])
+            cmd += "--sync %d " % random.choice([100, 1000, 6000, 100000])
+            cmd += "-m %0.12f " % random.gammavariate(0.4, 2.0)
+            # gammavariate gives us sometimes very low values, sometimes large
 
         # the most buggy ones, don't turn them off much, please
-        if random.randint(0, 1) == 1:
+        if random.choice([True, False]):
             opts = ["scc", "varelim", "comps", "strengthen", "probe", "intree",
                     "binpri", "stamp", "cache", "otfsubsume",
                     "renumber", "savemem", "moreminim", "gates", "bva",
@@ -460,7 +486,7 @@ class Tester:
             for opt in opts:
                 cmd += "--%s %d " % (opt, random.randint(0, 1))
 
-            def create_random_schedule(string_list):
+            def create_rnd_sched(string_list):
                 opts = string_list.split(",")
                 opts = [a.strip(" ") for a in opts]
                 opts = list(set(opts))
@@ -468,77 +494,66 @@ class Tester:
                     print "available schedule options:", opts
 
                 sched = []
-                for i in range(int(random.gammavariate(8, 1))):
+                for i in range(int(random.gammavariate(12, 0.7))):
                     sched.append(random.choice(opts))
 
                 return sched
 
-            cmd += self.add_schedule_options(create_random_schedule)
-            cmd += self.add_occ_schedule_options(create_random_schedule)
+            cmd += self.add_schedule_options(create_rnd_sched, preproc)
 
         return cmd
 
-    def add_schedule_options(self, create_random_schedule):
+    def add_schedule_options(self, create_rnd_sched, preproc):
         cmd = ""
 
         sched_opts = "handle-comps,"
         sched_opts += "scc-vrepl, cache-clean, cache-tryboth,"
         sched_opts += "sub-impl, intree-probe, probe,"
-        sched_opts += "str-cls, distill-cls, scc-vrepl, sub-impl, simplify,"
-        sched_opts += "str-impl, cache-clean, str-cls, distill-cls, scc-vrepl,"
+        sched_opts += "sub-str-cls-with-bin, distill-cls, scc-vrepl, sub-impl,"
+        sched_opts += "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls, scc-vrepl,"
+        sched_opts += "occ-backw-sub-str, occ-xor, occ-clean-implicit, occ-bve, occ-bva, occ-gates,"
         sched_opts += "check-cache-size, renumber"
 
-        sched = ",".join(create_random_schedule(sched_opts))
-        if sched != "":
+        sched = ",".join(create_rnd_sched(sched_opts))
+        if sched != "" and not preproc:
             cmd += "--schedule %s " % sched
 
-        sched = ",".join(create_random_schedule(sched_opts))
+        sched = ",".join(create_rnd_sched(sched_opts))
         if sched != "":
             cmd += "--preschedule %s " % sched
 
         return cmd
 
-    def add_occ_schedule_options(self, create_random_schedule):
-        cmd = ""
-
-        sched_opts = "backw-subsume, xor, prop,"
-        sched_opts += "clean-implicit, bve, prop,"
-        sched_opts += "bva, gates, backw-subsume"
-        sched = ",".join(create_random_schedule(sched_opts))
-        if sched != "":
-            cmd += "--occschedule %s " % sched
-
-        sched = ",".join(create_random_schedule(sched_opts))
-        if sched != "":
-            cmd += "--occpreschedule %s " % sched
-
-        return cmd
-
-    def execute(self, fname,
-                fnameDrup=None, extraOptions=""):
-
+    def execute(self, fname, fname2=None, fixed_opts="", rnd_opts=None):
         if os.path.isfile(options.solver) is not True:
             print "Error: Cannot find CryptoMiniSat executable.Searched in: '%s'" % \
                 options.solver
             print "Error code 300"
             exit(300)
 
+        for f in glob.glob("%s-debugLibPart*.output" % fname):
+            os.unlink(f)
+
         # construct command
         command = ""
         if not options.novalgrind and random.randint(0, 10) == 0:
             command += "valgrind -q --leak-check=full  --error-exitcode=9 "
         command += options.solver
-        command += self.random_options()
+        if rnd_opts is None:
+            rnd_opts = self.random_options()
+        command += rnd_opts
         if self.needDebugLib:
-            command += "--debuglib "
+            command += "--debuglib %s " % fname
         if options.verbose is False:
             command += "--verb 0 "
         command += "--threads %d " % self.num_threads
         command += options.extra_options + " "
-        command += extraOptions
-        command += fname
-        if fnameDrup:
-            command += " --drupexistscheck 0 " + fnameDrup
+        command += fixed_opts + " "
+        if fname is not None:
+            command += fname
+        if fname2:
+            command += " %s --savedstate %s-savedstate.dat " % (fname2, fname2)
+
         print "Executing: %s " % command
 
         # print time limit
@@ -546,7 +561,8 @@ class Tester:
             print "CPU limit of parent (pid %d)" % os.getpid(), resource.getrlimit(resource.RLIMIT_CPU)
 
         # if need time limit, then limit
-        err_file = open("err_log.txt", "w")
+        err_fname = create_fuzz.unique_file("err_out")
+        err_file = open(err_fname, "w")
         p = subprocess.Popen(
             command.rsplit(), stderr=err_file, stdout=subprocess.PIPE, preexec_fn=setlimits)
 
@@ -557,9 +573,9 @@ class Tester:
 
         # Get solver output
         consoleOutput, err = p.communicate()
-        return_code = p.returncode
+        retcode = p.returncode
         err_file.close()
-        with open("err_log.txt", "r") as err_file:
+        with open(err_fname, "r") as err_file:
             found_something = False
             for line in err_file:
                 print "Error line while executing: ", line.strip()
@@ -571,19 +587,21 @@ class Tester:
             if found_something:
                 exit(-1)
 
+        os.unlink(err_fname)
+
         if options.verbose:
             print "CPU limit of parent (pid %d) after child finished executing" % \
                 os.getpid(), resource.getrlimit(resource.RLIMIT_CPU)
 
-        return consoleOutput, return_code
+        return consoleOutput, retcode
 
     def check_unsat(self, fname):
         a = XorToCNF()
-        tmpfname = create_fuzz.unique_fuzz_file("tmp_for_xor_to_cnf_convert")
+        tmpfname = create_fuzz.unique_file("tmp_for_xor_to_cnf_convert")
         a.convert(fname, tmpfname)
         # execute with the other solver
         toexec = "lingeling -f %s" % tmpfname
-        print "Solving with other solver.."
+        print "Solving with other solver: %s" % toexec
         currTime = calendar.timegm(time.gmtime())
         try:
             p = subprocess.Popen(toexec.rsplit(),
@@ -713,23 +731,24 @@ class Tester:
 
         print "OK, all assumptions inside solution"
 
-    def check_debug_lib(self, fname):
-        largestPart = -1
+    def find_largest_debuglib_part(self, fname):
+        largestPart = 0
         dirList2 = os.listdir(".")
         for fname_debug in dirList2:
-            if fnmatch.fnmatch(fname_debug, "debugLibPart*.output"):
-                debugLibPart = int(
-                    fname_debug[fname_debug.index("t") + 1:fname_debug.rindex(".output")])
-                largestPart = max(largestPart, debugLibPart)
+            if fnmatch.fnmatch(fname_debug, "%s-debugLibPart*.output" % fname):
+                largestPart += 1
 
+        return largestPart
+
+    def check_debug_lib(self, fname):
+        largestPart = self.find_largest_debuglib_part(fname)
         for debugLibPart in range(1, largestPart + 1):
-            fname_debug = "debugLibPart%d.output" % debugLibPart
-            print "Checking debug lib part ", debugLibPart
+            fname_debug = "%s-debugLibPart%d.output" % (fname, debugLibPart)
+            print "Checking debug lib part %s -- %s " % (debugLibPart, fname_debug)
 
             if (os.path.isfile(fname_debug) is False):
                 print "Error: Filename to be read '%s' is not a file!" % fname_debug
-                print "Error code 400"
-                exit(400)
+                exit(-1)
 
             # take file into mem
             f = open(fname_debug, "r")
@@ -748,7 +767,7 @@ class Tester:
                 print "debugLib is UNSAT"
                 assert conflict is not None, "debugLibPart must create a conflict in case of UNSAT"
                 self.check_assumps_inside_conflict(assumps, conflict)
-                tmpfname = create_fuzz.unique_fuzz_file("tempfile_for_extract_libpart")
+                tmpfname = create_fuzz.unique_file("tmp_for_extract_libpart")
                 self.extract_lib_part(fname, debugLibPart, assumps, tmpfname)
 
                 # check with other solver
@@ -759,14 +778,15 @@ class Tester:
                     print "UNSAT verified by other solver"
                 else:
                     print "Grave bug: SAT-> UNSAT : Other solver found solution!!"
-                    exit()
-
-                # delete temporary file
+                    exit(-1)
                 os.unlink(tmpfname)
 
-    def check(self, fname, fnameDrup=None,
+            os.unlink(fname_debug)
+
+    def check(self, fname, fname2=None,
               checkAgainst=None,
-              extraOptions=""):
+              fixed_opts="", dump_output_fname=None,
+              rnd_opts=None):
 
         consoleOutput = ""
         if checkAgainst is None:
@@ -774,16 +794,16 @@ class Tester:
         currTime = calendar.timegm(time.gmtime())
 
         # Do we need to solve the problem, or is it already solved?
-        consoleOutput, return_code = self.execute(
-            fname, fnameDrup=fnameDrup,
-            extraOptions=extraOptions)
+        consoleOutput, retcode = self.execute(
+            fname, fname2=fname2,
+            fixed_opts=fixed_opts, rnd_opts=rnd_opts)
 
         # if time was limited, we need to know if we were over the time limit
         # and that is why there is no solution
         diffTime = calendar.timegm(time.gmtime()) - currTime
         if diffTime > (maxTime - maxTimeDiff) / self.num_threads:
             print "Too much time to solve, aborted!"
-            return
+            return None
         else:
             print "Within time limit: %.2f s" % (calendar.timegm(time.gmtime()) - currTime)
 
@@ -793,27 +813,28 @@ class Tester:
         if (self.needDebugLib):
             self.check_debug_lib(checkAgainst)
 
-        print "Checking console output..."
-        if return_code != 0:
+        if retcode != 0:
             print "Return code is not 0, error!"
             exit(-1)
 
+        print "Checking console output..."
         unsat, solution, _ = solution_parser.parse_solution_from_output(
             consoleOutput.split("\n"), self.ignoreNoSolution)
-        otherSolverUNSAT = True
+
+        #preprocessing
+        if dump_output_fname is not None:
+            f = open(dump_output_fname, "w")
+            f.write(consoleOutput)
+            f.close()
+            return True
 
         if not unsat:
             solution_parser.test_found_solution(solution, checkAgainst)
             return
 
-        # it's UNSAT and we should not check, so exit
-        if self.check_for_unsat is False:
-            print "Cannot check -- output is UNSAT"
-            return
-
         # it's UNSAT, let's check with DRUP
-        if fnameDrup:
-            toexec = "drat-trim %s %s" % (fname, fnameDrup)
+        if fname2:
+            toexec = "drat-trim %s %s" % (fname, fname2)
             print "Checking DRUP...: ", toexec
             p = subprocess.Popen(toexec.rsplit(), stdout=subprocess.PIPE)
                                  #,preexec_fn=setlimits)
@@ -850,63 +871,126 @@ class Tester:
             print "Grave bug: SAT-> UNSAT : Other solver found solution!!"
             exit()
 
-    def remove_debug_lib_parts(self):
-        dirList = os.listdir(".")
-        for fname_unlink in dirList:
-            if fnmatch.fnmatch(fname_unlink, 'debugLibPart*'):
-                os.unlink(fname_unlink)
-                None
-
     def fuzz_test_one(self):
-        fuzzer = random.choice(fuzzers)
+        print "\n--- NORMAL TESTING ---"
         self.num_threads = random.choice([1, 2, 4])
-        file_name = create_fuzz.unique_fuzz_file("fuzzTest")
         self.drup = self.num_threads == 1 and random.choice([True, False])
-        fnameDrup = None
         if self.drup:
-            fnameDrup = create_fuzz.unique_fuzz_file("fuzzTest")
+            fuzzers = fuzzers_drup
+        else:
+            fuzzers = fuzzers_nodrup
+        fuzzer = random.choice(fuzzers)
+
+        fname = create_fuzz.unique_file("fuzzTest")
+        fname_drup = None
+        if self.drup:
+            fname_drup = "%s-drup" % fname
 
         # create the fuzz file
         cf = create_fuzz()
-        call, todel = cf.create_fuzz_file(fuzzer, file_name)
+        call, todel = cf.create_fuzz_file(fuzzer, fuzzers, fname)
         print "calling ", fuzzer, " : ", call
-        out = commands.getstatusoutput(call)
+        status, _ = commands.getstatusoutput(call)
+        if status != 0:
+            fuzzer_call_failed()
 
         if not self.drup:
             self.needDebugLib = True
-            self.delete_debuglibpart_files()
-            file_name2 = create_fuzz.unique_fuzz_file("fuzzTest")
+            interspersed_fname = create_fuzz.unique_file("fuzzTest")
             seed_for_inters = random.randint(0, 1000000)
-            intersperse(file_name, file_name2, seed_for_inters)
-            print "Interspersed: ./intersperse.py %s %s %d" % (file_name,
-                                                               file_name2,
+            intersperse(fname, interspersed_fname, seed_for_inters)
+            print "Interspersed: ./intersperse.py %s %s %d" % (fname,
+                                                               interspersed_fname,
                                                                seed_for_inters)
-            os.unlink(file_name)
+            os.unlink(fname)
         else:
             self.needDebugLib = False
-            file_name2 = file_name
+            interspersed_fname = fname
 
-        self.check(fname=file_name2, fnameDrup=fnameDrup)
+        self.check(fname=interspersed_fname, fname2=fname_drup)
 
         # remove temporary filenames
-        os.unlink(file_name2)
+        os.unlink(interspersed_fname)
         for name in todel:
             os.unlink(name)
-        if fnameDrup is not None:
-            os.unlink(fnameDrup)
-        for i in glob.glob(u'fuzzTest*'):
-            os.unlink(i)
+        if fname_drup:
+            os.unlink(fname_drup)
 
-    def delete_debuglibpart_files(self):
-        dirList = os.listdir(".")
-        for fname in dirList:
-            if fnmatch.fnmatch(fname, 'debugLibPart*'):
-                os.unlink(fname)
+    def delete_file_no_matter_what(self, fname):
+        try:
+            os.unlink(fname)
+        except:
+            pass
+
+    def fuzz_test_preproc(self):
+        print "\n--- PREPROC TESTING ---"
+        tester.needDebugLib = False
+        fuzzer = random.choice(fuzzers_drup)
+        self.num_threads = 1
+        fname = create_fuzz.unique_file("fuzzTest")
+        self.drup = False
+
+        # create the fuzz file
+        cf = create_fuzz()
+        call, todel = cf.create_fuzz_file(fuzzer, fuzzers_nodrup, fname)
+        print "calling ", fuzzer, " : ", call
+        status, _ = commands.getstatusoutput(call)
+        if status != 0:
+            fuzzer_call_failed()
+
+        rnd_opts = self.random_options(preproc=True)
+
+        #preprocess
+        simp = "%s-simplified.cnf" % fname
+        self.delete_file_no_matter_what(simp)
+        console, retcode = self.execute(fname, fname2=simp,
+                                        rnd_opts=rnd_opts,
+                                        fixed_opts="--preproc 1")
+        if retcode != 0:
+            print "Return code is not 0, error!"
+            exit(-1)
+
+        solution = "%s-solution.txt" % fname
+        ret = self.check(fname=simp, dump_output_fname=solution)
+        if ret is not None:
+            #didn't time out, so let's reconstruct the solution
+            savedstate = "%s-savedstate.dat" % simp
+            self.check(fname=solution, checkAgainst=fname,
+                       fixed_opts="--preproc 2 --savedstate %s" % savedstate,
+                       rnd_opts=rnd_opts)
+            os.unlink(savedstate)
+            os.unlink(solution)
+
+        # remove temporary filenames
+        os.unlink(fname)
+        for name in todel:
+            os.unlink(name)
+
+
+def filter_large_fuzzer(dat):
+    f = []
+    for x in dat:
+        okay = True
+        for y in x:
+            if "large" in y:
+                okay = False
+
+        if okay:
+            f.append(x)
+
+    return f
+
+global fuzzers_drup
+global fuzzers_nodrup
+fuzzers_drup = fuzzers_noxor
+fuzzers_nodrup = fuzzers_noxor + fuzzers_xor
+if options.small:
+    fuzzers_drup = filter_large_fuzzer(fuzzers_drup)
+    fuzzers_nodrup = filter_large_fuzzer(fuzzers_nodrup)
 
 print_version()
 tester = Tester()
 tester.needDebugLib = False
-tester.check_for_unsat = True
 num = 0
 rnd_seed = options.fuzz_seed_start
 if rnd_seed is None:
@@ -914,10 +998,18 @@ if rnd_seed is None:
 
 while True:
     toexec = "./fuzz_test.py --fuzzlim 1 --seed %d" % rnd_seed
+    if options.novalgrind:
+        toexec += " --novalgrind"
+    if options.small:
+        toexec += " --small"
+
     print "To re-create fuzz-test below: %s" % toexec
 
     random.seed(rnd_seed)
-    tester.fuzz_test_one()
+    if random.choice([True, False]):
+        tester.fuzz_test_preproc()
+    else:
+        tester.fuzz_test_one()
     rnd_seed += 1
     num += 1
     if options.fuzz_test_lim is not None and num >= options.fuzz_test_lim:

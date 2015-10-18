@@ -69,7 +69,7 @@ bool InTree::watches_only_contains_nonbin(const Lit lit) const
 {
     watch_subarray_const ws = solver->watches[lit.toInt()];
     for(const Watched w: ws) {
-        if (w.isBinary()) {
+        if (w.isBin()) {
             return false;
         }
     }
@@ -173,7 +173,7 @@ bool InTree::intree_probe()
     unmark_all_bins();
 
     const double time_used = cpuTime() - myTime;
-    const double time_remain = (double)bogoprops_remain/(double)bogoprops_to_use;
+    const double time_remain = float_div(bogoprops_remain, bogoprops_to_use);
     const bool time_out = (bogoprops_remain < 0);
 
     if (solver->conf.verbosity >= 2) {
@@ -206,7 +206,7 @@ void InTree::unmark_all_bins()
 {
     for(watch_subarray wsub: solver->watches) {
         for(Watched& w: wsub) {
-            if (w.isBinary()) {
+            if (w.isBin()) {
                 w.unmark_bin_cl();
             }
         }
@@ -404,7 +404,7 @@ void InTree::enqueue(const Lit lit, const Lit other_lit, bool red_cl)
 
     watch_subarray ws = solver->watches[lit.toInt()];
     for(Watched& w: ws) {
-        if (w.isBinary()
+        if (w.isBin()
             && seen[(~w.lit2()).toInt()] == 0
             && solver->value(w.lit2()) == l_Undef
         ) {

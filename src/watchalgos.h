@@ -30,7 +30,7 @@ namespace CMSat {
 using namespace CMSat;
 
 /**
-@brief Orders the watchlists such that the order is binary, tertiary, normal
+@brief Orders the watchlists such that the order is binary, tertiary, normal and size matters in NORMAL
 */
 struct WatchedSorter
 {
@@ -44,9 +44,11 @@ struct WatchedSorter
 
 inline bool  WatchedSorter::operator () (const Watched& x, const Watched& y)
 {
-    if (y.isBinary()) return false;
-    //y is not binary, but x is, so x must be first
-    if (x.isBinary()) return true;
+    //y is binary, x cannot be better than y
+    if (y.isBin()) return false;
+
+    //x is binary, but y is not.
+    if (x.isBin()) return true;
 
     //from now on, none is binary.
     if (y.isTri()) return false;
@@ -104,31 +106,6 @@ static inline Watched& findWatchedOfTri(
 
     assert(false);
     return *ws.begin();
-}
-
-static inline bool findWTri(
-    const watch_array& wsFull
-    , const Lit lit1
-    , const Lit lit2
-    , const Lit lit3
-    , const bool red
-) {
-    watch_subarray_const ws = wsFull[lit1.toInt()];
-    for (watch_subarray_const::const_iterator
-        it = ws.begin(), end = ws.end()
-        ; it != end
-        ; ++it
-    ) {
-        if (it->isTri()
-            && it->lit2() == lit2
-            && it->lit3() == lit3
-            && it->red() == red
-        ) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 static inline const Watched& findWatchedOfTri(
@@ -200,34 +177,6 @@ inline void removeTriAllButOne(
 // BINARY Clause
 //////////////////
 
-inline bool findWBin(
-    const watch_array& wsFull
-    , const Lit lit1
-    , const Lit lit2
-) {
-    watch_subarray_const::const_iterator i = wsFull[lit1.toInt()].begin();
-    watch_subarray_const::const_iterator end = wsFull[lit1.toInt()].end();
-    for (; i != end && (!i->isBinary() || i->lit2() != lit2); i++);
-    return i != end;
-}
-
-inline bool findWBin(
-    const watch_array& wsFull
-    , const Lit lit1
-    , const Lit lit2
-    , const bool red
-) {
-    watch_subarray_const::const_iterator i = wsFull[lit1.toInt()].begin();
-    watch_subarray_const::const_iterator end = wsFull[lit1.toInt()].end();
-    for (; i != end && (
-        !i->isBinary()
-        || i->lit2() != lit2
-        || i->red() != red
-    ); i++);
-
-    return i != end;
-}
-
 inline void removeWBin(
     watch_array &wsFull
     , const Lit lit1
@@ -237,7 +186,7 @@ inline void removeWBin(
     watch_subarray ws = wsFull[lit1.toInt()];
     watch_subarray::iterator i = ws.begin(), end = ws.end();
     for (; i != end && (
-        !i->isBinary()
+        !i->isBin()
         || i->lit2() != lit2
         || i->red() != red
     ); i++);
@@ -258,7 +207,7 @@ inline bool removeWBin_except_marked(
     watch_subarray ws = wsFull[lit1.toInt()];
     watch_subarray::iterator i = ws.begin(), end = ws.end();
     for (; i != end && (
-        !i->isBinary()
+        !i->isBin()
         || i->lit2() != lit2
         || i->red() != red
     ); i++);
@@ -276,6 +225,22 @@ inline bool removeWBin_except_marked(
     return true;
 }
 
+inline const Watched& findWatchedOfBin(
+    const watch_array& wsFull
+    , const Lit lit1
+    , const Lit lit2
+    , const bool red
+) {
+    watch_subarray_const ws = wsFull[lit1.toInt()];
+    for (watch_subarray::const_iterator i = ws.begin(), end = ws.end(); i != end; i++) {
+        if (i->isBin() && i->lit2() == lit2 && i->red() == red)
+            return *i;
+    }
+
+    assert(false);
+    return *ws.begin();
+}
+
 inline Watched& findWatchedOfBin(
     watch_array& wsFull
     , const Lit lit1
@@ -284,7 +249,7 @@ inline Watched& findWatchedOfBin(
 ) {
     watch_subarray ws = wsFull[lit1.toInt()];
     for (watch_subarray::iterator i = ws.begin(), end = ws.end(); i != end; i++) {
-        if (i->isBinary() && i->lit2() == lit2 && i->red() == red)
+        if (i->isBin() && i->lit2() == lit2 && i->red() == red)
             return *i;
     }
 

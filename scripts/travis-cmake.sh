@@ -1,18 +1,40 @@
-#!/bin/bash -x
+#!/bin/bash
+
+# Copyright (C) 2014  Mate Soos
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; version 2
+# of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+
 # This file wraps CMake invocation for TravisCI
 # so we can set different configurations via environment variables.
-#
-# We could modify our CMake scripts to read environment variables directly but
-# that would create two ways of setting the same thing which doesn't seem like
-# a good idea.
 
-# export CC="gcc-4.7"
-# export CXX="g++-4.7"
-
-SOURCE_DIR="../"
-THIS_DIR="build"
-COMMON_CMAKE_ARGS="-G \"Unix Makefiles\" -DENABLE_TESTING:BOOL=ON"
 set -e
+
+COMMON_CMAKE_ARGS="-G \"Unix Makefiles\" -DENABLE_TESTING:BOOL=ON"
+
+#license check -- first print and then fail in case of problems
+./utils/licensecheck/licensecheck.pl -m  ./src
+# grep UNK licenses
+# grep UNK licenses | read && return -1 || return 0
+
+set -x
+
+SOURCE_DIR=`pwd`
+cd build
+BUILD_DIR=`pwd`
+
 
 # Note eval is needed so COMMON_CMAKE_ARGS is expanded properly
 case $CMS_CONFIG in
@@ -115,8 +137,8 @@ case $CMS_CONFIG in
 
     INTREE_BUILD)
         cd ..
-        SOURCE_DIR="."
-        THIS_DIR="."
+        SOURCE_DIR=`pwd`
+        BUILD_DIR=`pwd`
         sudo apt-get install libboost-program-options-dev
         eval cmake ${COMMON_CMAKE_ARGS} \
                    ${SOURCE_DIR}
@@ -131,7 +153,7 @@ case $CMS_CONFIG in
         sudo apt-get install libmysqlclient-dev
         cd $SOURCE_DIR
         ./cmsat_mysql_setup.sh
-        cd $THIS_DIR
+        cd $BUILD_DIR
 
         eval cmake ${COMMON_CMAKE_ARGS} \
                     -DSTATS:BOOL=ON \
@@ -191,13 +213,23 @@ case $CMS_CONFIG in
     ;;
 esac
 
+if [ "$CMS_CONFIG" == "NORMAL" ]; then
+    CMS_PATH="${BUILD_DIR}/cryptominisat4"
+    cd ../tests/simp-checks/
+    git clone --depth 1 https://github.com/msoos/testfiles.git
+    ./checks.py $CMS_PATH testfiles/*
+    cd $BUILD_DIR
+fi
+
 #do fuzz testing
 if [ "$CMS_CONFIG" != "ONLY_SIMPLE" ] && [ "$CMS_CONFIG" != "AWS" ] && [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "PYTHON" ] && [ "$CMS_CONFIG" != "COVERAGE" ] && [ "$CMS_CONFIG" != "INTREE_BUILD" ]; then
-    cd ../scripts/
-    ./fuzz_test.py --novalgrind --fuzzlim 30
+    cd ../scripts/fuzz/
+    ./fuzz_test.py --novalgrind --small --fuzzlim 30
 fi
 
 cd ..
+pwd
+#we are now in the main dir, ./src dir is here
 
 case $CMS_CONFIG in
     WEB)
@@ -232,5 +264,9 @@ if [ "$CMS_CONFIG" = "COVERAGE" ]; then
 
   # debug before upload
   lcov --list coverage.info
-  coveralls-lcov --repo-token $COVERTOKEN coverage.info # uploads to coveralls
+
+  # only attempt upload if $COVERTOKEN is set
+  if [ -n "$COVERTOKEN" ]; then
+    coveralls-lcov --repo-token $COVERTOKEN coverage.info # uploads to coveralls
+  fi
 fi

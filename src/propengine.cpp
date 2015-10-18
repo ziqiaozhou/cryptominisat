@@ -58,7 +58,7 @@ PropEngine::~PropEngine()
 {
 }
 
-void PropEngine::new_var(const bool bva, Var orig_outer)
+void PropEngine::new_var(const bool bva, uint32_t orig_outer)
 {
     CNF::new_var(bva, orig_outer);
     //TODO
@@ -263,7 +263,7 @@ void PropEngine::update_glue(Clause& c)
     ) {
         const uint32_t new_glue = calc_glue_using_seen2(c);
         if (new_glue < c.stats.glue
-            && new_glue < conf.protect_clause_if_imrpoved_glue_below_this_glue_for_one_turn
+            && new_glue < conf.protect_cl_if_improved_glue_below_this_glue_for_one_turn
         ) {
             if (red_long_cls_is_reducedb(c)) {
                 num_red_cls_reducedb--;
@@ -282,7 +282,6 @@ PropResult PropEngine::prop_normal_helper(
 ) {
     #ifdef STATS_NEEDED
     c.stats.clause_looked_at++;
-    c.stats.visited_literals++;
     #endif
 
     // Make sure the false literal is data[1]:
@@ -300,33 +299,18 @@ PropResult PropEngine::prop_normal_helper(
     }
 
     // Look for new watch:
-    #ifdef STATS_NEEDED
-    uint32_t numLitVisited = 0;
-    #endif
-
     for (Lit *k = c.begin() + 2, *end2 = c.end()
         ; k != end2
         ; k++
-        #ifdef STATS_NEEDED
-        , numLitVisited++
-        #endif
     ) {
         //Literal is either unset or satisfied, attach to other watchlist
         if (value(*k) != l_False) {
             c[1] = *k;
-            #ifdef STATS_NEEDED
-            //propStats.bogoProps += numLitVisited/10;
-            c.stats.visited_literals+= numLitVisited;
-            #endif
             *k = ~p;
             watches[c[1].toInt()].push(Watched(offset, c[0]));
             return PROP_NOTHING;
         }
     }
-    #ifdef STATS_NEEDED
-    //propStats.bogoProps += numLitVisited/10;
-    c.stats.visited_literals+= numLitVisited;
-    #endif
 
     return PROP_TODO;
 }
@@ -429,7 +413,6 @@ bool PropEngine::prop_long_cl_any_order(
 
     #ifdef STATS_NEEDED
     c.stats.clause_looked_at++;
-    c.stats.visited_literals++;
     #endif
 
     // Make sure the false literal is data[1]:
@@ -448,32 +431,18 @@ bool PropEngine::prop_long_cl_any_order(
     }
 
     // Look for new watch:
-    #ifdef STATS_NEEDED
-    uint numLitVisited = 2;
-    #endif
     for (Lit *k = c.begin() + 2, *end2 = c.end()
         ; k != end2
         ; k++
-        #ifdef STATS_NEEDED
-        , numLitVisited++
-        #endif
     ) {
         //Literal is either unset or satisfied, attach to other watchlist
         if (value(*k) != l_False) {
             c[1] = *k;
-            //propStats.bogoProps += numLitVisited/10;
-            #ifdef STATS_NEEDED
-            c.stats.visited_literals+= numLitVisited;
-            #endif
             *k = ~p;
             watches[c[1].toInt()].push(Watched(offset, c[0]));
             return true;
         }
     }
-    #ifdef STATS_NEEDED
-    //propStats.bogoProps += numLitVisited/10;
-    c.stats.visited_literals+= numLitVisited;
-    #endif
 
     // Did not find watch -- clause is unit under assignment:
     *j++ = *i;
@@ -693,7 +662,7 @@ PropBy PropEngine::propagate_any_order()
         }
 
         for (; i != end; i++) {
-            if (i->isBinary()) {
+            if (i->isBin()) {
                 *j++ = *i;
                 if (!prop_bin_cl<update_bogoprops>(i, p, confl)) {
                     i++;
@@ -755,7 +724,7 @@ void PropEngine::sortWatched()
         #ifdef VERBOSE_DEBUG
         cout << "Before sorting: ";
         for (uint32_t i2 = 0; i2 < ws.size(); i2++) {
-            if (ws[i2].isBinary()) cout << "Binary,";
+            if (ws[i2].isBin()) cout << "Binary,";
             if (ws[i2].isTri()) cout << "Tri,";
             if (ws[i2].isClause()) cout << "Normal,";
         }
@@ -767,7 +736,7 @@ void PropEngine::sortWatched()
         #ifdef VERBOSE_DEBUG
         cout << "After sorting : ";
         for (uint32_t i2 = 0; i2 < ws.size(); i2++) {
-            if (ws[i2].isBinary()) cout << "Binary,";
+            if (ws[i2].isBin()) cout << "Binary,";
             if (ws[i2].isTri()) cout << "Tri,";
             if (ws[i2].isClause()) cout << "Normal,";
         }
@@ -791,7 +760,7 @@ void PropEngine::printWatchList(const Lit lit) const
         ; it2 != end2
         ; it2++
     ) {
-        if (it2->isBinary()) {
+        if (it2->isBin()) {
             cout << "bin: " << lit << " , " << it2->lit2() << " red : " <<  (it2->red()) << endl;
         } else if (it2->isTri()) {
             cout << "tri: " << lit << " , " << it2->lit2() << " , " <<  (it2->lit3()) << endl;
@@ -842,7 +811,7 @@ inline void PropEngine::updateWatch(
         ; it != end
         ; ++it
     ) {
-        if (it->isBinary()) {
+        if (it->isBin()) {
             it->setLit2(
                 getUpdatedLit(it->lit2(), outerToInter)
             );
@@ -901,7 +870,7 @@ PropBy PropEngine::propagate_strict_order(
         for (; i != end; i++) {
 
             //Propagate binary clause
-            if (i->isBinary()) {
+            if (i->isBin()) {
                 if (!prop_bin_cl(i, p, confl)) {
                     break;
                 }
@@ -931,7 +900,7 @@ PropBy PropEngine::propagate_strict_order(
         propStats.bogoProps += ws.size()/4 + 1;
         for (; i != end; i++) {
             //Skip binary clauses
-            if (i->isBinary()) {
+            if (i->isBin()) {
                 *j++ = *i;
                 continue;
             }
@@ -993,7 +962,7 @@ PropBy PropEngine::propagateIrredBin()
         for(watch_subarray::iterator k = ws.begin(), end = ws.end(); k != end; k++) {
 
             //If not binary, or is redundant, skip
-            if (!k->isBinary() || k->red())
+            if (!k->isBin() || k->red())
                 continue;
 
             //Propagate, if conflict, exit
@@ -1044,7 +1013,7 @@ bool PropEngine::propagate_occur()
                     return false;
             }
 
-            if (it->isBinary()) {
+            if (it->isBin()) {
                 if (!propagate_binary_clause_occur(*it))
                     return false;
             }
@@ -1184,7 +1153,7 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
     //assert(decisionLevel() == 0 || varData[p.var()].removed == Removed::none);
     #endif
 
-    const Var v = p.var();
+    const uint32_t v = p.var();
     assert(value(v) == l_Undef);
     if (!watches[(~p).toInt()].empty()) {
         watches.prefetch((~p).toInt());
@@ -1221,4 +1190,20 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
     #ifdef ANIMATE3D
     std::cerr << "s " << v << " " << p.sign() << endl;
     #endif
+}
+
+void PropEngine::save_state(SimpleOutFile& f) const
+{
+    f.put_vector(trail);
+    f.put_uint32_t(qhead);
+
+    CNF::save_state(f);
+}
+
+void PropEngine::load_state(SimpleInFile& f)
+{
+    f.get_vector(trail);
+    qhead = f.get_uint32_t();
+
+    CNF::load_state(f);
 }

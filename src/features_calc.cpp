@@ -1,3 +1,24 @@
+/*
+ * CryptoMiniSat
+ *
+ * Copyright (c) 2009-2015, Mate Soos. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation
+ * version 2.0 of the License.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301  USA
+*/
+
 #include <vector>
 #include <cmath>
 
@@ -85,6 +106,13 @@ void FeaturesCalc::for_one_clause(
             }
             break;
         }
+
+        case CMSat::watch_idx_t: {
+             // This should never be here
+            assert(false);
+            exit(-1);
+            break;
+        }
     }
 }
 
@@ -148,8 +176,8 @@ void FeaturesCalc::calculate_clause_stats()
     feat.vcg_cls_mean /= (double)feat.numClauses;
     feat.pnr_cls_mean /= (double)feat.numClauses;
     feat.horn /= (double)feat.numClauses;
-    feat.binary = (double)solver->binTri.irredBins/(double)feat.numClauses;
-    feat.trinary = (double)solver->binTri.irredTris/(double)feat.numClauses;
+    feat.binary = float_div(solver->binTri.irredBins, feat.numClauses);
+    feat.trinary = float_div(solver->binTri.irredTris, feat.numClauses);
 
     feat.vcg_cls_spread = feat.vcg_cls_max - feat.vcg_cls_min;
     feat.pnr_cls_spread = feat.pnr_cls_max - feat.pnr_cls_min;

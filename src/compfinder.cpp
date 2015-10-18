@@ -73,7 +73,7 @@ void CompFinder::print_found_components() const
     size_t totalSmallSize = 0;
     size_t i = 0;
     size_t print_limit = 300;
-    for(map<uint32_t, vector<Var> >::const_iterator
+    for(map<uint32_t, vector<uint32_t> >::const_iterator
         it = reverseTable.begin(), end = reverseTable.end()
         ; it != end
         ; ++it, i++
@@ -99,7 +99,7 @@ void CompFinder::print_found_components() const
 
 bool CompFinder::reverse_table_is_correct() const
 {
-    for (map<uint32_t, vector<Var> >::const_iterator
+    for (map<uint32_t, vector<uint32_t> >::const_iterator
         it = reverseTable.begin()
         ; it != reverseTable.end()
         ; ++it
@@ -146,7 +146,7 @@ bool CompFinder::find_components()
 void CompFinder::print_and_add_to_sql_result(const double myTime) const
 {
     const double time_used = cpuTime() - myTime;
-    const double time_remain = calc_percentage(bogoprops_remain, orig_bogoprops);
+    const double time_remain = float_div(bogoprops_remain, orig_bogoprops);
 
     if (timedout) {
         time_out_print(myTime);
@@ -224,7 +224,7 @@ void CompFinder::addToCompImplicits()
                 ; it2 != end2
                 ; it2++
             ) {
-                if (it2->isBinary()
+                if (it2->isBin()
                     //Only irred
                     && !it2->red()
                     //Only do each binary once
@@ -313,11 +313,11 @@ void CompFinder::merge_newset_into_single_component()
 {
     const uint32_t into = tomerge[0];
     seen[into] = 0;
-    map<uint32_t, vector<Var> >::iterator intoReverse
+    map<uint32_t, vector<uint32_t> >::iterator intoReverse
         = reverseTable.find(into);
 
     //Put the new lits into this set
-    for (const Var v: newSet) {
+    for (const uint32_t v: newSet) {
         intoReverse->second.push_back(v);
         table[v] = into;
     }
@@ -352,7 +352,7 @@ void CompFinder::add_clause_to_component(const T& cl)
 
         //Find in reverseTable
         bogoprops_remain -= reverseTable.size()*2;
-        map<uint32_t, vector<Var> >::iterator it2 = reverseTable.find(merge);
+        map<uint32_t, vector<uint32_t> >::iterator it2 = reverseTable.find(merge);
         assert(it2 != reverseTable.end());
 
         //Add them all
@@ -375,7 +375,7 @@ void CompFinder::add_clause_to_component(const T& cl)
 
     //Mark all lits not belonging to seen components as belonging to comp_no
     bogoprops_remain -= newSet.size();
-    for (const Var v: newSet) {
+    for (const uint32_t v: newSet) {
         table[v] = comp_no;
     }
 

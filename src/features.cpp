@@ -39,6 +39,7 @@ void Features::print_stats() const
     //Clause distribution
     cout << "binary " << binary << ", ";
     cout << "trinary " << trinary << ", ";
+
     cout << "horn " << horn << ", ";
     cout << "horn_mean " << horn_mean << ", ";
     cout << "horn_std " << horn_std << ", ";
@@ -96,8 +97,8 @@ void Features::print_stats() const
     cout << "decisions_per_conflict " << decisions_per_conflict << ", ";
 
     //distributions
-    irred_cl_distrib.print("irred-");
-    red_cl_distrib.print("red-");
+    irred_cl_distrib.print("irred_cl_distrib.");
+    red_cl_distrib.print("red_cl_distrib.");
 
     cout << "num_gates_found_last " << num_gates_found_last << ", ";
     cout << "num_xors_found_last " << num_xors_found_last;

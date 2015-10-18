@@ -35,7 +35,7 @@ set(cryptoms_lib_files
     sccfinder.cpp
     solverconf.cpp
     distiller.cpp
-    strengthener.cpp
+    distillerwithbin.cpp
     calcdefpolars.cpp
     solutionextender.cpp
     completedetachreattacher.cpp
@@ -59,6 +59,7 @@ set(cryptoms_lib_files
     features_calc.cpp
     features_to_reconf.cpp
     features.cpp
+    searchstats.cpp
 #    watcharray.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/GitSHA1.cpp
 )
@@ -203,12 +204,10 @@ endif()
 
 if (NOT ONLY_SIMPLE)
     add_executable(cryptominisat4
-        dimacsparser.cpp
         main.cpp
     )
 endif()
 add_executable(cryptominisat4_simple
-    dimacsparser.cpp
     main_simple.cpp
 )
 
@@ -256,3 +255,26 @@ install(TARGETS cryptominisat4_simple
     RUNTIME DESTINATION bin
 )
 SET(CPACK_PACKAGE_EXECUTABLES "cryptominisat4_simple")
+
+
+if (FEEDBACKFUZZ)
+    add_executable(cms_feedback_fuzz
+        fuzz.cpp
+        libfuzz/FuzzerCrossOver.cpp
+        libfuzz/FuzzerDriver.cpp
+        libfuzz/FuzzerInterface.cpp
+        libfuzz/FuzzerIO.cpp
+        libfuzz/FuzzerLoop.cpp
+        libfuzz/FuzzerMain.cpp
+        libfuzz/FuzzerMutate.cpp
+        libfuzz/FuzzerSanitizerOptions.cpp
+        libfuzz/FuzzerSHA1.cpp
+        libfuzz/FuzzerTraceState.cpp
+        libfuzz/FuzzerUtil.cpp
+    )
+    target_link_libraries(cms_feedback_fuzz
+        ${cryptoms_exec_link_libs}
+    )
+
+    set_target_properties(cms_feedback_fuzz PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+endif()

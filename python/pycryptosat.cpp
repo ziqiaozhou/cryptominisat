@@ -45,6 +45,8 @@ typedef struct {
     SATSolver* cmsat;
 } Solver;
 
+static PyObject *outofconflerr = NULL;
+
 static SATSolver* setup_solver(PyObject *args, PyObject *kwds)
 {
     static char* kwlist[] = {"verbose", "confl_limit", "threads", NULL};
@@ -147,7 +149,7 @@ static int parse_clause(
 static int parse_xor_clause(
     Solver *self
     , PyObject *clause
-    , std::vector<Var>& vars
+    , std::vector<uint32_t>& vars
 ) {
     PyObject *iterator = PyObject_GetIter(clause);
     if (iterator == NULL) {
@@ -219,7 +221,7 @@ static PyObject* add_xor_clause(Solver *self, PyObject *args, PyObject *kwds)
     }
     bool real_rhs = PyObject_IsTrue(rhs);
 
-    std::vector<Var> vars;
+    std::vector<uint32_t> vars;
     if (!parse_xor_clause(self, clause, vars)) {
         return 0;
     }
@@ -349,10 +351,8 @@ static PyObject* solve(Solver *self, PyObject *args, PyObject *kwds)
         Py_INCREF(Py_None);
         PyTuple_SetItem(result, 1, Py_None);
     } else if (res == l_Undef) {
-        Py_INCREF(Py_None);
-        PyTuple_SetItem(result, 0, Py_None);
-        Py_INCREF(Py_None);
-        PyTuple_SetItem(result, 1, Py_None);
+        Py_DECREF(result);
+        return PyErr_SetFromErrno(outofconflerr);
     }
 
     return result;
@@ -416,6 +416,13 @@ static PyMemberDef Solver_members[] = {
     {NULL}  /* Sentinel */
 };
 
+static const char solver_create_docstring[] = "Create Solver object.\n"
+"Supported arguments: verbose, clause_limit, threads.\n"
+"   'verbose' -- integer. 0: nothing printed. 15: very verbose. Default: 0\n"
+"   'confl_limit' -- integer. Abort after this many conflicts. Default: never abort.\n"
+"   'threads' -- integer. Number of threads to use. Default: 1"
+;
+
 static PyTypeObject pycryptosat_SolverType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /*ob_size*/
@@ -438,7 +445,7 @@ static PyTypeObject pycryptosat_SolverType = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "Solver objects",           /* tp_doc */
+    solver_create_docstring,           /* tp_doc */
     0,                     /* tp_traverse */
     0,                     /* tp_clear */
     0,                     /* tp_richcompare */
@@ -476,4 +483,8 @@ initpycryptosat(void)
     Py_INCREF(&pycryptosat_SolverType);
     PyModule_AddObject(m, "Solver", (PyObject *)&pycryptosat_SolverType);
     PyModule_AddObject(m, "__version__", PyUnicode_FromString(SATSolver::get_version()));
+
+    outofconflerr = PyErr_NewExceptionWithDoc("Solver.OutOfConflicts", "Ran out of the number of conflicts", NULL, NULL);
+    Py_INCREF(outofconflerr);
+    PyModule_AddObject(m, "OutOfConflicts",  outofconflerr);
 }

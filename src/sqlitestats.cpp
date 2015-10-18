@@ -485,12 +485,12 @@ void SQLiteStats::initRestartSTMT()
 
 void SQLiteStats::restart(
     const PropStats& thisPropStats
-    , const Searcher::Stats& thisStats
+    , const SearchStats& thisStats
     , const Solver* solver
     , const Searcher* search
 ) {
     const Searcher::Hist& searchHist = search->getHistory();
-    const Solver::BinTriStats& binTri = solver->getBinTriStats();
+    const BinTriStats& binTri = solver->getBinTriStats();
 
     int bindAt = 1;
     sqlite3_bind_int64(stmtRst, bindAt++, runID);
@@ -679,11 +679,11 @@ void SQLiteStats::reduceDB(
 
     //Clause data for IRRED
     sqlite3_bind_int64(stmtReduceDB, bindAt++, irredStats.sumLookedAt);
-    sqlite3_bind_int64(stmtReduceDB, bindAt++, irredStats.sumLitVisited);
+    sqlite3_bind_int64(stmtReduceDB, bindAt++, 0);
 
     //Clause data for RED
     sqlite3_bind_int64(stmtReduceDB, bindAt++, redStats.sumLookedAt);
-    sqlite3_bind_int64(stmtReduceDB, bindAt++, redStats.sumLitVisited);
+    sqlite3_bind_int64(stmtReduceDB, bindAt++, 0);
 
     //removed
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.removed.num);
@@ -698,7 +698,7 @@ void SQLiteStats::reduceDB(
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.removed.age);
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.removed.act);
 
-    sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.removed.numLitVisited);
+    sqlite3_bind_int64(stmtReduceDB, bindAt++, 0);
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.removed.numProp);
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.removed.numConfl);
 
@@ -718,7 +718,7 @@ void SQLiteStats::reduceDB(
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.remain.age);
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.remain.act);
 
-    sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.remain.numLitVisited);
+    sqlite3_bind_int64(stmtReduceDB, bindAt++, 0);
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.remain.numProp);
     sqlite3_bind_int64(stmtReduceDB, bindAt++, clean.remain.numConfl);
 

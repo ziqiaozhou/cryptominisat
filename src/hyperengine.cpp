@@ -78,7 +78,7 @@ Lit HyperEngine::propagate_bfs(const uint64_t timeout)
         ) {
 
             //If something other than irred binary, skip
-            if (!k->isBinary() || k->red())
+            if (!k->isBin() || k->red())
                 continue;
 
             ret = prop_bin_with_ancestor_info(p, k, confl);
@@ -100,7 +100,7 @@ Lit HyperEngine::propagate_bfs(const uint64_t timeout)
         for(watch_subarray::const_iterator k = ws.begin(), end = ws.end(); k != end; k++, done++) {
 
             //If something other than redundant binary, skip
-            if (!k->isBinary() || !k->red())
+            if (!k->isBin() || !k->red())
                 continue;
 
             ret = prop_bin_with_ancestor_info(p, k, confl);
@@ -127,7 +127,7 @@ Lit HyperEngine::propagate_bfs(const uint64_t timeout)
         watch_subarray::iterator j = ws.begin();
         watch_subarray_const::const_iterator end = ws.end();
         for(; i != end; i++) {
-            if (i->isBinary()) {
+            if (i->isBin()) {
                 *j++ = *i;
                 continue;
             }
@@ -193,7 +193,7 @@ Lit HyperEngine::prop_red_bin_dfs(
         propStats.bogoProps += 1;
 
         //If something other than redundant binary, skip
-        if (!k->isBinary() || !k->red())
+        if (!k->isBin() || !k->red())
             continue;
 
         PropResult ret = prop_bin_with_ancestor_info(p, k, confl);
@@ -243,7 +243,7 @@ Lit HyperEngine::prop_red_bin_dfs(
 Lit HyperEngine::prop_irred_bin_dfs(
     StampType stampType
     , PropBy& confl
-    , const Lit root
+    , const Lit //root
     , bool& restart
 ) {
     const Lit p = toPropBin.top();
@@ -266,7 +266,7 @@ Lit HyperEngine::prop_irred_bin_dfs(
         } //end CLAUSE
 
         //If something other than binary, skip
-        if (!k->isBinary())
+        if (!k->isBin())
             continue;
 
         //If stamping only irred, go over red binaries
@@ -339,7 +339,7 @@ Lit HyperEngine::prop_larger_than_bin_cl_dfs(
     watch_subarray_const::const_iterator end = ws.end();
     for(; i != end; i++) {
         propStats.bogoProps += 1;
-        if (i->isBinary()) {
+        if (i->isBin()) {
             *j++ = *i;
             continue;
         }
@@ -843,6 +843,13 @@ Lit HyperEngine::analyzeFail(const PropBy propBy)
                 if (varData[cl[i].var()].level != 0)
                     currAncestors.push_back(~cl[i]);
             }
+            break;
+        }
+
+        case xor_t: {
+            //in the future, we'll have XOR clauses. Not yet.
+            assert(false);
+            exit(-1);
             break;
         }
 

@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 if (CMAKE_MAJOR_VERSION GREATER 2)
-    cmake_policy(SET CMP0022 OLD)
+    if(POLICY CMP0022)
+        cmake_policy(SET CMP0022 OLD)
+    endif()
+    if(POLICY CMP0048)
+        cmake_policy(SET CMP0048 OLD)
+    endif()
+    if(POLICY CMP0046)
+        cmake_policy(SET CMP0046 OLD)
+    endif()
+
+    if(POLICY CMP0026)
+        cmake_policy(SET CMP0026 OLD)
+    endif()
 endif()
 
 # -----------------------------------------------------------------------------
@@ -46,6 +58,13 @@ SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake) #m4-extra contains some libra
 macro(add_cxx_flag flagname)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flagname}")
 endmacro()
+
+option(FEEDBACKFUZZ "Use Clang coverage sanitizers" OFF)
+if (FEEDBACKFUZZ)
+    SET (CMAKE_CXX_COMPILER "clang++")
+    add_cxx_flag("-fsanitize=address")
+    add_cxx_flag("-fsanitize-coverage=edge,indirect-calls,8bit-counters")
+endif()
 
 option(SANITIZE "Use Clang sanitizers. This will force using clang++ as the compiler" OFF)
 if (SANITIZE)
@@ -101,7 +120,7 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -g")
 SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -mtune=native")
 SET(CMAKE_CXX_FLAGS_RELEASE "-O2 -g0 -DNDEBUG -mtune=native")
-SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -ggdb")
+SET(CMAKE_CXX_FLAGS_DEBUG "-O0")
 
 include(CheckCXXCompilerFlag)
 macro(add_cxx_flag_if_supported flagname)
@@ -115,6 +134,8 @@ macro(add_cxx_flag_if_supported flagname)
   endif()
 endmacro()
 
+option(ENABLE_TESTING "Enable testing" OFF)
+
 add_cxx_flag_if_supported("-Wall")
 add_cxx_flag_if_supported("-Wextra")
 add_cxx_flag_if_supported("-Wunused")
@@ -127,11 +148,16 @@ add_cxx_flag_if_supported("-Wno-deprecated")
 add_cxx_flag_if_supported("-Wstrict-aliasing")
 add_cxx_flag_if_supported("-Wpointer-arith")
 add_cxx_flag_if_supported("-Wheader-guard")
-add_cxx_flag_if_supported("-fvisibility=hidden")
+if(NOT ENABLE_TESTING)
+    add_cxx_flag_if_supported("-fvisibility=hidden")
+endif()
 add_cxx_flag_if_supported("-Wpointer-arith")
 add_cxx_flag_if_supported("-Wformat-nonliteral")
 add_cxx_flag_if_supported("-Winit-self")
+add_cxx_flag_if_supported("-Wparentheses")
 add_cxx_flag_if_supported("-Wunreachable-code")
+add_cxx_flag_if_supported("-ggdb3")
+# add_cxx_flag_if_supported("-flto") # slow compile and not enough benefits
 add_cxx_flag("-fPIC")
 #add_cxx_flag_if_supported("-fno-exceptions")
 
@@ -163,8 +189,6 @@ option(SLOW_DEBUG "Use more debug flags" OFF)
 IF(SLOW_DEBUG)
     add_definitions(-DSLOW_DEBUG)
 endif()
-
-option(ENABLE_TESTING "Enable testing" OFF)
 
 # -----------------------------------------------------------------------------
 # Add GIT version
@@ -330,17 +354,21 @@ add_subdirectory(src cmsat4-src)
 # -----------------------------------------------------------------------------
 # Look for python
 # -----------------------------------------------------------------------------
-find_package (PythonInterp 2.7)
-find_package (PythonLibs 2.7)
-if (PYTHON_EXECUTABLE AND PYTHON_LIBRARY AND PYTHON_INCLUDE_DIRS)
+option(ENABLE_PYTHON_INTERFACE "Enable Python interface" ON)
+
+if (ENABLE_PYTHON_INTERFACE)
+    find_package (PythonInterp 2.7)
+    find_package (PythonLibs 2.7)
+    if (PYTHON_EXECUTABLE AND PYTHON_LIBRARY AND PYTHON_INCLUDE_DIRS)
 #     message(STATUS "PYTHON_EXECUTABLE:FILEPATH=${PYTHON_EXECUTABLE}")
 #     message(STATUS "PYTHON_LIBRARY:FILEPATH=${PYTHON_LIBRARY}")
 #     message(STATUS "PYTHON_INCLUDE_DIR:FILEPATH=${PYTHON_INCLUDE_DIR}")
 #     message(STATUS "PYTHONLIBS_VERSION_STRING=${PYTHONLIBS_VERSION_STRING}")
-    message(STATUS "OK, found python interpreter, libs and header files -> building python plugin")
-    add_subdirectory(python py-lib)
-else()
-    message(WARNING "Cannot find python interpreter, libs and header files -> not building python plugin")
+        message(STATUS "OK, found python interpreter, libs and header files -> building python plugin")
+        add_subdirectory(python py-lib)
+    else()
+        message(WARNING "Cannot find python interpreter, libs and header files -> not building python plugin")
+    endif()
 endif()
 
 # -----------------------------------------------------------------------------

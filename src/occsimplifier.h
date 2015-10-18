@@ -28,7 +28,7 @@
 #include <list>
 #include <set>
 #include <queue>
-#include <set>
+#include <map>
 #include <iomanip>
 #include <fstream>
 
@@ -39,11 +39,13 @@
 #include "varupdatehelper.h"
 #include "watched.h"
 #include "watcharray.h"
+#include "simplefile.h"
 
 namespace CMSat {
 
 using std::vector;
 using std::map;
+using std::set;
 using std::pair;
 using std::priority_queue;
 
@@ -76,10 +78,26 @@ struct BlockedClause {
     {
     }
 
-    Lit blockedOn;
-    bool toRemove;
+    void save_to_file(SimpleOutFile& f) const
+    {
+        f.put_lit(blockedOn);
+        f.put_uint32_t(toRemove);
+        f.put_vector(lits);
+        f.put_uint32_t(dummy);
+    }
+
+    void load_from_file(SimpleInFile& f)
+    {
+        blockedOn = f.get_lit();
+        toRemove = f.get_uint32_t();
+        f.get_vector(lits);
+        dummy = f.get_uint32_t();
+    }
+
+    Lit blockedOn = lit_Undef;
+    bool toRemove = false;
     vector<Lit> lits;
-    bool dummy;
+    bool dummy = false;
 };
 
 /**
@@ -94,11 +112,11 @@ public:
     ~OccSimplifier();
 
     //Called from main
-    bool simplify(const bool startup);
-    void new_var(const Var orig_outer);
+    bool simplify(const bool _startup, const std::string schedule);
+    void new_var(const uint32_t orig_outer);
     void new_vars(const size_t n);
     void save_on_var_memory();
-    bool uneliminate(const Var var);
+    bool uneliminate(const uint32_t var);
     size_t mem_used() const;
     size_t mem_used_xor() const;
     void print_gatefinder_stats() const;
@@ -162,14 +180,18 @@ public:
     void check_elimed_vars_are_unassigned() const;
     bool getAnythingHasBeenBlocked() const;
     void freeXorMem();
+    void save_state(SimpleOutFile& f) const;
+    void load_state(SimpleInFile& f);
+    vector<ClOffset> sub_str_with;
+    TouchListLit impl_sub_lits;
 
 private:
     friend class SubsumeStrengthen;
-    SubsumeStrengthen* subsumeStrengthen;
+    SubsumeStrengthen* sub_str;
     friend class BVA;
     BVA* bva;
     bool startup = false;
-    bool backward_subsume();
+    bool backward_sub_str();
     bool execute_simplifier_sched(const string& strategy);
 
     //debug
@@ -254,7 +276,7 @@ private:
                 return true;
 
             //BIN is better than TRI
-            if (first.isBinary() && second.isTri()) return true;
+            if (first.isBin() && second.isTri()) return true;
 
             return false;
         }
@@ -285,20 +307,18 @@ private:
     };
     void        order_vars_for_elim();
     Heap<VarOrderLt> velim_order;
-    //void        addRedBinaries(const Var var);
     size_t      rem_cls_from_watch_due_to_varelim(watch_subarray_const todo, const Lit lit);
     void        add_clause_to_blck(const Lit lit, const vector<Lit>& lits);
-    void        set_var_as_eliminated(const Var var, const Lit lit);
-    bool        can_eliminate_var(const Var var) const;
+    void        set_var_as_eliminated(const uint32_t var, const Lit lit);
+    bool        can_eliminate_var(const uint32_t var) const;
 
 
     TouchList   touched;
     vector<ClOffset> cl_to_free_later;
-    bool        maybe_eliminate(const Var x);
+    bool        maybe_eliminate(const uint32_t x);
     void        free_clauses_to_free();
-    void        try_to_subsume_with_new_bin_or_tri(const vector<Lit>& lits);
     void        create_dummy_blocked_clause(const Lit lit);
-    int         test_elim_and_fill_resolvents(Var var);
+    int         test_elim_and_fill_resolvents(uint32_t var);
     void        mark_gate_in_poss_negs(Lit elim_lit, watch_subarray_const poss, watch_subarray_const negs);
     void        mark_gate_parts(
         Lit elim_lit
@@ -312,8 +332,8 @@ private:
     void        print_var_eliminate_stat(Lit lit) const;
     bool        add_varelim_resolvent(vector<Lit>& finalLits, const ClauseStats& stats);
     bool        check_if_new_2_long_subsumes_3_long_return_already_inside(const vector<Lit>& lits);
-    void        update_varelim_complexity_heap(const Var var);
-    void        print_var_elim_complexity_stats(const Var var) const;
+    void        update_varelim_complexity_heap(const uint32_t var);
+    void        print_var_elim_complexity_stats(const uint32_t var) const;
     struct Resolvent {
         Resolvent(const vector<Lit>& _lits, const ClauseStats _stats) :
             lits(_lits)
@@ -353,7 +373,7 @@ private:
         uint32_t count; //resolution count (if can be counted, otherwise MAX)
     };
     HeuristicData calc_data_for_heuristic(const Lit lit);
-    std::pair<int, int> strategyCalcVarElimScore(const Var var);
+    std::pair<int, int> strategyCalcVarElimScore(const uint32_t var);
     uint64_t time_spent_on_calc_otf_update;
     uint64_t num_otf_update_until_now;
 
@@ -366,7 +386,7 @@ private:
         , int otherSize
     );
 
-    pair<int, int>  heuristicCalcVarElimScore(const Var var);
+    pair<int, int>  heuristicCalcVarElimScore(const uint32_t var);
     bool resolve_clauses(
         const Watched ps
         , const Watched qs
@@ -409,7 +429,7 @@ private:
     //Blocked clause elimination
     bool anythingHasBeenBlocked;
     vector<BlockedClause> blockedClauses;
-    map<Var, vector<size_t> > blk_var_to_cl;
+    map<uint32_t, vector<size_t> > blk_var_to_cl;
     bool blockedMapBuilt;
     void buildBlockedMap();
     void cleanBlockedClauses();
@@ -453,7 +473,7 @@ inline bool OccSimplifier::subsetReverse(const Clause& B) const
 
 inline const SubsumeStrengthen* OccSimplifier::getSubsumeStrengthen() const
 {
-    return subsumeStrengthen;
+    return sub_str;
 }
 
 } //end namespace

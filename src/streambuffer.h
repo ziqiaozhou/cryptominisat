@@ -24,50 +24,45 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #ifdef USE_ZLIB
 #include <zlib.h>
+typedef size_t(*fread_op_zip)(void*, size_t, size_t, gzFile);
 #endif
 #include <stdio.h>
+#include <iostream>
+#include <iomanip>
+#include <limits>
+#include <string>
 
+//A = gzFile, FILE
+//B = fread, gz_read
+typedef size_t(*fread_op_norm)(void*, size_t, size_t, FILE*);
+
+template<typename A, typename B, B C>
 class StreamBuffer
 {
-    #ifdef USE_ZLIB
-    gzFile  in;
+    A  in;
     void assureLookahead() {
         if (pos >= size) {
             pos  = 0;
-            #ifdef VERBOSE_DEBUG
-            printf("buf = %08X\n", buf);
-            printf("sizeof(buf) = %u\n", sizeof(buf));
-            #endif //VERBOSE_DEBUG
-            size = gzread(in, buf, sizeof(buf));
+            size = C(buf, 1, sizeof(buf), in);
         }
     }
-    #else
-    FILE *  in;
-    void assureLookahead() {
-        if (pos >= size) {
-            pos  = 0;
-            #ifdef VERBOSE_DEBUG
-            printf("buf = %08X\n", buf);
-            printf("sizeof(buf) = %u\n", sizeof(buf));
-            #endif //VERBOSE_DEBUG
-            size = fread(buf, 1, sizeof(buf), in);
-        }
-    }
-    #endif
     char    buf[CHUNK_LIMIT];
     int     pos;
     int     size;
 
+    void advance()
+    {
+        operator++();
+    }
+    int value()
+    {
+        return operator*();
+    }
+
 public:
-    #ifdef USE_ZLIB
-    StreamBuffer(gzFile i) : in(i), pos(0), size(0) {
+    StreamBuffer(A i) : in(i), pos(0), size(0) {
         assureLookahead();
     }
-    #else
-    StreamBuffer(FILE * i) : in(i), pos(0), size(0) {
-        assureLookahead();
-    }
-    #endif
 
     int  operator *  () {
         return (pos >= size) ? EOF : buf[pos];
@@ -75,6 +70,106 @@ public:
     void operator ++ () {
         pos++;
         assureLookahead();
+    }
+
+    void skipWhitespace()
+    {
+        char c = value();
+        while (c == '\t' || c == '\r' || c == ' ') {
+            advance();
+            c = value();
+        }
+    }
+
+    void skipLine()
+    {
+        for (;;) {
+            if (value() == EOF || value() == '\0') return;
+            if (value() == '\n') {
+                advance();
+                return;
+            }
+            advance();
+        }
+    }
+
+    bool skipEOL(const size_t lineNum)
+    {
+        for (;;) {
+            if (value() == EOF || value() == '\0') return true;
+            if (value() == '\n') {
+                advance();
+                return true;
+            }
+            if (value() != '\r') {
+                std::cerr
+                << "PARSE ERROR! Unexpected char (hex: " << std::hex
+                << std::setw(2)
+                << std::setfill('0')
+                << "0x" << value()
+                << std::setfill(' ')
+                << std::dec
+                << ")"
+                << " At line " << lineNum+1
+                << " we expected an end of line character (\\n or \\r + \\n)"
+                << std::endl;
+                return false;
+            }
+            advance();
+        }
+        exit(-1);
+    }
+
+    bool parseInt(int32_t& ret, size_t lineNum, bool allow_eol = false)
+    {
+        int32_t val = 0;
+        int32_t mult = 1;
+        skipWhitespace();
+        if (value() == '-') {
+            mult = -1;
+            advance();
+        } else if (value() == '+') {
+            advance();
+        }
+
+        char c = value();
+        if (allow_eol && c == '\n') {
+            ret = std::numeric_limits<int32_t>::max();
+            return true;
+        }
+        if (c < '0' || c > '9') {
+            std::cerr
+            << "PARSE ERROR! Unexpected char (dec: '" << c << ")"
+            << " At line " << lineNum
+            << " we expected a number"
+            << std::endl;
+            return false;
+        }
+
+        while (c >= '0' && c <= '9') {
+            int32_t val2 = val*10 + (c - '0');
+            if (val2 < val) {
+                std::cerr << "PARSE ERROR! At line " << lineNum
+                << " the variable number is to high"
+                << std::endl;
+                return false;
+            }
+            val = val2;
+            advance();
+            c = value();
+        }
+        ret = mult*val;
+        return true;
+    }
+
+    void parseString(std::string& str)
+    {
+        str.clear();
+        skipWhitespace();
+        while (value() != ' ' && value() != '\n' && value() != EOF) {
+            str.push_back(value());
+            advance();
+        }
     }
 };
 

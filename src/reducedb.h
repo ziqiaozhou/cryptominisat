@@ -36,7 +36,7 @@ class ReduceDB
 public:
     ReduceDB(Solver* solver);
     void reduce_db_and_update_reset_stats();
-    const CleaningStats& get_cleaning_stats() const;
+    const CleaningStats& get_stats() const;
 
     uint64_t get_nbReduceDB() const
     {
@@ -74,13 +74,12 @@ private:
 
     void sort_red_cls(ClauseClean clean_type);
     void mark_top_N_clauses(const uint64_t keep_num);
-    void print_best_red_clauses_if_required() const;
     ClauseUsageStats sumClauseData(
         const vector<ClOffset>& toprint
     ) const;
 };
 
-inline const CleaningStats& ReduceDB::get_cleaning_stats() const
+inline const CleaningStats& ReduceDB::get_stats() const
 {
     return cleaningStats;
 }

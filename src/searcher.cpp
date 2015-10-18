@@ -30,6 +30,7 @@
 #include "propbyforgraph.h"
 #include <algorithm>
 #include <cstddef>
+#include <math.h>
 #include "sqlstats.h"
 #include "datasync.h"
 #include "reducedb.h"
@@ -76,7 +77,7 @@ Searcher::~Searcher()
 {
 }
 
-void Searcher::new_var(const bool bva, const Var orig_outer)
+void Searcher::new_var(const bool bva, const uint32_t orig_outer)
 {
     PropEngine::new_var(bva, orig_outer);
 
@@ -111,7 +112,7 @@ void Searcher::updateVars(
     renumber_assumptions(outerToInter);
 }
 
-void Searcher::renumber_assumptions(const vector<Var>& outerToInter)
+void Searcher::renumber_assumptions(const vector<uint32_t>& outerToInter)
 {
     solver->unfill_assumptions_set_from(assumptions);
     for(AssumptionPair& lit_pair: assumptions) {
@@ -124,7 +125,7 @@ void Searcher::renumber_assumptions(const vector<Var>& outerToInter)
 void Searcher::add_lit_to_learnt(
     const Lit lit
 ) {
-    const Var var = lit.var();
+    const uint32_t var = lit.var();
     assert(varData[var].removed == Removed::none);
 
     //If var is at level 0, don't do anything with it, just skip
@@ -347,10 +348,10 @@ void Searcher::normalClMinim()
 
 void Searcher::debug_print_resolving_clause(const PropBy confl) const
 {
-    #ifndef DEBUG_RESOLV
-    return;
-    #endif
-
+#ifndef DEBUG_RESOLV
+    //Avoid unused parameter warning
+    (void) confl;
+#else
     switch(confl.getType()) {
         case tertiary_t: {
             cout << "resolv (tri): " << confl.lit2() << ", " << confl.lit3() << endl;
@@ -368,11 +369,19 @@ void Searcher::debug_print_resolving_clause(const PropBy confl) const
             break;
         }
 
+        case xor_t: {
+            //in the future, we'll have XOR clauses. Not yet.
+            assert(false);
+            exit(-1);
+            break;
+        }
+
         case null_clause_t: {
             assert(false);
             break;
         }
     }
+#endif
 }
 
 void Searcher::update_clause_glue_from_analysis(Clause* cl)
@@ -385,15 +394,14 @@ void Searcher::update_clause_glue_from_analysis(Clause* cl)
     const unsigned new_glue = calc_glue_using_seen2_upper_bit_no_zero_lev(*cl);
 
     if (new_glue + 1 < cl->stats.glue) {
-        //tot_lbds = tot_lbds - c.lbd() + lbd;
-        //c.delta_lbd(c.delta_lbd() + c.lbd() - lbd);
-
-        if (new_glue <= conf.glue_must_keep_clause_if_below_or_eq && red_long_cls_is_reducedb(*cl)) {
+        if (new_glue <= conf.glue_must_keep_clause_if_below_or_eq
+            && red_long_cls_is_reducedb(*cl)
+        ) {
             num_red_cls_reducedb--;
         }
         cl->stats.glue = new_glue;
 
-        if (new_glue <= conf.protect_clause_if_imrpoved_glue_below_this_glue_for_one_turn) {
+        if (new_glue <= conf.protect_cl_if_improved_glue_below_this_glue_for_one_turn) {
             if (red_long_cls_is_reducedb(*cl)) {
                 num_red_cls_reducedb--;
             }
@@ -651,14 +659,15 @@ Clause* Searcher::otf_subsume_last_resolved_clause(Clause* last_resolved_long_cl
 
 void Searcher::print_debug_resolution_data(const PropBy confl)
 {
-    #ifndef DEBUG_RESOLV
-    return;
-    #endif
-
+#ifndef DEBUG_RESOLV
+    //Avoid unused parameter warning
+    (void) confl;
+#else
     cout << "Before resolution, trail is: " << endl;
     print_trail();
     cout << "Conflicting clause: " << confl << endl;
     cout << "Fail bin lit: " << failBinLit << endl;
+#endif
 }
 
 Clause* Searcher::analyze_conflict(
@@ -680,10 +689,10 @@ Clause* Searcher::analyze_conflict(
     Clause* last_resolved_long_cl = create_learnt_clause(confl);
     stats.litsRedNonMin += learnt_clause.size();
     minimize_learnt_clause();
+    glue = calc_glue_using_seen2(learnt_clause);
     mimimize_learnt_clause_more_maybe();
     print_fully_minimized_learnt_clause();
 
-    glue = calc_glue_using_seen2(learnt_clause);
     stats.litsRedFinal += learnt_clause.size();
     out_btlevel = find_backtrack_level_of_learnt();
     if (update_polarity_and_activity
@@ -740,7 +749,6 @@ bool Searcher::litRedundant(const Lit p, uint32_t abstract_levels)
             default:
                 release_assert(false);
                 std::exit(-1);
-                size = 0;
                 break;
         }
 
@@ -838,7 +846,7 @@ void Searcher::analyze_final_confl_with_assumptions(const Lit p, vector<Lit>& ou
 
     assert(!trail_lim.empty());
     for (int64_t i = (int64_t)trail.size() - 1; i >= (int64_t)trail_lim[0]; i--) {
-        const Var x = trail[i].var();
+        const uint32_t x = trail[i].var();
         if (seen[x]) {
             const PropBy reason = varData[x].reason;
             if (reason.isNULL()) {
@@ -950,6 +958,14 @@ lbool Searcher::search()
     blocked_restart = false;
     PropBy confl;
 
+    #ifdef USE_GAUSS
+    for (Gaussian* g : gauss_matrixes) {
+        if (!g->full_init()) {
+            return l_False;
+        }
+    }
+    #endif
+
     while (
         (!params.needToStopSearch
             && !must_interrupt_asap()
@@ -958,12 +974,28 @@ lbool Searcher::search()
     ) {
         if (!confl.isNULL()) {
             //TODO below is expensive
-            if (((stats.conflStats.numConflicts % 5000) == 0)
+            if (((stats.conflStats.numConflicts & 0xfff) == 0xfff)
                 && var_decay < conf.var_decay_max
                 && update_polarity_and_activity
             ) {
                 var_decay += 0.01;
             }
+
+            #ifdef USE_GAUSS
+            bool at_least_one_continue = false;
+            for (Gaussian* g: gauss_matrixes) {
+                ret = g->find_truths(learnt_clause, conflictC);
+                if (ret == l_Continue) {
+                    at_least_one_continue = true;
+                } else if (ret != l_Nothing) {
+                    return ret;
+                }
+            }
+            if (at_least_one_continue) {
+                continue;
+            }
+            assert(ok);
+            #endif //USE_GAUSS
 
             stats.conflStats.update(lastConflictCausedBy);
             print_restart_stat();
@@ -1040,6 +1072,20 @@ lbool Searcher::new_decision()
         if (value(p) == l_True) {
             // Dummy decision level:
             new_decision_level();
+            //To store matrix in case it needs to be stored. No new information
+            //is meant to be available at this point.
+            #ifdef USE_GAUSS
+            //These are not supposed to be changed *at all* by the funciton
+            //since it has already been called before
+            vec<Lit> learnt_clause;
+            uint64_t conflictC;
+
+            for (Gaussian* g: gauss_matrixes) {
+                llbool ret = g->find_truths(learnt_clause, conflictC);
+                assert(ret == l_Nothing);
+            }
+            #endif //USE_GAUSS
+
         } else if (value(p) == l_False) {
             analyze_final_confl_with_assumptions(~p, conflict);
             return l_False;
@@ -1520,15 +1566,17 @@ void Searcher::print_restart_header() const
     << "c"
     << " " << std::setw(5) << "rest"
     << " " << std::setw(5) << "conf"
-    << " " << std::setw(7) << "freevar"
+    << " " << std::setw(5) << "freevar"
     << " " << std::setw(5) << "IrrL"
     << " " << std::setw(5) << "IrrT"
     << " " << std::setw(5) << "IrrB"
-    << " " << std::setw(5) << "l/c"
+    << " " << std::setw(7) << "l/longC"
+    << " " << std::setw(7) << "l/allC"
     << " " << std::setw(5) << "RedL"
     << " " << std::setw(5) << "RedT"
     << " " << std::setw(5) << "RedB"
-    << " " << std::setw(5) << "l/c"
+    << " " << std::setw(7) << "l/longC"
+    << " " << std::setw(7) << "l/allC"
     << endl;
 }
 
@@ -1659,10 +1707,9 @@ void Searcher::restore_order_heap()
 {
     order_heap.clear();
     for(size_t var = 0; var < nVars(); var++) {
-        if (solver->varData[var].is_decision
+        if (solver->varData[var].removed == Removed::none
             && value(var) == l_Undef
         ) {
-            assert(varData[var].removed == Removed::none);
             insertVarOrder(var);
         }
     }
@@ -1678,27 +1725,28 @@ void Searcher::reset_temp_cl_num()
 void Searcher::reduce_db_if_needed()
 {
     //Check if we should do DBcleaning
-    if (num_red_cls_reducedb > conf.cur_max_temp_red_cls) {
-        if (conf.verbosity >= 3) {
-            cout
-            << "c "
-            << " cleaning"
-            << " num_irred_cls_reducedb: " << num_red_cls_reducedb
-            << " numConflicts : " << stats.conflStats.numConflicts
-            << " SumConfl: " << sumConflicts()
-            << " max_confl_per_search_solve_call:" << max_confl_per_search_solve_call
-            << " Trail size: " << trail.size() << endl;
-        }
-        solver->reduceDB->reduce_db_and_update_reset_stats();
-        if (conf.verbosity >= 3) {
-            watches.print_stat();
-        }
-        must_consolidate_mem = true;
-        watches.consolidate();
-        conf.cur_max_temp_red_cls *= conf.inc_max_temp_red_cls;
+    if (num_red_cls_reducedb <= conf.cur_max_temp_red_cls)
+        return;
 
-        num_red_cls_reducedb = count_num_red_cls_reducedb();
+    if (conf.verbosity >= 3) {
+        cout
+        << "c "
+        << " cleaning"
+        << " num_irred_cls_reducedb: " << num_red_cls_reducedb
+        << " numConflicts : " << stats.conflStats.numConflicts
+        << " SumConfl: " << sumConflicts()
+        << " max_confl_per_search_solve_call:" << max_confl_per_search_solve_call
+        << " Trail size: " << trail.size() << endl;
     }
+    solver->reduceDB->reduce_db_and_update_reset_stats();
+    if (conf.verbosity >= 3) {
+        watches.print_stat();
+    }
+    must_consolidate_mem = true;
+    watches.consolidate();
+    conf.cur_max_temp_red_cls *= conf.inc_max_temp_red_cls;
+
+    num_red_cls_reducedb = count_num_red_cls_reducedb();
 }
 
 void Searcher::clean_clauses_if_needed()
@@ -1841,6 +1889,12 @@ lbool Searcher::solve(
         calculate_and_set_polars();
     }
 
+    #ifdef USE_GAUSS
+    for (vector<Gaussian*>::iterator gauss = gauss_matrixes.begin(), end = gauss_matrixes.end(); gauss != end; gauss++) {
+        if (!(*gauss)->full_init()) return false;
+    }
+    #endif //USE_GAUSS
+
     setup_restart_print();
     max_conflicts_this_restart = conf.restart_first;
     assert(solver->check_order_heap_sanity());
@@ -1850,6 +1904,10 @@ lbool Searcher::solve(
           && !solver->must_interrupt_asap()
         ; loop_num ++
     ) {
+        #ifdef USE_GAUSS
+        clearGaussMatrixes();
+        #endif //USE_GAUSS
+
         #ifdef SLOW_DEBUG
         assert(num_red_cls_reducedb == count_num_red_cls_reducedb());
         assert(order_heap.heap_property());
@@ -1892,6 +1950,7 @@ lbool Searcher::solve(
             goto end;
         }
 
+        /*
         clean_clauses_if_needed();
         if (!conf.never_stop_search) {
             status = perform_scc_and_varreplace_if_needed();
@@ -1899,6 +1958,7 @@ lbool Searcher::solve(
                 goto end;
             }
         }
+        */
 
         save_search_loop_stats();
         if (must_consolidate_mem) {
@@ -1993,16 +2053,16 @@ void Searcher::print_iteration_solving_stats()
         stats.print();
         propStats.print(stats.cpu_time);
         print_stats_line("c props/decision"
-            , (double)propStats.propagations/(double)stats.decisions
+            , float_div(propStats.propagations, stats.decisions)
         );
         print_stats_line("c props/conflict"
-            , (double)propStats.propagations/(double)stats.conflStats.numConflicts
+            , float_div(propStats.propagations, stats.conflStats.numConflicts)
         );
         cout << "c ------ THIS ITERATION SOLVING STATS -------" << endl;
     }
 }
 
-bool Searcher::pickPolarity(const Var var)
+bool Searcher::pickPolarity(const uint32_t var)
 {
     switch(conf.polarity_mode) {
         case PolarityMode::polarmode_neg:
@@ -2036,10 +2096,10 @@ Lit Searcher::pickBranchLit()
         double rand = mtrand.randDblExc();
         double frq = conf.random_var_freq;
         if (rand < frq && !order_heap.empty()) {
-            const Var next_var = order_heap.random_element(mtrand);
+            const uint32_t next_var = order_heap.random_element(mtrand);
 
             if (value(next_var) == l_Undef
-                && solver->varData[next_var].is_decision
+                && solver->varData[next_var].removed == Removed::none
             ) {
                 stats.decisionsRand++;
                 next = Lit(next_var, !pickPolarity(next_var));
@@ -2049,10 +2109,10 @@ Lit Searcher::pickBranchLit()
 
     // Activity based decision:
     if (next == lit_Undef) {
-        Var next_var = var_Undef;
+        uint32_t next_var = var_Undef;
         while (next_var == var_Undef
           || value(next_var) != l_Undef
-          || !solver->varData[next_var].is_decision
+          || solver->varData[next_var].removed != Removed::none
         ) {
             //There is no more to branch on. Satisfying assignment found.
             if (order_heap.empty()) {
@@ -2090,7 +2150,7 @@ Lit Searcher::pickBranchLit()
         //Update
         if (lit2 != lit_Undef
             && value(lit2.var()) == l_Undef
-            && solver->varData[lit2.var()].is_decision
+            && solver->varData[lit2.var()].removed == Removed::none
         ) {
             //Dominator may not actually dominate this variabe
             //So just to be sure, re-insert it
@@ -2111,7 +2171,6 @@ Lit Searcher::pickBranchLit()
 
     //No vars in heap: solution found
     if (next != lit_Undef) {
-        assert(solver->varData[next.var()].is_decision);
         assert(solver->varData[next.var()].removed == Removed::none);
     }
     return next;
@@ -2166,7 +2225,7 @@ void Searcher::binary_based_more_minim(vector<Lit>& cl)
             ; i++
         ) {
             limit--;
-            if (i->isBinary()) {
+            if (i->isBin()) {
                 if (seen[(~i->lit2()).toInt()]) {
                     stats.binTriShrinkedClause++;
                     seen[(~i->lit2()).toInt()] = 0;
@@ -2268,7 +2327,7 @@ void Searcher::stamp_based_more_minim(vector<Lit>& cl)
 
 bool Searcher::VarFilter::operator()(uint32_t var) const
 {
-    return (cc->value(var) == l_Undef && solver->varData[var].is_decision);
+    return (cc->value(var) == l_Undef && solver->varData[var].removed == Removed::none);
 }
 
 uint64_t Searcher::sumConflicts() const
@@ -2403,7 +2462,7 @@ string Searcher::analyze_confl_for_graphviz_graph(
 
         for (uint32_t j = (p == lit_Undef) ? 0 : 1, size = confl.size(); j != size; j++) {
             Lit q = confl[j];
-            const Var my_var = q.var();
+            const uint32_t my_var = q.var();
 
             if (!seen[my_var] //if already handled, don't care
                 && varData[my_var].level > 0 //if it's assigned at level 0, it's assigned FALSE, so leave it out
@@ -2817,7 +2876,7 @@ inline void Searcher::varDecayActivity()
     var_inc *= (1.0 / var_decay);
 }
 
-inline void Searcher::bump_var_activitiy(Var var)
+inline void Searcher::bump_var_activitiy(uint32_t var)
 {
     if (!update_polarity_and_activity) {
         return;
@@ -2918,313 +2977,198 @@ inline Lit Searcher::find_good_blocked_lit(const Clause& c) const
     return lit;
 }
 
-Searcher::Stats& Searcher::Stats::operator+=(const Stats& other)
-{
-    numRestarts += other.numRestarts;
-    blocked_restart += other.blocked_restart;
-    blocked_restart_same += other.blocked_restart_same;
-
-    //Decisions
-    decisions += other.decisions;
-    decisionsAssump += other.decisionsAssump;
-    decisionsRand += other.decisionsRand;
-    decisionFlippedPolar += other.decisionFlippedPolar;
-
-    //Conflict minimisation stats
-    litsRedNonMin += other.litsRedNonMin;
-    litsRedFinal += other.litsRedFinal;
-    recMinCl += other.recMinCl;
-    recMinLitRem += other.recMinLitRem;
-
-    furtherShrinkAttempt  += other.furtherShrinkAttempt;
-    binTriShrinkedClause += other.binTriShrinkedClause;
-    cacheShrinkedClause += other.cacheShrinkedClause;
-    furtherShrinkedSuccess += other.furtherShrinkedSuccess;
-
-
-    stampShrinkAttempt += other.stampShrinkAttempt;
-    stampShrinkCl += other.stampShrinkCl;
-    stampShrinkLit += other.stampShrinkLit;
-    moreMinimLitsStart += other.moreMinimLitsStart;
-    moreMinimLitsEnd += other.moreMinimLitsEnd;
-    recMinimCost += other.recMinimCost;
-
-    //Red stats
-    learntUnits += other.learntUnits;
-    learntBins += other.learntBins;
-    learntTris += other.learntTris;
-    learntLongs += other.learntLongs;
-    otfSubsumed += other.otfSubsumed;
-    otfSubsumedImplicit += other.otfSubsumedImplicit;
-    otfSubsumedLong += other.otfSubsumedLong;
-    otfSubsumedRed += other.otfSubsumedRed;
-    otfSubsumedLitsGained += other.otfSubsumedLitsGained;
-
-    //Hyper-bin & transitive reduction
-    advancedPropCalled += other.advancedPropCalled;
-    hyperBinAdded += other.hyperBinAdded;
-    transReduRemIrred += other.transReduRemIrred;
-    transReduRemRed += other.transReduRemRed;
-
-    //Stat structs
-    resolvs += other.resolvs;
-    conflStats += other.conflStats;
-
-    //Time
-    cpu_time += other.cpu_time;
-
-    return *this;
-}
-
-Searcher::Stats& Searcher::Stats::operator-=(const Stats& other)
-{
-    numRestarts -= other.numRestarts;
-    blocked_restart -= other.blocked_restart;
-    blocked_restart_same -= other.blocked_restart_same;
-
-    //Decisions
-    decisions -= other.decisions;
-    decisionsAssump -= other.decisionsAssump;
-    decisionsRand -= other.decisionsRand;
-    decisionFlippedPolar -= other.decisionFlippedPolar;
-
-    //Conflict minimisation stats
-    litsRedNonMin -= other.litsRedNonMin;
-    litsRedFinal -= other.litsRedFinal;
-    recMinCl -= other.recMinCl;
-    recMinLitRem -= other.recMinLitRem;
-
-    furtherShrinkAttempt  -= other.furtherShrinkAttempt;
-    binTriShrinkedClause -= other.binTriShrinkedClause;
-    cacheShrinkedClause -= other.cacheShrinkedClause;
-    furtherShrinkedSuccess -= other.furtherShrinkedSuccess;
-
-    stampShrinkAttempt -= other.stampShrinkAttempt;
-    stampShrinkCl -= other.stampShrinkCl;
-    stampShrinkLit -= other.stampShrinkLit;
-    moreMinimLitsStart -= other.moreMinimLitsStart;
-    moreMinimLitsEnd -= other.moreMinimLitsEnd;
-    recMinimCost -= other.recMinimCost;
-
-    //Red stats
-    learntUnits -= other.learntUnits;
-    learntBins -= other.learntBins;
-    learntTris -= other.learntTris;
-    learntLongs -= other.learntLongs;
-    otfSubsumed -= other.otfSubsumed;
-    otfSubsumedImplicit -= other.otfSubsumedImplicit;
-    otfSubsumedLong -= other.otfSubsumedLong;
-    otfSubsumedRed -= other.otfSubsumedRed;
-    otfSubsumedLitsGained -= other.otfSubsumedLitsGained;
-
-    //Hyper-bin & transitive reduction
-    advancedPropCalled -= other.advancedPropCalled;
-    hyperBinAdded -= other.hyperBinAdded;
-    transReduRemIrred -= other.transReduRemIrred;
-    transReduRemRed -= other.transReduRemRed;
-
-    //Stat structs
-    resolvs -= other.resolvs;
-    conflStats -= other.conflStats;
-
-    //Time
-    cpu_time -= other.cpu_time;
-
-    return *this;
-}
-
-Searcher::Stats Searcher::Stats::operator-(const Stats& other) const
-{
-    Stats result = *this;
-    result -= other;
-    return result;
-}
-
-void Searcher::Stats::printCommon() const
-{
-    print_stats_line("c restarts"
-        , numRestarts
-        , (double)conflStats.numConflicts/(double)numRestarts
-        , "confls per restart"
-
-    );
-    print_stats_line("c blocked restarts"
-        , blocked_restart
-        , (double)blocked_restart/(double)numRestarts
-        , "per normal restart"
-
-    );
-    print_stats_line("c time", cpu_time);
-    print_stats_line("c decisions", decisions
-        , stats_line_percent(decisionsRand, decisions)
-        , "% random"
-    );
-
-    print_stats_line("c decisions/conflicts"
-        , (double)decisions/(double)conflStats.numConflicts
-    );
-}
-
-void Searcher::Stats::print_short() const
-{
-    //Restarts stats
-    printCommon();
-    conflStats.print_short(cpu_time);
-
-    print_stats_line("c conf lits non-minim"
-        , litsRedNonMin
-        , (double)litsRedNonMin/(double)conflStats.numConflicts
-        , "lit/confl"
-    );
-
-    print_stats_line("c conf lits final"
-        , (double)litsRedFinal/(double)conflStats.numConflicts
-    );
-}
-
-void Searcher::Stats::print() const
-{
-    printCommon();
-    conflStats.print(cpu_time);
-
-    /*assert(numConflicts
-        == conflsBin + conflsTri + conflsLongIrred + conflsLongRed);*/
-
-    cout << "c LEARNT stats" << endl;
-    print_stats_line("c units learnt"
-        , learntUnits
-        , stats_line_percent(learntUnits, conflStats.numConflicts)
-        , "% of conflicts");
-
-    print_stats_line("c bins learnt"
-        , learntBins
-        , stats_line_percent(learntBins, conflStats.numConflicts)
-        , "% of conflicts");
-
-    print_stats_line("c tris learnt"
-        , learntTris
-        , stats_line_percent(learntTris, conflStats.numConflicts)
-        , "% of conflicts");
-
-    print_stats_line("c long learnt"
-        , learntLongs
-        , stats_line_percent(learntLongs, conflStats.numConflicts)
-        , "% of conflicts"
-    );
-
-    print_stats_line("c otf-subs"
-        , otfSubsumed
-        , ratio_for_stat(otfSubsumed, conflStats.numConflicts)
-        , "/conflict"
-    );
-
-    print_stats_line("c otf-subs implicit"
-        , otfSubsumedImplicit
-        , stats_line_percent(otfSubsumedImplicit, otfSubsumed)
-        , "%"
-    );
-
-    print_stats_line("c otf-subs long"
-        , otfSubsumedLong
-        , stats_line_percent(otfSubsumedLong, otfSubsumed)
-        , "%"
-    );
-
-    print_stats_line("c otf-subs learnt"
-        , otfSubsumedRed
-        , stats_line_percent(otfSubsumedRed, otfSubsumed)
-        , "% otf subsumptions"
-    );
-
-    print_stats_line("c otf-subs lits gained"
-        , otfSubsumedLitsGained
-        , ratio_for_stat(otfSubsumedLitsGained, otfSubsumed)
-        , "lits/otf subsume"
-    );
-
-    cout << "c SEAMLESS HYPERBIN&TRANS-RED stats" << endl;
-    print_stats_line("c advProp called"
-        , advancedPropCalled
-    );
-    print_stats_line("c hyper-bin add bin"
-        , hyperBinAdded
-        , ratio_for_stat(hyperBinAdded, advancedPropCalled)
-        , "bin/call"
-    );
-    print_stats_line("c trans-red rem irred bin"
-        , transReduRemIrred
-        , ratio_for_stat(transReduRemIrred, advancedPropCalled)
-        , "bin/call"
-    );
-    print_stats_line("c trans-red rem red bin"
-        , transReduRemRed
-        , ratio_for_stat(transReduRemRed, advancedPropCalled)
-        , "bin/call"
-    );
-
-    cout << "c CONFL LITS stats" << endl;
-    print_stats_line("c orig "
-        , litsRedNonMin
-        , ratio_for_stat(litsRedNonMin, conflStats.numConflicts)
-        , "lit/confl"
-    );
-
-    print_stats_line("c rec-min effective"
-        , recMinCl
-        , stats_line_percent(recMinCl, conflStats.numConflicts)
-        , "% attempt successful"
-    );
-
-    print_stats_line("c rec-min lits"
-        , recMinLitRem
-        , stats_line_percent(recMinLitRem, litsRedNonMin)
-        , "% less overall"
-    );
-
-    print_stats_line("c further-min call%"
-        , stats_line_percent(furtherShrinkAttempt, conflStats.numConflicts)
-        , stats_line_percent(furtherShrinkedSuccess, furtherShrinkAttempt)
-        , "% attempt successful"
-    );
-
-    print_stats_line("c bintri-min lits"
-        , binTriShrinkedClause
-        , stats_line_percent(binTriShrinkedClause, litsRedNonMin)
-        , "% less overall"
-    );
-
-    print_stats_line("c cache-min lits"
-        , cacheShrinkedClause
-        , stats_line_percent(cacheShrinkedClause, litsRedNonMin)
-        , "% less overall"
-    );
-
-    print_stats_line("c stamp-min call%"
-        , stats_line_percent(stampShrinkAttempt, conflStats.numConflicts)
-        , stats_line_percent(stampShrinkCl, stampShrinkAttempt)
-        , "% attempt successful"
-    );
-
-    print_stats_line("c stamp-min lits"
-        , stampShrinkLit
-        , stats_line_percent(stampShrinkLit, litsRedNonMin)
-        , "% less overall"
-    );
-
-    print_stats_line("c final avg"
-        , ratio_for_stat(litsRedFinal, conflStats.numConflicts)
-    );
-
-    //General stats
-    //print_stats_line("c Memory used", (double)mem_used / 1048576.0, " MB");
-    #if !defined(_MSC_VER) && defined(RUSAGE_THREAD)
-    print_stats_line("c single-thread CPU time", cpu_time, " s");
-    #else
-    print_stats_line("c all-threads sum CPU time", cpu_time, " s");
-    #endif
-}
-
 void Searcher::update_var_decay()
 {
     var_decay = conf.var_decay_max;
+}
+
+void Searcher::write_long_cls(
+    const vector<ClOffset>& clauses
+    , SimpleOutFile& f
+    , const bool red
+) const {
+    f.put_uint64_t(clauses.size());
+    for(ClOffset c: clauses)
+    {
+        Clause& cl = *cl_alloc.ptr(c);
+        f.put_uint32_t(cl.size());
+        for(const Lit l: cl)
+        {
+            f.put_lit(l);
+        }
+        if (red) {
+            assert(cl.red());
+            f.put_struct(cl.stats);
+        }
+    }
+}
+
+void Searcher::read_long_cls(
+    SimpleInFile& f
+    , const bool red
+) {
+    uint64_t num_cls = f.get_uint64_t();
+
+    vector<Lit> tmp_cl;
+    for(size_t i = 0; i < num_cls; i++)
+    {
+        tmp_cl.clear();
+
+        uint32_t sz = f.get_uint32_t();
+        for(size_t i = 0; i < sz; i++)
+        {
+            tmp_cl.push_back(f.get_lit());
+        }
+        ClauseStats stats;
+        if (red) {
+            f.get_struct(stats);
+        }
+
+        Clause* cl = cl_alloc.Clause_new(tmp_cl, 0);
+        if (red) {
+            cl->makeRed(stats.glue);
+        }
+        cl->stats = stats;
+        attachClause(*cl);
+        const ClOffset offs = cl_alloc.get_offset(cl);
+        if (red) {
+            longRedCls.push_back(offs);
+        } else {
+            longIrredCls.push_back(offs);
+        }
+    }
+}
+
+void Searcher::write_binary_cls(
+    SimpleOutFile& f
+    , bool red
+) const {
+    if (red) {
+        f.put_uint64_t(binTri.redBins);
+    } else {
+        f.put_uint64_t(binTri.irredBins);
+    }
+
+    size_t at = 0;
+    for(watch_subarray_const ws: watches)
+    {
+        Lit lit1 = Lit::toLit(at);
+        at++;
+        for(Watched w: ws)
+        {
+            if (w.isBin() && w.red() == red) {
+                assert(lit1 != w.lit2());
+                if (lit1 < w.lit2()) {
+                    f.put_lit(lit1);
+                    f.put_lit(w.lit2());
+                }
+            }
+        }
+    }
+}
+
+void Searcher::write_tri_cls(
+    SimpleOutFile& f
+    , bool red
+) const {
+    if (red) {
+        f.put_uint64_t(binTri.redTris);
+    } else {
+        f.put_uint64_t(binTri.irredTris);
+    }
+
+    size_t at = 0;
+    for(watch_subarray_const ws: watches)
+    {
+        Lit lit1 = Lit::toLit(at);
+        at++;
+        for(Watched w: ws)
+        {
+            if (w.isTri() && w.red() == red) {
+                if (lit1 < w.lit2()
+                    && w.lit2() < w.lit3()
+                ) {
+                    f.put_lit(lit1);
+                    f.put_lit(w.lit2());
+                    f.put_lit(w.lit3());
+                }
+            }
+        }
+    }
+}
+
+
+void Searcher::read_binary_cls(
+    SimpleInFile& f
+    , bool red
+) {
+    uint64_t num = f.get_uint64_t();
+    for(uint64_t i = 0; i < num; i++)
+    {
+        const Lit lit1 = f.get_lit();
+        const Lit lit2 = f.get_lit();
+        attach_bin_clause(lit1, lit2, red);
+    }
+}
+
+void Searcher::read_tri_cls(
+    SimpleInFile& f
+    , bool red
+) {
+    uint64_t num = f.get_uint64_t();
+    for(uint64_t i = 0; i < num; i++)
+    {
+        const Lit lit1 = f.get_lit();
+        const Lit lit2 = f.get_lit();
+        const Lit lit3 = f.get_lit();
+        attach_tri_clause(lit1, lit2, lit3, red);
+    }
+}
+
+void Searcher::save_state(SimpleOutFile& f, const lbool status) const
+{
+    assert(decisionLevel() == 0);
+    PropEngine::save_state(f);
+
+    f.put_vector(activities);
+    f.put_vector(model);
+    f.put_vector(conflict);
+
+    //Clauses
+    if (status == l_Undef) {
+        write_binary_cls(f, false);
+        write_binary_cls(f, true);
+        write_tri_cls(f, false);
+        write_tri_cls(f, true);
+        write_long_cls(longIrredCls, f, false);
+        write_long_cls(longRedCls, f, true);
+    }
+}
+
+void Searcher::load_state(SimpleInFile& f, const lbool status)
+{
+    assert(decisionLevel() == 0);
+    PropEngine::load_state(f);
+
+    f.get_vector(activities);
+    for(size_t i = 0; i < nVars(); i++) {
+        if (varData[i].removed == Removed::none
+            && value(i) == l_Undef
+        ) {
+            insertVarOrder(i);
+        }
+    }
+    f.get_vector(model);
+    f.get_vector(conflict);
+
+    //Clauses
+    if (status == l_Undef) {
+        read_binary_cls(f, false);
+        read_binary_cls(f, true);
+        read_tri_cls(f, false);
+        read_tri_cls(f, true);
+        read_long_cls(f, false);
+        read_long_cls(f, true);
+    }
+    num_red_cls_reducedb = count_num_red_cls_reducedb();
 }

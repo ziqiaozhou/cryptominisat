@@ -1,4 +1,5 @@
 *.kdev4
+*.pyc
 .directory
 scripts/fuzzTest*.cnf
 scripts2/
@@ -11,5 +12,6 @@ desc/satcomp14/cmsv4.kilepr
 desc/satcomp14/cmsv4.log
 desc/satcomp14/cmsv4.out
 desc/satcomp14/cmsv4.pdf
+scripts/reconf/outs
 
 web/jquery-1.11.3.min.js

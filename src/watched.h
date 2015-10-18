@@ -47,7 +47,7 @@ This class contains two 32-bit datapieces. They are either used as:
 \li One literal, in the case of binary clauses
 \li Two literals, in the case of tertiary clauses
 \li One blocking literal (i.e. an example literal from the clause) and a clause
-offset (as per ClauseAllocator ), in the case of normal clauses
+offset (as per ClauseAllocator ), in the case of long clauses
 */
 class Watched {
     public:
@@ -73,6 +73,7 @@ class Watched {
 
         Watched() :
             data1 (std::numeric_limits<uint32_t>::max())
+            , type(watch_clause_t) // initialize type with most generic type of clause
             , data2(std::numeric_limits<uint32_t>::max() >> 2)
         {}
 
@@ -97,7 +98,7 @@ class Watched {
         }
 
         /**
-        @brief Constructor for an OR gate
+        @brief Constructor for an Index value
         */
         Watched(const uint32_t or_gate_idx) :
             data1(or_gate_idx)
@@ -126,15 +127,11 @@ class Watched {
 
         WatchType getType() const
         {
-            if (isBinary())
-                return watch_binary_t;
-            else if (isTri())
-                return watch_tertiary_t;
-            else
-                return watch_clause_t;
+            // we rely that WatchType enum is in [0-3] range and fits into type field two bits
+            return static_cast<WatchType>(type);
         }
 
-        bool isBinary() const
+        bool isBin() const
         {
             return (type == watch_binary_t);
         }
@@ -168,7 +165,7 @@ class Watched {
         Lit lit2() const
         {
             #ifdef DEBUG_WATCHED
-            assert(isBinary() || isTri());
+            assert(isBin() || isTri());
             #endif
             return Lit::toLit(data1);
         }
@@ -179,7 +176,7 @@ class Watched {
         void setLit2(const Lit lit)
         {
             #ifdef DEBUG_WATCHED
-            assert(isBinary() || isTri());
+            assert(isBin() || isTri());
             #endif
             data1 = lit.toInt();
         }
@@ -187,7 +184,7 @@ class Watched {
         bool red() const
         {
             #ifdef DEBUG_WATCHED
-            assert(isBinary() || isTri());
+            assert(isBin() || isTri());
             #endif
             return data2 & 1;
         }
@@ -195,7 +192,7 @@ class Watched {
         void setRed(const bool toSet)
         {
             #ifdef DEBUG_WATCHED
-            assert(isBinary() || isTri());
+            assert(isBin() || isTri());
             assert(red());
             #endif
             assert(toSet == false);
@@ -224,7 +221,7 @@ class Watched {
         void mark_bin_cl()
         {
             #ifdef DEBUG_WATCHED
-            assert(isBinary());
+            assert(isBin());
             #endif
             data2 |= 2;
         }
@@ -232,7 +229,7 @@ class Watched {
         void unmark_bin_cl()
         {
             #ifdef DEBUG_WATCHED
-            assert(isBinary());
+            assert(isBin());
             #endif
             data2 &= 1;
         }
@@ -240,7 +237,7 @@ class Watched {
         bool bin_cl_marked() const
         {
             #ifdef DEBUG_WATCHED
-            assert(isBinary());
+            assert(isBin());
             #endif
             return data2&2;
         }
@@ -340,7 +337,9 @@ class Watched {
 
     private:
         uint32_t data1;
-        //binary, tertiary or long, as per WatchType
+        // binary, tertiary or long, as per WatchType
+        // currently WatchType is enum with range [0..3] and fits in type
+        // in case if WatchType extended type size won't be enough.
         uint32_t type:2;
         uint32_t data2:30;
 };
@@ -352,7 +351,7 @@ inline std::ostream& operator<<(std::ostream& os, const Watched& ws)
         os << "Clause offset " << ws.get_offset();
     }
 
-    if (ws.isBinary()) {
+    if (ws.isBin()) {
         os << "Bin lit " << ws.lit2() << " (red: " << ws.red() << " )";
     }
 
@@ -383,6 +382,52 @@ struct OccurClause {
     Lit lit;
     Watched ws;
 };
+
+struct WatchSorterBinTriLong {
+        bool operator()(const Watched& a, const Watched& b)
+        {
+            assert(!a.isIdx());
+            assert(!b.isIdx());
+
+            //Anything but clause!
+            if (a.isClause()) {
+                //A is definitely not better than B
+                return false;
+            }
+            if (b.isClause()) {
+                //B is clause, A is NOT a clause. So A is better than B.
+                return true;
+            }
+            //Now nothing is clause
+
+            if (a.lit2() != b.lit2()) {
+                return a.lit2() < b.lit2();
+            }
+            if (a.isBin() && b.isTri()) return true;
+            if (a.isTri() && b.isBin()) return false;
+            //At this point either both are BIN or both are TRI
+
+            //Both are BIN
+            if (a.isBin()) {
+                assert(b.isBin());
+                if (a.red() != b.red()) {
+                    return !a.red();
+                }
+                return false;
+            }
+
+            //Both are Tri
+            assert(a.isTri() && b.isTri());
+            if (a.lit3() != b.lit3()) {
+                return a.lit3() < b.lit3();
+            }
+            if (a.red() != b.red()) {
+                return !a.red();
+            }
+            return false;
+        }
+    };
+
 
 } //end namespace
 

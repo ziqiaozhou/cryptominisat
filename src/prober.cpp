@@ -59,8 +59,8 @@ uint64_t Prober::limit_used() const
 
 void Prober::checkOTFRatio()
 {
-    double ratio = (double)solver->propStats.bogoProps
-    /(double)(solver->propStats.otfHyperTime + solver->propStats.bogoProps);
+    double ratio = float_div(solver->propStats.bogoProps,
+        solver->propStats.otfHyperTime + solver->propStats.bogoProps);
 
     /*static int val = 0;
     if (val  % 10 == 0) {
@@ -165,7 +165,10 @@ void Prober::clean_clauses_before_probe()
 uint64_t Prober::update_numpropstodo_based_on_prev_performance(uint64_t numPropsTodo)
 {
      //If failed var searching is going good, do successively more and more of it
-    double percentEffectLast = (double)lastTimeZeroDepthAssings/(double)runStats.origNumFreeVars * 100.0;
+    const double percentEffectLast =
+        float_div(lastTimeZeroDepthAssings, runStats.origNumFreeVars)
+        * 100.0;
+
     if (percentEffectLast > 20.0) {
         //It's doing VERY well
         numPropsMultiplier = std::min(numPropsMultiplier*2, 5.0);
@@ -241,12 +244,12 @@ void Prober::clean_clauses_after_probe()
 
 void Prober::check_if_must_disable_otf_hyperbin_and_tred(const uint64_t numPropsTodo)
 {
-    const double ratioUsedTime = calc_percentage(
+    const double ratioUsedTime = float_div(
         solver->propStats.bogoProps + solver->propStats.otfHyperTime + extraTime
         , numPropsTodo);
     if (solver->conf.otfHyperbin
         //Visited less than half
-        && (double)runStats.numVisited/(double)(runStats.origNumFreeVars*2) < 0.4
+        && float_div(runStats.numVisited, runStats.origNumFreeVars) < 0.8
         //And we used up most of the time
         && ratioUsedTime > 0.8
     ) {
@@ -258,11 +261,11 @@ void Prober::check_if_must_disable_cache_update()
 {
     //If time wasted on cache updating (extraTime) is large, stop cache
     //updation
-    double timeOnCache = calc_percentage(extraTimeCache
+    double timeOnCache = float_div(extraTimeCache
         , solver->propStats.bogoProps
             + solver->propStats.otfHyperTime
             + extraTime + extraTimeCache
-    ) * 100.0;
+    ) ;
 
 
     //More than 50% of the time is spent updating the cache... that's a lot
@@ -296,7 +299,7 @@ Lit Prober::update_lit_for_dominator(
         if (solver->litReachable[lit.toInt()].lit != lit_Undef) {
             const Lit betterlit = solver->litReachable[lit.toInt()].lit;
             if (solver->value(betterlit.var()) == l_Undef
-                && solver->varData[betterlit.var()].is_decision
+                && solver->varData[betterlit.var()].removed == Removed::none
             ) {
                 //Update lit
                 lit = betterlit;
@@ -307,9 +310,9 @@ Lit Prober::update_lit_for_dominator(
     return lit;
 }
 
-vector<Var> Prober::randomize_possible_choices()
+vector<uint32_t> Prober::randomize_possible_choices()
 {
-    vector<Var> poss_choice;
+    vector<uint32_t> poss_choice;
     for(size_t i = 0; i < solver->nVars(); i++) {
         if (solver->value(i) == l_Undef
             && solver->varData[i].removed == Removed::none
@@ -346,7 +349,7 @@ bool Prober::probe()
     const size_t origTrailSize = solver->trail_size();
     numPropsTodo = update_numpropstodo_based_on_prev_performance(numPropsTodo);
 
-    vector<Var> poss_choice = randomize_possible_choices();
+    vector<uint32_t> poss_choice = randomize_possible_choices();
 
     assert(solver->propStats.bogoProps == 0);
     assert(solver->propStats.otfHyperTime == 0);
@@ -359,10 +362,10 @@ bool Prober::probe()
     ) {
         extraTime += 20;
         runStats.numLoopIters++;
-        const Var var = poss_choice[i];
+        const uint32_t var = poss_choice[i];
 
         //Check if already blacklisted
-        if (var == std::numeric_limits<Var>::max())
+        if (var == std::numeric_limits<uint32_t>::max())
             continue;
 
         //Probe 'false' first --> this is not critical
@@ -370,7 +373,7 @@ bool Prober::probe()
 
         //Check if var is set already
         if (solver->value(lit.var()) != l_Undef
-            || !solver->varData[lit.var()].is_decision
+            || solver->varData[lit.var()].removed != Removed::none
             || visitedAlready[lit.toInt()]
         ) {
             continue;
@@ -420,7 +423,7 @@ void Prober::update_and_print_stats(const double myTime, const uint64_t numProps
     lastTimeZeroDepthAssings = runStats.zeroDepthAssigns;
     const double time_used = cpuTime() - myTime;
     const bool time_out = (limit_used() > numPropsTodo);
-    const double time_remain = calc_percentage((int64_t)numPropsTodo-(int64_t)limit_used(), numPropsTodo);
+    const double time_remain = float_div((int64_t)numPropsTodo-(int64_t)limit_used(), numPropsTodo);
     runStats.cpu_time = time_used;
     runStats.propStats = solver->propStats;
     runStats.timeAllocated += numPropsTodo;
@@ -498,7 +501,7 @@ void Prober::update_cache(Lit thisLit, Lit lit, size_t numElemsSet)
     }
 }
 
-void Prober::check_and_set_both_prop(Var var, bool first)
+void Prober::check_and_set_both_prop(uint32_t var, bool first)
 {
     //If this is the first, set what is propagated
     if (first) {
@@ -697,7 +700,7 @@ bool Prober::try_this(const Lit lit, const bool first, const uint64_t orig_num_p
     ) {
         extraTime += 2;
         const Lit thisLit = solver->trail[c];
-        const Var var = thisLit.var();
+        const uint32_t var = thisLit.var();
 
         check_and_set_both_prop(var, first);
         visitedAlready[thisLit.toInt()] = 1;
@@ -738,11 +741,11 @@ size_t Prober::mem_used() const
     return mem;
 }
 
-// void Prober::fillToTry(vector<Var>& toTry)
+// void Prober::fillToTry(vector<uint32_t>& toTry)
 // {
 //     uint32_t max = std::min(solver->negPosDist.size()-1, (size_t)300);
 //     while(true) {
-//         Var var = solver->negPosDist[solver->mtrand.randInt(max)].var;
+//         uint32_t var = solver->negPosDist[solver->mtrand.randInt(max)].var;
 //         if (solver->value(var) != l_Undef
 //             || (solver->varData[var].removed != Removed::none)
 //         ) continue;
@@ -780,7 +783,7 @@ size_t Prober::mem_used() const
 //     assert(propagated.isZero());
 //     assert(propagated2.isZero());
 //
-//     vector<Var> toTry;
+//     vector<uint32_t> toTry;
 //     while(solver->bogoProps < oldBogoProps + 300*1000*1000) {
 //         toTry.clear();
 //         for (uint32_t i = 0; i < 3; i++) {
@@ -806,7 +809,7 @@ size_t Prober::mem_used() const
 //     return solver->ok;
 // }
 //
-// const bool Prober::tryMultiLevel(const vector<Var>& vars, uint32_t& enqueued, uint32_t& finished, uint32_t& numFailed)
+// const bool Prober::tryMultiLevel(const vector<uint32_t>& vars, uint32_t& enqueued, uint32_t& finished, uint32_t& numFailed)
 // {
 //     assert(solver->ok);
 //
@@ -831,7 +834,7 @@ size_t Prober::mem_used() const
 //         }
 //
 //         for (int sublevel = solver->trail_size()-1; sublevel > (int)solver->trail_lim[0]; sublevel--) {
-//             Var x = solver->trail[sublevel].var();
+//             uint32_t x = solver->trail[sublevel].var();
 //             if (first) {
 //                 propagated.setBit(x);
 //                 if (solver->assigns[x].getBool()) propValue.setBit(x);

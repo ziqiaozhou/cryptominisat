@@ -50,7 +50,7 @@
 #include "watchalgos.h"
 #include "clauseallocator.h"
 #include "subsumeimplicit.h"
-#include "strengthener.h"
+#include "distillerwithbin.h"
 #include "datasync.h"
 #include "reducedb.h"
 #include "clausedumper.h"
@@ -60,6 +60,7 @@
 #include "GitSHA1.h"
 #include "features_to_reconf.h"
 #include "trim.h"
+#include "streambuffer.h"
 
 using namespace CMSat;
 using std::cout;
@@ -77,7 +78,7 @@ using std::endl;
 
 //#define DEBUG_RENUMBER
 
-//#define DEBUG_TRI_SORTED_SANITY
+//#define DEBUG_IMPLICIT_PAIRS_TRIPLETS
 
 Solver::Solver(const SolverConf *_conf, bool* _needToInterrupt) :
     Searcher(_conf, this, _needToInterrupt)
@@ -92,7 +93,7 @@ Solver::Solver(const SolverConf *_conf, bool* _needToInterrupt) :
         simplifier = new OccSimplifier(this);
     }
     distiller = new Distiller(this);
-    strengthener = new Strengthener(this);
+    distillerwithbin = new DistillerWithBin(this);
     clauseCleaner = new ClauseCleaner(this);
     varReplacer = new VarReplacer(this);
     if (conf.doCompHandler) {
@@ -114,7 +115,7 @@ Solver::~Solver()
     delete intree;
     delete simplifier;
     delete distiller;
-    delete strengthener;
+    delete distillerwithbin;
     delete clauseCleaner;
     delete varReplacer;
     delete subsumeImplicit;
@@ -299,7 +300,7 @@ void Solver::add_every_combination_xor(
         //New lit to connect to next cut
         if (at != lits.size()) {
             new_var(true);
-            const Var newvar = nVars()-1;
+            const uint32_t newvar = nVars()-1;
             const Lit toadd = Lit(newvar, false);
             xorlits.push_back(toadd);
             lastlit_added = toadd;
@@ -397,14 +398,14 @@ Clause* Solver::add_clause_int(
     const vector<Lit>& lits
     , const bool red
     , ClauseStats stats
-    , const bool attach
+    , const bool attach_long
     , vector<Lit>* finalLits
     , bool addDrup
     , const Lit drup_first
 ) {
     assert(ok);
     assert(decisionLevel() == 0);
-    assert(!attach || qhead == trail.size());
+    assert(!attach_long || qhead == trail.size());
     #ifdef VERBOSE_DEBUG
     cout << "add_clause_int clause " << lits << endl;
     #endif //VERBOSE_DEBUG
@@ -463,7 +464,7 @@ Clause* Solver::add_clause_int(
             #ifdef STATS_NEEDED
             propStats.propsUnit++;
             #endif
-            if (attach) {
+            if (attach_long) {
                 ok = (propagate<true>().isNULL());
             }
 
@@ -483,7 +484,7 @@ Clause* Solver::add_clause_int(
             c->stats = stats;
 
             //In class 'OccSimplifier' we don't need to attach normall
-            if (attach) {
+            if (attach_long) {
                 attachClause(*c);
             } else {
                 if (red)
@@ -835,7 +836,7 @@ void Solver::test_renumbering() const
     assert(!problem && "We renumbered the variables in the wrong order!");
 }
 
-void Solver::renumber_clauses(const vector<Var>& outerToInter)
+void Solver::renumber_clauses(const vector<uint32_t>& outerToInter)
 {
     //Clauses' abstractions have to be re-calculated
     for(size_t i = 0; i < longIrredCls.size(); i++) {
@@ -852,11 +853,11 @@ void Solver::renumber_clauses(const vector<Var>& outerToInter)
 }
 
 size_t Solver::calculate_interToOuter_and_outerToInter(
-    vector<Var>& outerToInter
-    , vector<Var>& interToOuter
+    vector<uint32_t>& outerToInter
+    , vector<uint32_t>& interToOuter
 ) {
     size_t at = 0;
-    vector<Var> useless;
+    vector<uint32_t> useless;
     size_t numEffectiveVars = 0;
     for(size_t i = 0; i < nVars(); i++) {
         if (value(i) != l_Undef
@@ -875,7 +876,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     }
 
     //Fill the rest with variables that have been removed/eliminated/set
-    for(vector<Var>::const_iterator
+    for(vector<uint32_t>::const_iterator
         it = useless.begin(), end = useless.end()
         ; it != end
         ; ++it
@@ -902,8 +903,8 @@ void Solver::renumber_variables()
     clauseCleaner->remove_and_clean_all();
 
     //outerToInter[10] = 0 ---> what was 10 is now 0.
-    vector<Var> outerToInter(nVarsOuter());
-    vector<Var> interToOuter(nVarsOuter());
+    vector<uint32_t> outerToInter(nVarsOuter());
+    vector<uint32_t> interToOuter(nVarsOuter());
     size_t numEffectiveVars =
         calculate_interToOuter_and_outerToInter(outerToInter, interToOuter);
 
@@ -1027,7 +1028,7 @@ void Solver::new_vars(size_t n)
     datasync->new_vars(n);
 }
 
-void Solver::new_var(const bool bva, const Var orig_outer)
+void Solver::new_var(const bool bva, const uint32_t orig_outer)
 {
     check_switchoff_limits_newvar();
     Searcher::new_var(bva, orig_outer);
@@ -1045,8 +1046,12 @@ void Solver::new_var(const bool bva, const Var orig_outer)
     if (compHandler) {
         compHandler->new_var(orig_outer);
     }
-    if (orig_outer == std::numeric_limits<Var>::max()) {
+    if (orig_outer == std::numeric_limits<uint32_t>::max()) {
         datasync->new_var(bva);
+    }
+
+    if (bva && !assumptionsSet.empty()) {
+        assumptionsSet.push_back(false);
     }
 
     //Too expensive
@@ -1071,8 +1076,13 @@ void Solver::save_on_var_memory(const uint32_t newNumVars)
         compHandler->save_on_var_memory();
     }
     datasync->save_on_var_memory();
-    assumptionsSet.resize(nVars());
-    assumptionsSet.shrink_to_fit();
+    if (outside_assumptions.empty()) {
+        assert(assumptionsSet.empty());
+    } else {
+        assert(assumptionsSet.size() >= nVars());
+        assumptionsSet.resize(nVars());
+        assumptionsSet.shrink_to_fit();
+    }
 
     const double time_used = cpuTime() - myTime;
     if (sqlStats) {
@@ -1138,15 +1148,15 @@ void Solver::check_model_for_assumptions() const
 
 void Solver::check_recursive_minimization_effectiveness(const lbool status)
 {
-    const Searcher::Stats& stats = Searcher::get_stats();
+    const SearchStats& stats = Searcher::get_stats();
     if (status == l_Undef
         && conf.doRecursiveMinim
         && stats.recMinLitRem + stats.litsRedNonMin > 100000
     ) {
         double remPercent =
-            (double)stats.recMinLitRem/(double)stats.litsRedNonMin*100.0;
+            float_div(stats.recMinLitRem, stats.litsRedNonMin)*100.0;
 
-        double costPerGained = (double)stats.recMinimCost/remPercent;
+        double costPerGained = float_div(stats.recMinimCost, remPercent);
         if (costPerGained > 200ULL*1000ULL*1000ULL) {
             conf.doRecursiveMinim = false;
             if (conf.verbosity >= 2) {
@@ -1170,7 +1180,7 @@ void Solver::check_recursive_minimization_effectiveness(const lbool status)
 
 void Solver::check_minimization_effectiveness(const lbool status)
 {
-    const Searcher::Stats& search_stats = Searcher::get_stats();
+    const SearchStats& search_stats = Searcher::get_stats();
     if (status == l_Undef
         && conf.doMinimRedMore
         && search_stats.moreMinimLitsStart > 100000
@@ -1310,6 +1320,13 @@ lbool Solver::solve()
     datasync->rebuild_bva_map();
     set_assumptions();
 
+    if (conf.preprocess == 2) {
+        status = load_state(conf.saved_state_file);
+        if (status == l_Undef) {
+            status = load_solution_from_file(conf.solution_file);
+        }
+    }
+
     //If still unknown, simplify
     if (status == l_Undef
         && conf.simplify_at_startup
@@ -1320,16 +1337,38 @@ lbool Solver::solve()
         status = simplify_problem(!conf.full_simplify_at_startup);
     }
 
-    if (status == l_Undef) {
+    if (status == l_Undef
+        && conf.preprocess == 0
+    ) {
         status = iterate_until_solved();
     }
-    handle_found_solution(status);
 
     end:
     if (sqlStats) {
         sqlStats->finishup(status);
     }
 
+    if (conf.preprocess == 1) {
+        if (status == l_Undef) {
+            //So no set variables end up in the clauses
+            solver->clauseCleaner->remove_and_clean_all();
+        }
+
+        save_state(conf.saved_state_file, status);
+        ClauseDumper dumper(this);
+        if (status == l_False) {
+            dumper.open_file_and_write_unsat(conf.simplified_cnf);
+        } else if (status == l_True) {
+            dumper.open_file_and_write_sat(conf.simplified_cnf);
+        } else {
+            dumper.open_file_and_dump_irred_clauses_preprocessor(conf.simplified_cnf);
+        }
+        cout << "Wrote solver state to file " << conf.saved_state_file
+        << " and simplified CNF to file " << conf.simplified_cnf
+        << endl;
+    }
+
+    handle_found_solution(status);
     return status;
 }
 
@@ -1540,7 +1579,6 @@ void Solver::handle_found_solution(const lbool status)
         }
         update_assump_conflict_to_orig_outside(conflict);
     }
-    checkDecisionVarCorrectness();
 
     //Too slow when running lots of small queries
     #ifdef DEBUG_IMPLICIT_STATS
@@ -1548,25 +1586,14 @@ void Solver::handle_found_solution(const lbool status)
     #endif
 }
 
-void Solver::checkDecisionVarCorrectness() const
-{
-    //Check for var deicisonness
-    for(size_t var = 0; var < nVarsOuter(); var++) {
-        if (varData[var].removed != Removed::none) {
-            assert(!varData[var].is_decision);
-        } else {
-            assert(varData[var].is_decision);
-        }
-    }
-}
-
 bool Solver::execute_inprocess_strategy(
-    const string& strategy
-    , const bool startup
+    const bool startup
+    , const string& strategy
 ) {
     //std::string input = "abc,def,ghi";
     std::istringstream ss(strategy);
     std::string token;
+    std::string occ_strategy_tokens;
 
     while(std::getline(ss, token, ',')) {
         if (sumStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
@@ -1577,12 +1604,31 @@ bool Solver::execute_inprocess_strategy(
         ) {
             return ok;
         }
+        assert(solver->watches.get_smudged_list().empty());
 
-        trim(token);
+        token = trim(token);
         std::transform(token.begin(), token.end(), token.begin(), ::tolower);
-        if (conf.verbosity >= 2) {
+        if (conf.verbosity >= 2 && token.substr(0,3) != "occ") {
             cout << "c --> Executing strategy token: " << token << '\n';
         }
+
+        if (!occ_strategy_tokens.empty() && token.substr(0,3) != "occ") {
+            if (conf.perform_occur_based_simp
+                && simplifier
+            ) {
+                simplifier->simplify(startup, occ_strategy_tokens);
+            }
+            occ_strategy_tokens.clear();
+            if (sumStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
+                || cpuTime() > conf.maxTime
+                || must_interrupt_asap()
+                || nVars() == 0
+                || !ok
+            ) {
+                return ok;
+            }
+        }
+
         if (token == "find-comps") {
             if (get_num_free_vars() < conf.compVarLimit) {
                 CompFinder findParts(this);
@@ -1612,6 +1658,7 @@ bool Solver::execute_inprocess_strategy(
                 implCache.tryBoth(this);
             }
         } else if (token == "sub-impl") {
+            //Susbsume TRI with BIN+TRI+stamp, subsume BIN with BIN
             if (conf.doStrSubImplicit) {
                 subsumeImplicit->subsume_implicit();
             }
@@ -1622,24 +1669,20 @@ bool Solver::execute_inprocess_strategy(
         } else if (token == "probe") {
             if (conf.doProbe)
                 prober->probe();
-        } else if (token == "str-cls") {
+        } else if (token == "sub-str-cls-with-bin") {
+            //Subsumes and strengthens long clauses with binary clauses
             if (conf.do_distill_clauses) {
-                strengthener->strengthen(true);
+                distillerwithbin->distill_with_bin(true);
             }
         } else if (token == "distill-cls") {
+            //Enqueues literals in long + tri clauses two-by-two and propagates
             if (conf.do_distill_clauses) {
                 distiller->distill(true);
             }
-        }  else if (token == "simplify") {
-            //Var-elim, gates, subsumption, strengthening
-            if (conf.perform_occur_based_simp
-                && simplifier
-            ) {
-                simplifier->simplify(startup);
-            }
         } else if (token == "str-impl") {
+            //Strengthens BIN&TRI with BIN&TRI
             if (conf.doStrSubImplicit) {
-                strengthener->strengthen_implicit();
+                distillerwithbin->strengthen_implicit();
             }
         } else if (token == "check-cache-size") {
             //Delete and disable cache if too large
@@ -1675,14 +1718,26 @@ bool Solver::execute_inprocess_strategy(
             }
         } else if (token == "") {
             //Nothing, just an empty comma, ignore
+        } else if (token.substr(0,3) == "occ") {
+            occ_strategy_tokens += token + ", ";
+            //cout << "occ_strategy_tokens now: " << occ_strategy_tokens  << endl;
         } else {
-            cout << "ERROR: strategy " << token << " not recognised!" << endl;
+            cout << "ERROR: strategy '" << token << "' not recognised!" << endl;
             exit(-1);
         }
 
         if (!ok) {
             return ok;
         }
+    }
+
+    if (!occ_strategy_tokens.empty() && token.substr(0,3) != "occ") {
+        if (conf.perform_occur_based_simp
+            && simplifier
+        ) {
+            simplifier->simplify(startup, occ_strategy_tokens);
+        }
+        occ_strategy_tokens.clear();
     }
 
     return ok;
@@ -1711,15 +1766,9 @@ lbool Solver::simplify_problem(const bool startup)
     }
 
     if (startup) {
-        execute_inprocess_strategy(
-            conf.simplify_at_startup_sequence
-            , startup
-        );
+        execute_inprocess_strategy(startup, conf.simplify_schedule_startup);
     } else {
-        execute_inprocess_strategy(
-            conf.simplify_nonstartup_sequence
-            , startup
-        );
+        execute_inprocess_strategy(startup, conf.simplify_schedule_nonstartup);
     }
 
     //Free unused watch memory
@@ -1812,34 +1861,17 @@ void Solver::print_prop_confl_stats(
         cout
         << name << " : " << std::setw(4) << i
         << " Avg. props: " << std::setw(6) << std::fixed << std::setprecision(2)
-        << ((double)stats[i].sumProp/(double)stats[i].num);
+        << float_div(stats[i].sumProp, stats[i].num);
 
         cout
         << name << " : " << std::setw(4) << i
         << " Avg. confls: " << std::setw(6) << std::fixed << std::setprecision(2)
-        << ((double)stats[i].sumConfl/(double)stats[i].num);
+        << float_div(stats[i].sumConfl, stats[i].num);
 
         if (stats[i].sumLookedAt > 0) {
             cout
             << " Props&confls/looked at: " << std::setw(6) << std::fixed << std::setprecision(2)
-            << ((double)stats[i].sumPropAndConfl()/(double)stats[i].sumLookedAt);
-        }
-
-        cout
-        << " Avg. lits visited: " << std::setw(6) << std::fixed << std::setprecision(2)
-        << ((double)stats[i].sumLitVisited/(double)stats[i].num);
-
-        if (stats[i].sumLookedAt > 0) {
-            cout
-            << " Lits visited/looked at: " << std::setw(6) << std::fixed << std::setprecision(2)
-            << ((double)stats[i].sumLitVisited/(double)stats[i].sumLookedAt);
-        }
-
-        if (stats[i].sumLitVisited > 0) {
-            cout
-            << " Props&confls/Litsvisited*10: "
-            << std::setw(6) << std::fixed << std::setprecision(4)
-            << (10.0*(double)stats[i].sumPropAndConfl()/(double)stats[i].sumLitVisited);
+            << float_div(stats[i].sumPropAndConfl(), stats[i].sumLookedAt);
         }
 
         cout << endl;
@@ -1860,9 +1892,8 @@ void Solver::consolidate_mem()
     }
 }
 
-void Solver::print_stats() const
+void Solver::print_stats(const double cpu_time) const
 {
-    const double cpu_time = cpuTime();
     cout << "c ------- FINAL TOTAL SEARCH STATS ---------" << endl;
     print_stats_line("c UIP search time"
         , sumStats.cpu_time
@@ -1870,22 +1901,90 @@ void Solver::print_stats() const
         , "% time"
     );
 
-    if (conf.verbStats >= 1) {
-        print_all_stats();
+    if (conf.verbStats >= 2) {
+        print_all_stats(cpu_time);
+    } else if (conf.verbStats == 1) {
+        print_norm_stats(cpu_time);
     } else {
-        print_min_stats();
+        print_min_stats(cpu_time);
     }
 }
 
-void Solver::print_min_stats() const
+
+void Solver::print_min_stats(const double cpu_time) const
 {
-    const double cpu_time = cpuTime();
     sumStats.print_short();
     print_stats_line("c props/decision"
-        , (double)propStats.propagations/(double)sumStats.decisions
+        , float_div(propStats.propagations, sumStats.decisions)
     );
     print_stats_line("c props/conflict"
-        , (double)propStats.propagations/(double)sumStats.conflStats.numConflicts
+        , float_div(propStats.propagations, sumStats.conflStats.numConflicts)
+    );
+
+    print_stats_line("c 0-depth assigns", trail.size()
+        , stats_line_percent(trail.size(), nVars())
+        , "% vars"
+    );
+
+    //Failed lit stats
+    if (conf.doProbe) {
+        print_stats_line("c probing time"
+            , prober->get_stats().cpu_time
+            , stats_line_percent(prober->get_stats().cpu_time, cpu_time)
+            , "% time"
+        );
+    }
+    //OccSimplifier stats
+    if (conf.perform_occur_based_simp) {
+        print_stats_line("c OccSimplifier time"
+            , simplifier->get_stats().total_time()
+            , stats_line_percent(simplifier->get_stats().total_time() ,cpu_time)
+            , "% time"
+        );
+    }
+    print_stats_line("c SCC time"
+        , varReplacer->get_scc_finder()->get_stats().cpu_time
+        , stats_line_percent(varReplacer->get_scc_finder()->get_stats().cpu_time, cpu_time)
+        , "% time"
+    );
+    varReplacer->get_scc_finder()->get_stats().print_short(NULL);
+
+    //varReplacer->get_stats().print_short(nVars());
+    print_stats_line("c distill time"
+                    , distiller->get_stats().time_used
+                    , stats_line_percent(distiller->get_stats().time_used, cpu_time)
+                    , "% time"
+    );
+    print_stats_line("c strength cache-irred time"
+                    , distillerwithbin->get_stats().irredCacheBased.cpu_time
+                    , stats_line_percent(distillerwithbin->get_stats().irredCacheBased.cpu_time, cpu_time)
+                    , "% time"
+    );
+    print_stats_line("c strength cache-red time"
+                    , distillerwithbin->get_stats().redCacheBased.cpu_time
+                    , stats_line_percent(distillerwithbin->get_stats().redCacheBased.cpu_time, cpu_time)
+                    , "% time"
+    );
+    print_stats_line("c Conflicts in UIP"
+        , sumStats.conflStats.numConflicts
+        , float_div(sumStats.conflStats.numConflicts, cpu_time)
+        , "confl/TOTAL_TIME_SEC"
+    );
+    print_stats_line("c Total time", cpu_time);
+    print_stats_line("c Mem used"
+        , mem_used()/(1024UL*1024UL)
+        , "MB"
+    );
+}
+
+void Solver::print_norm_stats(const double cpu_time) const
+{
+    sumStats.print_short();
+    print_stats_line("c props/decision"
+        , float_div(propStats.propagations, sumStats.decisions)
+    );
+    print_stats_line("c props/conflict"
+        , float_div(propStats.propagations, sumStats.conflStats.numConflicts)
     );
 
     print_stats_line("c 0-depth assigns", trail.size()
@@ -1902,6 +2001,14 @@ void Solver::print_min_stats() const
         , stats_line_percent(zeroLevAssignsByCNF, nVars())
         , "% vars"
     );
+
+    print_stats_line("c reduceDB time"
+        , reduceDB->get_stats().cpu_time
+        , stats_line_percent(reduceDB->get_stats().cpu_time, cpu_time)
+        , "% time"
+    );
+
+    prober->get_stats().print_short(this, 0, 0);
 
     //Failed lit stats
     if (conf.doProbe) {
@@ -1937,18 +2044,18 @@ void Solver::print_min_stats() const
                     , "% time"
     );
     print_stats_line("c strength cache-irred time"
-                    , strengthener->get_stats().irredCacheBased.cpu_time
-                    , stats_line_percent(strengthener->get_stats().irredCacheBased.cpu_time, cpu_time)
+                    , distillerwithbin->get_stats().irredCacheBased.cpu_time
+                    , stats_line_percent(distillerwithbin->get_stats().irredCacheBased.cpu_time, cpu_time)
                     , "% time"
     );
     print_stats_line("c strength cache-red time"
-                    , strengthener->get_stats().redCacheBased.cpu_time
-                    , stats_line_percent(strengthener->get_stats().redCacheBased.cpu_time, cpu_time)
+                    , distillerwithbin->get_stats().redCacheBased.cpu_time
+                    , stats_line_percent(distillerwithbin->get_stats().redCacheBased.cpu_time, cpu_time)
                     , "% time"
     );
     print_stats_line("c Conflicts in UIP"
         , sumStats.conflStats.numConflicts
-        , (double)sumStats.conflStats.numConflicts/cpu_time
+        , float_div(sumStats.conflStats.numConflicts, cpu_time)
         , "confl/TOTAL_TIME_SEC"
     );
     print_stats_line("c Total time", cpu_time);
@@ -1961,20 +2068,18 @@ void Solver::print_min_stats() const
     }
 }
 
-void Solver::print_all_stats() const
+void Solver::print_all_stats(const double cpu_time) const
 {
-    const double cpu_time = cpuTime();
-
     sumStats.print();
     sumPropStats.print(sumStats.cpu_time);
     print_stats_line("c props/decision"
-        , (double)propStats.propagations/(double)sumStats.decisions
+        , float_div(propStats.propagations, sumStats.decisions)
     );
     print_stats_line("c props/conflict"
-        , (double)propStats.propagations/(double)sumStats.conflStats.numConflicts
+        , float_div(propStats.propagations, sumStats.conflStats.numConflicts)
     );
     cout << "c ------- FINAL TOTAL SOLVING STATS END ---------" << endl;
-    reduceDB->get_cleaning_stats().print(cpu_time);
+    reduceDB->get_stats().print(cpu_time);
 
     print_stats_line("c reachability time"
         , reachStats.cpu_time
@@ -2057,14 +2162,14 @@ void Solver::print_all_stats() const
     distiller->get_stats().print(nVars());
 
     print_stats_line("c strength cache-irred time"
-                    , strengthener->get_stats().irredCacheBased.cpu_time
-                    , stats_line_percent(strengthener->get_stats().irredCacheBased.cpu_time, cpu_time)
+                    , distillerwithbin->get_stats().irredCacheBased.cpu_time
+                    , stats_line_percent(distillerwithbin->get_stats().irredCacheBased.cpu_time, cpu_time)
                     , "% time");
     print_stats_line("c strength cache-red time"
-                    , strengthener->get_stats().redCacheBased.cpu_time
-                    , stats_line_percent(strengthener->get_stats().redCacheBased.cpu_time, cpu_time)
+                    , distillerwithbin->get_stats().redCacheBased.cpu_time
+                    , stats_line_percent(distillerwithbin->get_stats().redCacheBased.cpu_time, cpu_time)
                     , "% time");
-    strengthener->get_stats().print();
+    distillerwithbin->get_stats().print();
 
     if (conf.doStrSubImplicit) {
         subsumeImplicit->get_stats().print();
@@ -2077,7 +2182,7 @@ void Solver::print_all_stats() const
     //Other stats
     print_stats_line("c Conflicts in UIP"
         , sumStats.conflStats.numConflicts
-        , (double)sumStats.conflStats.numConflicts/cpu_time
+        , float_div(sumStats.conflStats.numConflicts, cpu_time)
         , "confl/TOTAL_TIME_SEC"
     );
     print_stats_line("c Total time", cpu_time);
@@ -2303,8 +2408,8 @@ vector<Lit> Solver::get_zero_assigned_lits() const
             }
 
             //Everything it repaces has also been set
-            const vector<Var> vars = varReplacer->get_vars_replacing(lit.var());
-            for(const Var var: vars) {
+            const vector<uint32_t> vars = varReplacer->get_vars_replacing(lit.var());
+            for(const uint32_t var: vars) {
                 if (varData[var].is_bva)
                     continue;
 
@@ -2328,7 +2433,7 @@ vector<Lit> Solver::get_zero_assigned_lits() const
     lits.resize( std::distance(lits.begin(),it) );
 
     //Update to outer without BVA
-    vector<Var> my_map = build_outer_to_without_bva_map();
+    vector<uint32_t> my_map = build_outer_to_without_bva_map();
     updateLitsMap(lits, my_map);
     for(const Lit lit: lits) {
         assert(lit.var() < nVarsOutside());
@@ -2337,50 +2442,7 @@ vector<Lit> Solver::get_zero_assigned_lits() const
     return lits;
 }
 
-void Solver::print_all_clauses() const
-{
-    for(vector<ClOffset>::const_iterator
-        it = longIrredCls.begin(), end = longIrredCls.end()
-        ; it != end
-        ; ++it
-    ) {
-        Clause* cl = cl_alloc.ptr(*it);
-        cout
-        << "Normal clause offs " << *it
-        << " cl: " << *cl
-        << endl;
-    }
-
-
-    uint32_t wsLit = 0;
-    for (watch_array::const_iterator
-        it = watches.begin(), end = watches.end()
-        ; it != end
-        ; ++it, wsLit++
-    ) {
-        Lit lit = Lit::toLit(wsLit);
-        watch_subarray_const ws = *it;
-        cout << "watches[" << lit << "]" << endl;
-        for (watch_subarray_const::const_iterator
-            it2 = ws.begin(), end2 = ws.end()
-            ; it2 != end2
-            ; it2++
-        ) {
-            if (it2->isBinary()) {
-                cout << "Binary clause part: " << lit << " , " << it2->lit2() << endl;
-            } else if (it2->isClause()) {
-                cout << "Normal clause offs " << it2->get_offset() << endl;
-            } else if (it2->isTri()) {
-                cout << "Tri clause:"
-                << lit << " , "
-                << it2->lit2() << " , "
-                << it2->lit3() << endl;
-            }
-        }
-    }
-}
-
-bool Solver::verify_implicit_clauses() const
+bool Solver::verify_model_implicit_clauses() const
 {
     uint32_t wsLit = 0;
     for (watch_array::const_iterator
@@ -2392,7 +2454,7 @@ bool Solver::verify_implicit_clauses() const
         watch_subarray_const ws = *it;
 
         for (Watched w: ws) {
-            if (w.isBinary()
+            if (w.isBin()
                 && model_value(lit) != l_True
                 && model_value(w.lit2()) != l_True
             ) {
@@ -2438,7 +2500,7 @@ bool Solver::verify_implicit_clauses() const
     return true;
 }
 
-bool Solver::verify_long_clauses(const vector<ClOffset>& cs) const
+bool Solver::verify_model_long_clauses(const vector<ClOffset>& cs) const
 {
     #ifdef VERBOSE_DEBUG
     cout << "Checking clauses whether they have been properly satisfied." << endl;
@@ -2468,9 +2530,9 @@ bool Solver::verify_long_clauses(const vector<ClOffset>& cs) const
 bool Solver::verify_model() const
 {
     bool verificationOK = true;
-    verificationOK &= verify_long_clauses(longIrredCls);
-    verificationOK &= verify_long_clauses(longRedCls);
-    verificationOK &= verify_implicit_clauses();
+    verificationOK &= verify_model_long_clauses(longIrredCls);
+    verificationOK &= verify_model_long_clauses(longRedCls);
+    verificationOK &= verify_model_implicit_clauses();
 
     if (conf.verbosity >= 1 && verificationOK) {
         cout
@@ -2490,151 +2552,9 @@ lbool Solver::model_value (const Lit p) const
     return model[p.var()] ^ p.sign();
 }
 
-lbool Solver::model_value (const Var p) const
+lbool Solver::model_value (const uint32_t p) const
 {
     return model[p];
-}
-
-void Solver::test_all_clause_attached() const
-{
-#ifndef DEBUG_ATTACH_MORE
-    return;
-#endif
-
-    for (vector<ClOffset>::const_iterator
-        it = longIrredCls.begin(), end = longIrredCls.end()
-        ; it != end
-        ; ++it
-    ) {
-        assert(normClauseIsAttached(*it));
-    }
-}
-
-bool Solver::normClauseIsAttached(const ClOffset offset) const
-{
-    bool attached = true;
-    const Clause& cl = *cl_alloc.ptr(offset);
-    assert(cl.size() > 3);
-
-    attached &= findWCl(watches[cl[0].toInt()], offset);
-    attached &= findWCl(watches[cl[1].toInt()], offset);
-
-    return attached;
-}
-
-void Solver::find_all_attach() const
-{
-
-    #ifndef SLOW_DEBUG
-    return;
-    #endif
-
-    for (size_t i = 0; i < watches.size(); i++) {
-        const Lit lit = Lit::toLit(i);
-        for (uint32_t i2 = 0; i2 < watches[i].size(); i2++) {
-            const Watched& w = watches[i][i2];
-            if (!w.isClause())
-                continue;
-
-            //Get clause
-            Clause* cl = cl_alloc.ptr(w.get_offset());
-            assert(!cl->freed());
-
-            //Assert watch correctness
-            if ((*cl)[0] != lit
-                && (*cl)[1] != lit
-            ) {
-                std::cerr
-                << "ERROR! Clause " << (*cl)
-                << " not attached?"
-                << endl;
-
-                assert(false);
-                std::exit(-1);
-            }
-
-            //Clause in one of the lists
-            if (!find_clause(w.get_offset())) {
-                std::cerr
-                << "ERROR! did not find clause " << *cl
-                << endl;
-
-                assert(false);
-                std::exit(1);
-            }
-        }
-    }
-
-    find_all_attach(longIrredCls);
-    find_all_attach(longRedCls);
-}
-
-void Solver::find_all_attach(const vector<ClOffset>& cs) const
-{
-    for(vector<ClOffset>::const_iterator
-        it = cs.begin(), end = cs.end()
-        ; it != end
-        ; ++it
-    ) {
-        Clause& cl = *cl_alloc.ptr(*it);
-        bool ret = findWCl(watches[cl[0].toInt()], *it);
-        if (!ret) {
-            cout
-            << "Clause " << cl
-            << " (red: " << cl.red() << ")"
-            << " doesn't have its 1st watch attached!"
-            << endl;
-
-            assert(false);
-            std::exit(-1);
-        }
-
-        ret = findWCl(watches[cl[1].toInt()], *it);
-        if (!ret) {
-            cout
-            << "Clause " << cl
-            << " (red: " << cl.red() << ")"
-            << " doesn't have its 2nd watch attached!"
-            << endl;
-
-            assert(false);
-            std::exit(-1);
-        }
-    }
-}
-
-
-bool Solver::find_clause(const ClOffset offset) const
-{
-    for (uint32_t i = 0; i < longIrredCls.size(); i++) {
-        if (longIrredCls[i] == offset)
-            return true;
-    }
-    for (uint32_t i = 0; i < longRedCls.size(); i++) {
-        if (longRedCls[i] == offset)
-            return true;
-    }
-
-    return false;
-}
-
-void Solver::check_wrong_attach() const
-{
-    #ifndef SLOW_DEBUG
-    return;
-    #endif
-
-    for (vector<ClOffset>::const_iterator
-        it = longRedCls.begin(), end = longRedCls.end()
-        ; it != end
-        ; ++it
-    ) {
-        const Clause& cl = *cl_alloc.ptr(*it);
-        for (uint32_t i = 0; i < cl.size(); i++) {
-            if (i > 0)
-                assert(cl[i-1].var() != cl[i].var());
-        }
-    }
 }
 
 size_t Solver::get_num_nonfree_vars() const
@@ -2672,9 +2592,9 @@ void Solver::print_clause_stats() const
     print_value_kilo_mega(binTri.irredTris);
     print_value_kilo_mega(binTri.irredBins);
     cout
-    << " " << std::setw(5) << std::fixed << std::setprecision(2)
+    << " " << std::setw(7) << std::fixed << std::setprecision(2)
     << ratio_for_stat(litStats.irredLits, longIrredCls.size())
-    << " " << std::setw(5) << std::fixed << std::setprecision(2)
+    << " " << std::setw(7) << std::fixed << std::setprecision(2)
     << ratio_for_stat(litStats.irredLits + binTri.irredTris*3 + binTri.irredBins*2
     , longIrredCls.size() + binTri.irredTris + binTri.irredBins)
     ;
@@ -2684,184 +2604,12 @@ void Solver::print_clause_stats() const
     print_value_kilo_mega(binTri.redTris);
     print_value_kilo_mega(binTri.redBins);
     cout
-    << " " << std::setw(5) << std::fixed << std::setprecision(2)
+    << " " << std::setw(7) << std::fixed << std::setprecision(2)
     << ratio_for_stat(litStats.redLits, longRedCls.size())
-    << " " << std::setw(5) << std::fixed << std::setprecision(2)
+    << " " << std::setw(7) << std::fixed << std::setprecision(2)
     << ratio_for_stat(litStats.redLits + binTri.redTris*3 + binTri.redBins*2
     , longRedCls.size() + binTri.redTris + binTri.redBins)
     ;
-}
-
-void Solver::check_implicit_stats() const
-{
-    //Don't check if in crazy mode
-    #ifdef NDEBUG
-    return;
-    #endif
-    const double myTime = cpuTime();
-
-    //Check number of red & irred binary clauses
-    uint64_t thisNumRedBins = 0;
-    uint64_t thisNumIrredBins = 0;
-    uint64_t thisNumRedTris = 0;
-    uint64_t thisNumIrredTris = 0;
-
-    size_t wsLit = 0;
-    for(watch_array::const_iterator
-        it = watches.begin(), end = watches.end()
-        ; it != end
-        ; ++it, wsLit++
-    ) {
-        #ifdef DEBUG_TRI_SORTED_SANITY
-        const Lit lit = Lit::toLit(wsLit);
-        #endif //DEBUG_TRI_SORTED_SANITY
-
-        watch_subarray_const ws = *it;
-        for(watch_subarray_const::const_iterator
-            it2 = ws.begin(), end2 = ws.end()
-            ; it2 != end2
-            ; it2++
-        ) {
-            if (it2->isBinary()) {
-                if (it2->red())
-                    thisNumRedBins++;
-                else
-                    thisNumIrredBins++;
-
-                continue;
-            }
-
-            if (it2->isTri()) {
-                assert(it2->lit2() < it2->lit3());
-                assert(it2->lit2().var() != it2->lit3().var());
-
-                #ifdef DEBUG_TRI_SORTED_SANITY
-                Lit lits[3];
-                lits[0] = lit;
-                lits[1] = it2->lit2();
-                lits[2] = it2->lit3();
-                std::sort(lits, lits + 3);
-                findWatchedOfTri(watches, lits[0], lits[1], lits[2], it2->red());
-                findWatchedOfTri(watches, lits[1], lits[0], lits[2], it2->red());
-                findWatchedOfTri(watches, lits[2], lits[0], lits[1], it2->red());
-                #endif //DEBUG_TRI_SORTED_SANITY
-
-                if (it2->red())
-                    thisNumRedTris++;
-                else
-                    thisNumIrredTris++;
-
-                continue;
-            }
-        }
-    }
-
-    if (thisNumIrredBins/2 != binTri.irredBins) {
-        std::cerr
-        << "ERROR:"
-        << " thisNumIrredBins/2: " << thisNumIrredBins/2
-        << " binTri.irredBins: " << binTri.irredBins
-        << "thisNumIrredBins: " << thisNumIrredBins
-        << "thisNumRedBins: " << thisNumRedBins << endl;
-    }
-    assert(thisNumIrredBins % 2 == 0);
-    assert(thisNumIrredBins/2 == binTri.irredBins);
-
-    if (thisNumRedBins/2 != binTri.redBins) {
-        std::cerr
-        << "ERROR:"
-        << " thisNumRedBins/2: " << thisNumRedBins/2
-        << " binTri.redBins: " << binTri.redBins
-        << endl;
-    }
-    assert(thisNumRedBins % 2 == 0);
-    assert(thisNumRedBins/2 == binTri.redBins);
-
-    if (thisNumIrredTris/3 != binTri.irredTris) {
-        std::cerr
-        << "ERROR:"
-        << " thisNumIrredTris/3: " << thisNumIrredTris/3
-        << " binTri.irredTris: " << binTri.irredTris
-        << endl;
-    }
-    assert(thisNumIrredTris % 3 == 0);
-    assert(thisNumIrredTris/3 == binTri.irredTris);
-
-    if (thisNumRedTris/3 != binTri.redTris) {
-        std::cerr
-        << "ERROR:"
-        << " thisNumRedTris/3: " << thisNumRedTris/3
-        << " binTri.redTris: " << binTri.redTris
-        << endl;
-    }
-    assert(thisNumRedTris % 3 == 0);
-    assert(thisNumRedTris/3 == binTri.redTris);
-
-    const double time_used = cpuTime() - myTime;
-    if (sqlStats) {
-        sqlStats->time_passed_min(
-            this
-            , "check implicit stats"
-            , time_used
-        );
-    }
-}
-
-uint64_t Solver::count_lits(
-    const vector<ClOffset>& clause_array
-    , bool allowFreed
-) const {
-    uint64_t lits = 0;
-    for(vector<ClOffset>::const_iterator
-        it = clause_array.begin(), end = clause_array.end()
-        ; it != end
-        ; ++it
-    ) {
-        const Clause& cl = *cl_alloc.ptr(*it);
-        if (cl.freed()) {
-            assert(allowFreed);
-        } else {
-            lits += cl.size();
-        }
-    }
-
-    return lits;
-}
-
-void Solver::check_stats(const bool allowFreed) const
-{
-    //If in crazy mode, don't check
-    #ifdef NDEBUG
-    return;
-    #endif
-
-    check_implicit_stats();
-
-    const double myTime = cpuTime();
-    uint64_t numLitsIrred = count_lits(longIrredCls, allowFreed);
-    if (numLitsIrred != litStats.irredLits) {
-        std::cerr << "ERROR: " << endl
-        << "->numLitsIrred: " << numLitsIrred << endl
-        << "->litStats.irredLits: " << litStats.irredLits << endl;
-    }
-    assert(numLitsIrred == litStats.irredLits);
-
-    uint64_t numLitsRed = count_lits(longRedCls, allowFreed);
-    if (numLitsRed != litStats.redLits) {
-        std::cerr << "ERROR: " << endl
-        << "->numLitsRed: " << numLitsRed << endl
-        << "->litStats.redLits: " << litStats.redLits << endl;
-    }
-    assert(numLitsRed == litStats.redLits);
-
-    const double time_used = cpuTime() - myTime;
-    if (sqlStats) {
-        sqlStats->time_passed_min(
-            this
-            , "check literal stats"
-            , time_used
-        );
-    }
 }
 
 const char* Solver::get_version_sha1()
@@ -2891,7 +2639,7 @@ void Solver::print_watch_list(watch_subarray_const ws, const Lit lit) const
             << "Clause: " << *cl_alloc.ptr(it->get_offset());
         }
 
-        if (it->isBinary()) {
+        if (it->isBin()) {
             cout
             << "BIN: " << lit << ", " << it->lit2()
             << " (l: " << it->red() << ")";
@@ -2935,7 +2683,7 @@ void Solver::check_implicit_propagated() const
             const lbool val2 = value(it2->lit2());
 
             //Handle binary
-            if (it2->isBinary()) {
+            if (it2->isBin()) {
                 if (val1 == l_False) {
                     if (val2 != l_True) {
                         cout << "not prop BIN: "
@@ -3014,7 +2762,6 @@ void Solver::calculate_reachability()
         //Check if it's a good idea to look at the variable as a dominator
         if (value(lit) != l_Undef
             || varData[lit.var()].removed != Removed::none
-            || !varData[lit.var()].is_decision
         ) {
             continue;
         }
@@ -3140,7 +2887,7 @@ bool Solver::add_clause_outer(const vector<Lit>& lits)
     return addClause(back_number_from_outside_to_outer_tmp);
 }
 
-bool Solver::add_xor_clause_outer(const vector<Var>& vars, bool rhs)
+bool Solver::add_xor_clause_outer(const vector<uint32_t>& vars, bool rhs)
 {
     if (!ok) {
         return false;
@@ -3206,7 +2953,7 @@ vector<pair<Lit, Lit> > Solver::get_all_binary_xors() const
 
     //Update to outer without BVA
     vector<pair<Lit, Lit> > ret;
-    const vector<Var> my_map = build_outer_to_without_bva_map();
+    const vector<uint32_t> my_map = build_outer_to_without_bva_map();
     for(std::pair<Lit, Lit> p: bin_xors) {
         if (p.first.var() < my_map.size()
             && p.second.var() < my_map.size()
@@ -3301,15 +3048,15 @@ void Solver::update_assumptions_after_varreplace()
 
 //TODO later, this can be removed, get_num_free_vars() is MUCH cheaper to
 //compute but may have some bugs here-and-there
-Var Solver::num_active_vars() const
+uint32_t Solver::num_active_vars() const
 {
-    Var numActive = 0;
+    uint32_t numActive = 0;
     uint32_t removed_decomposed = 0;
     uint32_t removed_replaced = 0;
     uint32_t removed_set = 0;
     uint32_t removed_elimed = 0;
     uint32_t removed_non_decision = 0;
-    for(Var var = 0; var < solver->nVarsOuter(); var++) {
+    for(uint32_t var = 0; var < solver->nVarsOuter(); var++) {
         if (value(var) != l_Undef) {
             if (varData[var].removed != Removed::none)
             {
@@ -3338,7 +3085,7 @@ Var Solver::num_active_vars() const
             case Removed::none:
                 break;
         }
-        if (!varData[var].is_decision) {
+        if (varData[var].removed != Removed::none) {
             removed_non_decision++;
         }
         numActive++;
@@ -3375,7 +3122,7 @@ Features Solver::calculate_features() const
     feat.avg_branch_depth = hist.branchDepthHist.avg();
     feat.avg_branch_depth_delta = hist.branchDepthDeltaHist.avg();
 
-    feat.confl_size_min = hist.conflSizeHistLT.getMax();
+    feat.confl_size_min = hist.conflSizeHistLT.getMin();
     feat.confl_size_max = hist.conflSizeHistLT.getMax();
     feat.confl_glue_min = hist.glueHistLT.getMin();
     feat.confl_glue_max = hist.glueHistLT.getMax();
@@ -3578,4 +3325,310 @@ void Solver::reconfigure(int val)
      * numCleanBetweenSimplify 2->4
      * bva: 1->0
     */
+}
+
+void Solver::save_state(const string& fname, const lbool status) const
+{
+    SimpleOutFile f;
+    f.start(fname);
+
+    f.put_lbool(status);
+    Searcher::save_state(f, status);
+    //f.put_struct(sumStats);
+    //f.put_struct(sumPropStats);
+    //f.put_vector(outside_assumptions);
+    //f.put_vector(litReachable);
+
+    varReplacer->save_state(f);
+    if (simplifier) {
+        simplifier->save_state(f);
+    }
+}
+
+lbool Solver::load_state(const string& fname)
+{
+    SimpleInFile f;
+    f.start(fname);
+
+    const lbool status = f.get_lbool();
+    Searcher::load_state(f, status);
+    //f.get_struct(sumStats);
+    //f.get_struct(sumPropStats);
+    //f.get_vector(outside_assumptions);
+    //f.get_vector(litReachable);
+
+    varReplacer->load_state(f);
+    if (simplifier) {
+        simplifier->load_state(f);
+    }
+
+    return status;
+}
+
+lbool Solver::load_solution_from_file(const string& fname)
+{
+    //At this point, model is set up, we just need to fill the l_Undef in
+    //from assigns
+    lbool status = l_Undef;
+    model = assigns;
+    FILE* input_stream = fopen(fname.c_str(), "r");
+    if (input_stream == NULL) {
+        std::cerr << "ERROR: could not open solution file "
+        << fname
+        << endl;
+        std::exit(-1);
+    }
+    StreamBuffer<FILE*, fread_op_norm, fread> in(input_stream);
+
+    unsigned lineNum = 0;
+    std::string str;
+    for (;;) {
+        in.skipWhitespace();
+        switch (*in) {
+            case EOF:
+                goto end;
+            case 's': {
+                ++in;
+                in.skipWhitespace();
+                in.parseString(str);
+                if (str == "SATISFIABLE") {
+                    status = l_True;
+                } else if (str == "UNSATISFIABLE") {
+                    status = l_False;
+                    goto end;
+                } else if (str == "INDETERMINATE") {
+                    status = l_Undef;
+                    goto end;
+                } else {
+                    std::cerr << "ERROR: Cannot parse solution line startig with 's'"
+                    << endl;
+                    std::exit(-1);
+                }
+                status = l_True;
+                in.skipLine();
+                lineNum++;
+                break;
+            }
+            case 'v': {
+                ++in;
+                parse_v_line(&in, lineNum);
+                in.skipLine();
+                lineNum++;
+                break;
+            }
+            case '\n':
+                std::cerr
+                << "c WARNING: Empty line at line number " << lineNum+1
+                << " -- this is not part of the DIMACS specifications. Ignoring."
+                << endl;
+                in.skipLine();
+                lineNum++;
+                break;
+            default:
+                in.skipLine();
+                lineNum++;
+                break;
+        }
+    }
+
+    end:
+    fclose(input_stream);
+    return status;
+}
+
+template<typename A>
+void Solver::parse_v_line(A* in, const size_t lineNum)
+{
+    model.resize(nVarsOuter(), l_Undef);
+
+    int32_t parsed_lit;
+    uint32_t var;
+    for (;;) {
+        if (!in->parseInt(parsed_lit, lineNum, true)) {
+            exit(-1);
+        }
+        if (parsed_lit == std::numeric_limits<int32_t>::max()) {
+            break;
+        }
+        if (parsed_lit == 0) break;
+        var = abs(parsed_lit)-1;
+        if (var >= nVars()) {
+            std::cerr
+            << "ERROR! "
+            << "Variable in solution is too large: " << var << endl
+            << "--> At line " << lineNum+1
+            << endl;
+            std::exit(-1);
+        }
+
+        //Don't overwrite previously computed values
+        if (model[var] == l_Undef
+            && varData[var].removed == Removed::none
+        ) {
+            model[var] = parsed_lit < 0 ? l_False : l_True;
+        }
+    }
+}
+
+
+void Solver::check_implicit_stats(const bool onlypairs) const
+{
+    //Don't check if in crazy mode
+    #ifdef NDEBUG
+    return;
+    #endif
+    const double myTime = cpuTime();
+
+    //Check number of red & irred binary clauses
+    uint64_t thisNumRedBins = 0;
+    uint64_t thisNumIrredBins = 0;
+    uint64_t thisNumRedTris = 0;
+    uint64_t thisNumIrredTris = 0;
+
+    size_t wsLit = 0;
+    for(watch_array::const_iterator
+        it = watches.begin(), end = watches.end()
+        ; it != end
+        ; ++it, wsLit++
+    ) {
+        watch_subarray_const ws = *it;
+        for(watch_subarray_const::const_iterator
+            it2 = ws.begin(), end2 = ws.end()
+            ; it2 != end2
+            ; it2++
+        ) {
+            if (it2->isBin()) {
+                #ifdef DEBUG_IMPLICIT_PAIRS_TRIPLETS
+                Lit lits[2];
+                lits[0] = Lit::toLit(wsLit);
+                lits[1] = it2->lit2();
+                std::sort(lits, lits + 2);
+                findWatchedOfBin(watches, lits[0], lits[1], it2->red());
+                findWatchedOfBin(watches, lits[1], lits[0], it2->red());
+                #endif
+
+                if (it2->red())
+                    thisNumRedBins++;
+                else
+                    thisNumIrredBins++;
+
+                continue;
+            }
+
+            if (it2->isTri()) {
+                assert(it2->lit2() < it2->lit3());
+                assert(it2->lit2().var() != it2->lit3().var());
+
+                #ifdef DEBUG_IMPLICIT_PAIRS_TRIPLETS
+                Lit lits[3];
+                lits[0] = Lit::toLit(wsLit);
+                lits[1] = it2->lit2();
+                lits[2] = it2->lit3();
+                std::sort(lits, lits + 3);
+                findWatchedOfTri(watches, lits[0], lits[1], lits[2], it2->red());
+                findWatchedOfTri(watches, lits[1], lits[0], lits[2], it2->red());
+                findWatchedOfTri(watches, lits[2], lits[0], lits[1], it2->red());
+                #endif //DEBUG_IMPLICIT_PAIRS_TRIPLETS
+
+                if (it2->red())
+                    thisNumRedTris++;
+                else
+                    thisNumIrredTris++;
+
+                continue;
+            }
+        }
+    }
+
+    if (onlypairs) {
+        goto end;
+    }
+
+    if (thisNumIrredBins/2 != binTri.irredBins) {
+        std::cerr
+        << "ERROR:"
+        << " thisNumIrredBins/2: " << thisNumIrredBins/2
+        << " binTri.irredBins: " << binTri.irredBins
+        << "thisNumIrredBins: " << thisNumIrredBins
+        << "thisNumRedBins: " << thisNumRedBins << endl;
+    }
+    assert(thisNumIrredBins % 2 == 0);
+    assert(thisNumIrredBins/2 == binTri.irredBins);
+
+    if (thisNumRedBins/2 != binTri.redBins) {
+        std::cerr
+        << "ERROR:"
+        << " thisNumRedBins/2: " << thisNumRedBins/2
+        << " binTri.redBins: " << binTri.redBins
+        << endl;
+    }
+    assert(thisNumRedBins % 2 == 0);
+    assert(thisNumRedBins/2 == binTri.redBins);
+
+    if (thisNumIrredTris/3 != binTri.irredTris) {
+        std::cerr
+        << "ERROR:"
+        << " thisNumIrredTris/3: " << thisNumIrredTris/3
+        << " binTri.irredTris: " << binTri.irredTris
+        << endl;
+    }
+    assert(thisNumIrredTris % 3 == 0);
+    assert(thisNumIrredTris/3 == binTri.irredTris);
+
+    if (thisNumRedTris/3 != binTri.redTris) {
+        std::cerr
+        << "ERROR:"
+        << " thisNumRedTris/3: " << thisNumRedTris/3
+        << " binTri.redTris: " << binTri.redTris
+        << endl;
+    }
+    assert(thisNumRedTris % 3 == 0);
+    assert(thisNumRedTris/3 == binTri.redTris);
+
+    end:
+
+    const double time_used = cpuTime() - myTime;
+    if (sqlStats) {
+        sqlStats->time_passed_min(
+            this
+            , "check implicit stats"
+            , time_used
+        );
+    }
+}
+
+void Solver::check_stats(const bool allowFreed) const
+{
+    //If in crazy mode, don't check
+    #ifdef NDEBUG
+    return;
+    #endif
+
+    check_implicit_stats();
+
+    const double myTime = cpuTime();
+    uint64_t numLitsIrred = count_lits(longIrredCls, allowFreed);
+    if (numLitsIrred != litStats.irredLits) {
+        std::cerr << "ERROR: " << endl
+        << "->numLitsIrred: " << numLitsIrred << endl
+        << "->litStats.irredLits: " << litStats.irredLits << endl;
+    }
+    assert(numLitsIrred == litStats.irredLits);
+
+    uint64_t numLitsRed = count_lits(longRedCls, allowFreed);
+    if (numLitsRed != litStats.redLits) {
+        std::cerr << "ERROR: " << endl
+        << "->numLitsRed: " << numLitsRed << endl
+        << "->litStats.redLits: " << litStats.redLits << endl;
+    }
+    assert(numLitsRed == litStats.redLits);
+
+    const double time_used = cpuTime() - myTime;
+    if (sqlStats) {
+        sqlStats->time_passed_min(
+            this
+            , "check literal stats"
+            , time_used
+        );
+    }
 }

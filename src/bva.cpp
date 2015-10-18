@@ -50,7 +50,7 @@ bool BVA::bounded_var_addition()
         return solver->okay();
 
     if (solver->conf.verbosity >= 3 || bva_verbosity) {
-        cout << "c [bva] Running BVA" << endl;
+        cout << "c [occ-bva] Running BVA" << endl;
     }
 
     if (!solver->propagate_occur())
@@ -88,7 +88,7 @@ bool BVA::bounded_var_addition()
 
         const Lit lit = Lit::toLit(var_bva_order.remove_min());
         if (solver->conf.verbosity >= 5 || bva_verbosity) {
-            cout << "c [bva] trying lit " << lit << endl;
+            cout << "c [occ-bva] trying lit " << lit << endl;
         }
         bool ok = try_bva_on_lit(lit);
         if (!ok)
@@ -98,10 +98,10 @@ bool BVA::bounded_var_addition()
 
     bool time_out = *simplifier->limit_to_decrease <= 0;
     const double time_used = cpuTime() - my_time;
-    double time_remain = calc_percentage(*simplifier->limit_to_decrease ,limit_orig);
+    double time_remain = float_div(*simplifier->limit_to_decrease ,limit_orig);
     if (solver->conf.verbosity >= 2) {
         cout
-        << "c [bva] added: " << bva_worked
+        << "c [occ-bva] added: " << bva_worked
         << " simp: " << bva_simp_size
         << " 2lit: " << ((solver->conf.bva_also_twolit_diff
             && (long)solver->sumConflicts() >= solver->conf.bva_extra_lit_and_red_start) ? "Y" : "N")
@@ -174,6 +174,12 @@ void BVA::remove_duplicates_from_m_cls()
                     }
                     return false;
                 }
+                case CMSat::watch_idx_t: {
+                    // This should never be here
+                    assert(false);
+                    exit(-1);
+                    break;
+                }
             }
 
             assert(false);
@@ -224,6 +230,12 @@ void BVA::remove_duplicates_from_m_cls()
                     }
                 }
                 break;
+            }
+
+            case CMSat::watch_idx_t: {
+                // This should never be here
+                assert(false);
+                exit(-1);
             }
         }
 
@@ -310,7 +322,7 @@ bool BVA::bva_simplify_system()
     int simp_size = simplification_size(m_lits.size(), m_cls.size());
     if (solver->conf.verbosity >= 6 || bva_verbosity) {
         cout
-        << "c [bva] YES Simplification by "
+        << "c [occ-bva] YES Simplification by "
         << simp_size
         << " with matching lits: ";
         for(const lit_pair l: m_lits) {
@@ -321,7 +333,7 @@ bool BVA::bva_simplify_system()
             cout << "), ";
         }
         cout << endl;
-        cout << "c [bva] cls: ";
+        cout << "c [occ-bva] cls: ";
         for(OccurClause cl: m_cls) {
             cout
             << "(" << solver->watched_to_string(cl.lit, cl.ws) << ")"
@@ -333,7 +345,7 @@ bool BVA::bva_simplify_system()
     bva_simp_size += simp_size;
 
     solver->new_var(true);
-    const Var newvar = solver->nVars()-1;
+    const uint32_t newvar = solver->nVars()-1;
     const Lit new_lit(newvar, false);
 
     //Binary clauses
@@ -394,18 +406,18 @@ void BVA::fill_m_cls_lits_and_red()
         tmp.clear();
         bool red;
         switch(cl.ws.getType()) {
-            case CMSat::watch_binary_t:
+            case CMSat::watch_binary_t: {
                 tmp.push_back(cl.ws.lit2());
                 red = cl.ws.red();
                 break;
-
-            case CMSat::watch_tertiary_t:
+            }
+            case CMSat::watch_tertiary_t: {
                 tmp.push_back(cl.ws.lit2());
                 tmp.push_back(cl.ws.lit3());
                 red = cl.ws.red();
                 break;
-
-            case CMSat::watch_clause_t:
+            }
+            case CMSat::watch_clause_t: {
                 const Clause* cl_orig = solver->cl_alloc.ptr(cl.ws.get_offset());
                 for(const Lit lit: *cl_orig) {
                     if (cl.lit != lit) {
@@ -414,6 +426,15 @@ void BVA::fill_m_cls_lits_and_red()
                 }
                 red = cl_orig->red();
                 break;
+            }
+            case CMSat::watch_idx_t:
+            default:
+            {
+                // This should never be here
+                assert(false);
+                exit(-1);
+                break;
+            }
         }
         m_cls_lits.push_back(m_cls_lits_and_red(tmp, red));
     }
@@ -425,7 +446,7 @@ void BVA::remove_matching_clause(
 ) {
     if (solver->conf.verbosity >= 6 || bva_verbosity) {
         cout
-        << "c [bva] Removing cl "
+        << "c [occ-bva] Removing cl "
         //<< solver->watched_to_string(lit_replace, cl.ws)
         << endl;
     }
@@ -443,7 +464,6 @@ void BVA::remove_matching_clause(
     switch(to_remove.size()) {
         case 2: {
             *simplifier->limit_to_decrease -= 2*solver->watches[to_remove[0].toInt()].size();
-            //bool red = !findWBin(solver->watches, to_remove[0], to_remove[1], false);
             bool red = false;
             *(solver->drup) << del << to_remove << fin;
             solver->detach_bin_clause(to_remove[0], to_remove[1], red);
@@ -453,7 +473,6 @@ void BVA::remove_matching_clause(
         case 3: {
             std::sort(to_remove.begin(), to_remove.end());
             *simplifier->limit_to_decrease -= 2*solver->watches[to_remove[0].toInt()].size();
-            //bool red = !findWTri(solver->watches, to_remove[0], to_remove[1], to_remove[2], false);
             bool red = false;
             *(solver->drup) << del << to_remove << fin;
             solver->detach_tri_clause(to_remove[0], to_remove[1], to_remove[2], red);
@@ -546,6 +565,13 @@ bool BVA::add_longer_clause(const Lit new_lit, const OccurClause& cl)
             }
             break;
         }
+
+        case CMSat::watch_idx_t: {
+            // This should never be here
+            assert(false);
+            exit(-1);
+            break;
+        }
     }
     touched.touch(lits);
 
@@ -587,7 +613,7 @@ void BVA::fill_potential(const Lit lit)
 
         if (solver->conf.verbosity >= 6 || bva_verbosity) {
             cout
-            << "c [bva] Examining clause for addition to 'potential':"
+            << "c [occ-bva] Examining clause for addition to 'potential':"
             << solver->watched_to_string(c.lit, c.ws)
             << " -- Least occurring in this CL: " << l_min
             << endl;
@@ -620,7 +646,7 @@ void BVA::fill_potential(const Lit lit)
 
                     if (solver->conf.verbosity >= 6 || bva_verbosity) {
                         cout
-                        << "c [bva] Added to P: "
+                        << "c [occ-bva] Added to P: "
                         << potential.back().to_string(solver)
                         << endl;
                     }
@@ -695,7 +721,7 @@ BVA::lit_pair BVA::most_occuring_lit_in_potential(size_t& largest)
 
     if (solver->conf.verbosity >= 5 || bva_verbosity) {
         cout
-        << "c [bva] ---> Most occuring lit in p: " << most_occur.lit1 << ", " << most_occur.lit2
+        << "c [occ-bva] ---> Most occuring lit in p: " << most_occur.lit1 << ", " << most_occur.lit2
         << " occur num: " << largest
         << endl;
     }
@@ -782,7 +808,7 @@ size_t BVA::calc_watch_irred_size(const Lit lit) const
     size_t num = 0;
     watch_subarray_const ws = solver->watches[lit.toInt()];
     for(const Watched w: ws) {
-        if (w.isBinary() || w.isTri()) {
+        if (w.isBin() || w.isTri()) {
             num += !w.red();
             continue;
         }

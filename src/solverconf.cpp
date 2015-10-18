@@ -39,7 +39,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
 
         //Clause cleaning
         , max_temporary_learnt_clauses(20000)
-        , protect_clause_if_imrpoved_glue_below_this_glue_for_one_turn(30)
+        , protect_cl_if_improved_glue_below_this_glue_for_one_turn(30)
         , clean_confl_multiplier(0.2)
         , clean_prop_multiplier(1.0)
         , doPreClauseCleanPropAndConfl(false)
@@ -82,7 +82,6 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , doPrintConflDot  (false)
         , print_all_stats   (false)
         , verbStats        (0)
-        , doPrintBestRedClauses(0)
         , do_print_times(1)
         , print_restart_line_every_n_confl(7000)
 
@@ -178,13 +177,26 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , never_stop_search(false)
         , num_conflicts_of_search(50ULL*1000ULL)
         , num_conflicts_of_search_inc(1.4)
-        , simplify_at_startup_sequence("sub-impl, simplify, scc-vrepl")
-        , simplify_nonstartup_sequence("handle-comps,"
-        "scc-vrepl, cache-clean, cache-tryboth,"
-        "sub-impl, intree-probe, probe,"
-        "str-cls, distill-cls, scc-vrepl, sub-impl, simplify,"
-        "str-impl, cache-clean, str-cls, distill-cls, scc-vrepl,"
-        "check-cache-size, renumber"
+        , simplify_schedule_startup("sub-impl, occ-backw-sub-str, occ-clean-implicit, occ-bve, scc-vrepl")
+        , simplify_schedule_nonstartup(
+            "handle-comps,"
+            "scc-vrepl, cache-clean, cache-tryboth,"
+            "sub-impl, intree-probe, probe,"
+            "sub-str-cls-with-bin, distill-cls,"
+            "scc-vrepl, sub-impl, str-impl,"
+            "occ-backw-sub-str, occ-xor, occ-clean-implicit, occ-bve, occ-bva, occ-gates,"
+            "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls, scc-vrepl,"
+            "check-cache-size, renumber"
+        )
+        , simplify_schedule_preproc(
+            "handle-comps,"
+            "scc-vrepl, cache-clean, cache-tryboth,"
+            "sub-impl, intree-probe, probe,"
+            "sub-str-cls-with-bin, distill-cls, scc-vrepl, sub-impl,"
+            "occ-backw-sub-str, occ-xor, occ-clean-implicit, occ-bve, occ-bva, occ-gates,"
+            "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls, scc-vrepl,"
+            "str-impl, sub-impl, sub-str-cls-with-bin, occ-backw-sub-str, occ-bve,"
+            "check-cache-size, renumber"
         )
 
         //Occur based simplification
@@ -194,13 +206,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , maxOccurIrredMB  (800)
         , maxOccurRedMB    (800)
         , maxOccurRedLitLinkedM(50)
-        , subsume_gothrough_multip(4.0)
-        , occsimp_schedule_nonstartup("backw-subsume, xor, prop,"
-        "clean-implicit, bve, prop,"
-        "bva, gates, backw-subsume")
-        , occsimp_schedule_startup("backw-subsume, prop,"
-        "clean-implicit, bve, prop,"
-        "backw-subsume")
+        , subsume_gothrough_multip(10.0)
 
         //Distillation
         , do_distill_clauses(true)
@@ -213,7 +219,6 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , doSaveMem        (true)
 
         //Component finding
-        , doFindComps     (false)
         , doCompHandler    (true)
         , handlerFromSimpNum (0)
         , compVarLimit      (1ULL*1000ULL*1000ULL)
@@ -224,7 +229,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , doSortWatched    (true)
         , doStrSubImplicit (true)
         , subsume_implicit_time_limitM(30LL)
-        , strengthen_implicit_time_limitM(50LL)
+        , strengthen_implicit_time_limitM(200LL)
         , doCalcReach      (true)
 
         //Gates
@@ -247,6 +252,8 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , clean_after_perc_zero_depth_assigns(0.015)
         , reconfigure_val(0)
         , reconfigure_at(2)
+        , preprocess(0)
+        , saved_state_file("savedstate.dat")
 {
 
     ratio_keep_clauses[clean_to_int(ClauseClean::glue)] = 0;

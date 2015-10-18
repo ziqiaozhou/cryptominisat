@@ -49,7 +49,6 @@ class Main
         string typeclean;
         string var_elim_strategy;
         string drupfilname;
-        int drupExistsCheck = 1;
         void add_supported_options();
         void check_options_correctness();
         void manually_parse_some_options();
@@ -63,6 +62,8 @@ class Main
         po::positional_options_description p;
         po::variables_map vm;
         po::options_description cmdline_options;
+        po::options_description help_options_simple;
+        po::options_description help_options_complicated;
 
         SATSolver* solver = NULL;
 
@@ -85,10 +86,9 @@ class Main
         SolverConf conf;
         bool needResultFile = false;
         bool zero_exit_status = false;
-        bool satcomp = false;
         std::string resultFilename;
 
-        bool debugLib = false;
+        std::string debugLib;
         int printResult = true;
         string commandLine;
         unsigned num_threads = 1;

@@ -57,7 +57,7 @@ void SubsumeImplicit::try_subsume_tri(
         && lastLit3 == lit_Undef
     ) {
         if (lastRed && !i->red()) {
-            assert(lastBin->isBinary());
+            assert(lastBin->isBin());
             assert(lastBin->red());
             assert(lastBin->lit2() == lastLit2);
 
@@ -105,7 +105,7 @@ void SubsumeImplicit::try_subsume_tri(
         && (solver->conf.otfHyperbin || !solver->drup->enabled())
     ) {
         for(size_t at = 0; at < tmplits.size() && !remove; at++) {
-            timeAvailable -= solver->implCache[lit.toInt()].lits.size();
+            timeAvailable -= (int64_t)solver->implCache[lit.toInt()].lits.size();
             for (vector<LitExtra>::const_iterator
                 it2 = solver->implCache[tmplits[at].toInt()].lits.begin()
                 , end2 = solver->implCache[tmplits[at].toInt()].lits.end()
@@ -211,7 +211,7 @@ void SubsumeImplicit::subsume_implicit(const bool check_stats)
 
         if (ws.size() > 1) {
             timeAvailable -= ws.size()*std::ceil(std::log((double)ws.size())) + 20;
-            std::sort(ws.begin(), ws.end(), WatchSorter());
+            std::sort(ws.begin(), ws.end(), WatchSorterBinTriLong());
         }
         /*cout << "---> Before" << endl;
         print_watch_list(ws, lit);*/
@@ -249,7 +249,7 @@ void SubsumeImplicit::subsume_implicit(const bool check_stats)
 
     const double time_used = cpuTime() - myTime;
     const bool time_out = (timeAvailable <= 0);
-    const double time_remain = calc_percentage(timeAvailable, orig_timeAvailable);
+    const double time_remain = float_div(timeAvailable, orig_timeAvailable);
     runStats.numCalled++;
     runStats.time_used += time_used;
     runStats.time_out += time_out;
@@ -306,7 +306,7 @@ void SubsumeImplicit::Stats::print() const
     cout << "c -------- IMPLICIT SUB STATS --------" << endl;
     print_stats_line("c time"
         , time_used
-        , time_used/(double)numCalled
+        , float_div(time_used, numCalled)
         , "per call"
     );
 

@@ -26,7 +26,7 @@ THE SOFTWARE.
 #include <errno.h>
 #include <iostream>
 #include <stdlib.h>
-#include <errno.h>
+#include <string.h>
 
 using std::cout;
 using std::endl;
@@ -38,8 +38,16 @@ using std::endl;
 #include "solverconf.h"
 #include "cryptominisat4/cryptominisat.h"
 #include "dimacsparser.h"
+
 using namespace CMSat;
 std::ostream* drupf;
+
+#ifdef USE_ZLIB
+static size_t gz_read(void* buf, size_t num, size_t count, gzFile f)
+{
+    return gzread(f, buf, num*count);
+}
+#endif
 
 SATSolver* solver;
 bool zero_exit_status = false;
@@ -129,11 +137,11 @@ int main(int argc, char** argv)
     drupf = NULL;
 
     int i, j;
-    int num_threads = 1;
+    long int num_threads = 1;
     const char* value;
     for (i = j = 0; i < argc; i++){
         if ((value = hasPrefix(argv[i], "--drup="))){
-            int drup = (int)strtol(value, NULL, 10);
+            long int drup = (int)strtol(value, NULL, 10);
             if (drup == 0 && errno == EINVAL){
                 printf("ERROR! illegal drup level %s\n", value);
                 exit(0);
@@ -142,7 +150,7 @@ int main(int argc, char** argv)
                 drup_stuff(conf);
             }
         }else if ((value = hasPrefix(argv[i], "--verb="))){
-            int verbosity = (int)strtol(value, NULL, 10);
+            long int verbosity = (int)strtol(value, NULL, 10);
             if (verbosity == 0 && errno == EINVAL){
                 printf("ERROR! illegal verbosity level %s\n", value);
                 exit(0);
@@ -193,12 +201,15 @@ int main(int argc, char** argv)
         printf("Reading from standard input... Use '-h' or '--help' for help.\n");
         #ifndef USE_ZLIB
         FILE* in = stdin;
+        DimacsParser<StreamBuffer<FILE*, fread_op_norm, fread> > parser(solver, "", conf.verbosity);
         #else
         gzFile in = gzdopen(fileno(stdin), "rb");
+        DimacsParser<StreamBuffer<gzFile, fread_op_zip, gz_read> > parser(solver, "", conf.verbosity);
         #endif
 
-        DimacsParser parser(solver, false, conf.verbosity);
-        parser.parse_DIMACS(in);
+        if (!parser.parse_DIMACS(in)) {
+            exit(-1);
+        }
 
         #ifndef USE_ZLIB
         fclose(in);
@@ -213,11 +224,25 @@ int main(int argc, char** argv)
         #endif
 
         if (in == NULL) {
-            printf("ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]);
+            std::cout << "ERROR! Could not open file: ";
+            if (argc == 1) {
+                std::cout << "<stdin>";
+            } else {
+                std::cout << argv[1] << " reason: " << strerror(errno);
+            }
+            std::cout << std::endl;
             std::exit(1);
         }
-        DimacsParser parser(solver, false, conf.verbosity);
-        parser.parse_DIMACS(in);
+
+        #ifndef USE_ZLIB
+        DimacsParser<StreamBuffer<FILE*, fread_op_norm, fread> > parser(solver, "", conf.verbosity);
+        #else
+        DimacsParser<StreamBuffer<gzFile, fread_op_zip, gz_read> > parser(solver, "", conf.verbosity);
+        #endif
+
+        if (!parser.parse_DIMACS(in)) {
+            exit(-1);
+        }
 
         #ifndef USE_ZLIB
         fclose(in);

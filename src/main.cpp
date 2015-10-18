@@ -20,6 +20,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#if defined(__GNUC__) && defined(__linux__)
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+#include <fenv.h>
+#endif
+
 #include <ctime>
 #include <cstring>
 #include <errno.h>
@@ -34,12 +43,20 @@ THE SOFTWARE.
 #include <sys/stat.h>
 #include <unistd.h>
 #include <thread>
+#include <string.h>
 
 #include "main.h"
 #include "main_common.h"
 #include "time_mem.h"
 #include "dimacsparser.h"
 #include "cryptominisat4/cryptominisat.h"
+
+#ifdef USE_ZLIB
+static size_t gz_read(void* buf, size_t num, size_t count, gzFile f)
+{
+    return gzread(f, buf, num*count);
+}
+#endif
 
 
 #include <boost/lexical_cast.hpp>
@@ -128,22 +145,25 @@ void Main::readInAFile(const string& filename)
         cout << "c Reading file '" << filename << "'" << endl;
     }
     #ifndef USE_ZLIB
-        FILE * in = fopen(filename.c_str(), "rb");
+    FILE * in = fopen(filename.c_str(), "rb");
+    DimacsParser<StreamBuffer<FILE*, fread_op_norm, fread> > parser(solver, debugLib, conf.verbosity);
     #else
-        gzFile in = gzopen(filename.c_str(), "rb");
+    gzFile in = gzopen(filename.c_str(), "rb");
+    DimacsParser<StreamBuffer<gzFile, fread_op_zip, gz_read> > parser(solver, debugLib, conf.verbosity);
     #endif
 
     if (in == NULL) {
         std::cerr
         << "ERROR! Could not open file '"
         << filename
-        << "' for reading" << endl;
+        << "' for reading: " << strerror(errno) << endl;
 
         std::exit(1);
     }
 
-    DimacsParser parser(solver, debugLib, conf.verbosity);
-    parser.parse_DIMACS(in);
+    if (!parser.parse_DIMACS(in)) {
+        exit(-1);
+    }
 
     #ifndef USE_ZLIB
         fclose(in);
@@ -161,9 +181,9 @@ void Main::readInStandardInput()
     }
 
     #ifndef USE_ZLIB
-        FILE * in = stdin;
+    FILE * in = stdin;
     #else
-        gzFile in = gzdopen(fileno(stdin), "rb");
+    gzFile in = gzdopen(fileno(stdin), "rb");
     #endif
 
     if (in == NULL) {
@@ -171,8 +191,15 @@ void Main::readInStandardInput()
         std::exit(1);
     }
 
-    DimacsParser parser(solver, debugLib, conf.verbosity);
-    parser.parse_DIMACS(in);
+    #ifndef USE_ZLIB
+    DimacsParser<StreamBuffer<FILE*, fread_op_norm, fread> > parser(solver, debugLib, conf.verbosity);
+    #else
+    DimacsParser<StreamBuffer<gzFile, fread_op_zip, gz_read> > parser(solver, debugLib, conf.verbosity);
+    #endif
+
+    if (!parser.parse_DIMACS(in)) {
+        exit(-1);
+    }
 
     #ifdef USE_ZLIB
         gzclose(in);
@@ -184,9 +211,9 @@ void Main::parseInAllFiles()
     const double myTime = cpuTime();
 
     //First read normal extra files
-    if (debugLib && filesToRead.size() > 1) {
+    if (!debugLib.empty() && filesToRead.size() > 1) {
         cout
-        << "debugNewVar and debugLib must both be OFF"
+        << "debugLib must be OFF"
         << "to parse in more than one file"
         << endl;
 
@@ -199,8 +226,9 @@ void Main::parseInAllFiles()
         readInAFile(it->c_str());
     }
 
-    if (!fileNamePresent)
+    if (!fileNamePresent) {
         readInStandardInput();
+    }
 
     if (conf.verbosity >= 1) {
         cout
@@ -252,34 +280,25 @@ void Main::add_supported_options()
     // Declare the supported options.
     po::options_description generalOptions("Most important options");
     generalOptions.add_options()
-    ("help,h", "Prints this help")
-    ("version,v", "Print version number")
-    ("input", po::value< vector<string> >(), "file(s) to read")
+    ("help,h", "Print simple help")
+    ("hhelp", "Print extensive help")
+    ("version,v", "Print version info")
+    ("verb", po::value(&conf.verbosity)->default_value(conf.verbosity)
+        , "[0-10] Verbosity of solver. 0 = only solution")
     ("random,r", po::value(&conf.origSeed)->default_value(conf.origSeed)
-        , "[0..] Sets random seed")
+        , "[0..] Random seed")
     ("threads,t", po::value(&num_threads)->default_value(1)
         ,"Number of threads")
     ("sync", po::value(&conf.sync_every_confl)->default_value(conf.sync_every_confl)
         , "Sync threads every N conflicts")
     ("maxtime", po::value(&conf.maxTime)->default_value(conf.maxTime, "MAX")
-        , "Stop solving after this much time, print stats and exit")
+        , "Stop solving after this much time (s)")
     ("maxconfl", po::value(&conf.maxConfl)->default_value(conf.maxConfl, "MAX")
-        , "Stop solving after this many conflicts, print stats and exit")
-    ("occsimp", po::value(&conf.perform_occur_based_simp)->default_value(conf.perform_occur_based_simp)
-        , "Perform occurrence-list-based optimisations (variable elimination, subsumption, bounded variable addition...)")
-    ("drup,d", po::value(&drupfilname)
-        , "Put DRUP verification information into this file")
-    ("drupexistscheck", po::value(&drupExistsCheck)->default_value(drupExistsCheck)
-        , "Check if the drup file provided already exists")
-    ("satcomp", po::bool_switch(&satcomp)
-        , "Run with sat competition-tuned defaults")
-    ("drupdebug", po::bool_switch(&drupDebug)
-        , "Output DRUP verification into the console. Helpful to see where DRUP fails -- use in conjunction with --verb 20")
-    ("reconf", po::value(&conf.reconfigure_val)->default_value(conf.reconfigure_val)
-        , "Reconfigure after some time to this solver conf")
-    ("reconfat", po::value(&conf.reconfigure_at)->default_value(conf.reconfigure_at)
-        , "Reconfigure after this many simplifications"
-    )
+        , "Stop solving after this many conflicts")
+    ("mult,m", po::value(&conf.orig_global_timeout_multiplier)->default_value(conf.orig_global_timeout_multiplier)
+        , "Multiplier for all simplification cutoffs")
+    ("preproc,p", po::value(&conf.preprocess)->default_value(conf.preprocess)
+        , "0 = normal run, 1 = preprocess and dump, 2 = read back dump and solution to produce final solution")
     //("greedyunbound", po::bool_switch(&conf.greedyUnbound)
     //    , "Greedily unbound variables that are not needed for SAT")
     ;
@@ -368,7 +387,7 @@ void Main::add_supported_options()
         , "Maximum length of redundant clause dumped")
     ("dumpirred", po::value(&irredDumpFname)
         , "If stopped, dump irred original problem here")
-    ("debuglib", po::bool_switch(&debugLib)
+    ("debuglib", po::value<string>(&debugLib)
         , "MainSolver at specific 'solve()' points in CNF file")
     ("dumpresult", po::value(&resultFilename)
         , "Write result(s) to this file")
@@ -391,7 +410,7 @@ void Main::add_supported_options()
     ;
 
     std::ostringstream ssERatio;
-    ssERatio << std::setprecision(4) << conf.varElimRatioPerIter;
+    ssERatio << std::setprecision(4) << "norm: " << conf.varElimRatioPerIter << " preproc: " << 1.0;
 
     po::options_description simplificationOptions("Simplification options");
     simplificationOptions.add_options()
@@ -402,15 +421,13 @@ void Main::add_supported_options()
     ("nonstop,n", po::value(&conf.never_stop_search)->default_value(conf.never_stop_search)
         , "Never stop the search() process in class Solver")
 
-    ("schedule", po::value(&conf.simplify_nonstartup_sequence)->default_value(conf.simplify_nonstartup_sequence, string())
+    ("schedule", po::value(&conf.simplify_schedule_nonstartup)
         , "Schedule for simplification during run")
-    ("preschedule", po::value(&conf.simplify_at_startup_sequence)->default_value(conf.simplify_at_startup_sequence, string())
+    ("preschedule", po::value(&conf.simplify_schedule_startup)
         , "Schedule for simplification at startup")
 
-    ("occschedule", po::value(&conf.occsimp_schedule_nonstartup)->default_value(conf.occsimp_schedule_nonstartup, string())
-        , "Schedule for simplification during run")
-    ("occpreschedule", po::value(&conf.occsimp_schedule_startup)->default_value(conf.occsimp_schedule_startup, string())
-        , "Schedule for simplification at startup")
+    ("occsimp", po::value(&conf.perform_occur_based_simp)->default_value(conf.perform_occur_based_simp)
+        , "Perform occurrence-list-based optimisations (variable elimination, subsumption, bounded variable addition...)")
 
 
     ("confbtwsimp", po::value(&conf.num_conflicts_of_search)->default_value(conf.num_conflicts_of_search)
@@ -586,23 +603,28 @@ void Main::add_supported_options()
 
     po::options_description printOptions("Printing options");
     printOptions.add_options()
-    ("verb", po::value(&conf.verbosity)->default_value(conf.verbosity)
-        , "[0-10] Verbosity of solver. 0 = only solution")
     ("verbstat", po::value(&conf.verbStats)->default_value(conf.verbStats)
-        , "Turns off verbose stats if needed")
+        , "Change verbosity of statistics at the end of the solving [0..2]")
     ("printfull", po::value(&conf.print_all_stats)->default_value(conf.print_all_stats)
         , "Print more thorough, but different stats")
     ("printsol,s", po::value(&printResult)->default_value(printResult)
         , "Print assignment if solution is SAT")
-    ("printbest", po::value(&conf.doPrintBestRedClauses)->default_value(conf.doPrintBestRedClauses)
-        , "Print the best N irredundant longer-than-3 learnt clauses. Value '0' means not to print anything.")
-    ("printtimes", po::value(&conf.do_print_times)->default_value(conf.do_print_times)
-        , "Print time it took for each simplification run. If set to 0, logs are easier to compare")
     ("restartprint", po::value(&conf.print_restart_line_every_n_confl)->default_value(conf.print_restart_line_every_n_confl)
         , "Print restart status lines at least every N conflicts")
     ;
 
-    po::options_description miscOptions("Misc options");
+    po::options_description componentOptions("Component options");
+    componentOptions.add_options()
+    ("comps", po::value(&conf.doCompHandler)->default_value(conf.doCompHandler)
+        , "Perform component-finding and separate handling")
+    ("compsfrom", po::value(&conf.handlerFromSimpNum)->default_value(conf.handlerFromSimpNum)
+        , "Component finding only after this many simplification rounds")
+    ("compsvar", po::value(&conf.compVarLimit)->default_value(conf.compVarLimit)
+        , "Only use components in case the number of variables is below this limit")
+    ("compslimit", po::value(&conf.comp_find_time_limitM)->default_value(conf.comp_find_time_limitM)
+        , "Limit how much time is spent in component-finding");
+
+    po::options_description miscOptions("Simplification options");
     miscOptions.add_options()
     //("noparts", "Don't find&solve subproblems with subsolvers")
     ("distill", po::value(&conf.do_distill_clauses)->default_value(conf.do_distill_clauses)
@@ -627,24 +649,49 @@ void Main::add_supported_options()
         , "Timeout (in bogoprop Millions) of implicit strengthening")
     ("burst", po::value(&conf.burst_search_len)->default_value(conf.burst_search_len)
         , "Number of conflicts to do in burst search")
+    ;
+
+    po::options_description hiddenOptions("Debug options for fuzzing, weird options not exposed");
+    hiddenOptions.add_options()
+    ("drupdebug", po::bool_switch(&drupDebug)
+        , "Output DRUP verification into the console. Helpful to see where DRUP fails -- use in conjunction with --verb 20")
     ("clearinter", po::value(&clear_interrupt)->default_value(0)
         , "Interrupt threads cleanly, all the time")
     ("zero-exit-status", po::bool_switch(&zero_exit_status)
         , "Exit with status zero in case the solving has finished without an issue")
+    ("input", po::value< vector<string> >(), "file(s) to read")
+    ("reconfat", po::value(&conf.reconfigure_at)->default_value(conf.reconfigure_at)
+        , "Reconfigure after this many simplifications")
+    ("printtimes", po::value(&conf.do_print_times)->default_value(conf.do_print_times)
+        , "Print time it took for each simplification run. If set to 0, logs are easier to compare")
+    ("drup,d", po::value(&drupfilname)
+        , "Put DRUP verification information into this file")
+    ("reconf", po::value(&conf.reconfigure_val)->default_value(conf.reconfigure_val)
+        , "Reconfigure after some time to this solver configuration [0..13]")
+    ("savedstate", po::value(&conf.saved_state_file)->default_value(conf.saved_state_file)
+        , "The file to save the saved state of the solver")
     ;
 
-    po::options_description componentOptions("Component options");
-    componentOptions.add_options()
-    ("findcomp", po::value(&conf.doFindComps)->default_value(conf.doFindComps)
-        , "Find components, but do not treat them")
-    ("comps", po::value(&conf.doCompHandler)->default_value(conf.doCompHandler)
-        , "Perform component-finding and separate handling")
-    ("compsfrom", po::value(&conf.handlerFromSimpNum)->default_value(conf.handlerFromSimpNum)
-        , "Component finding only after this many simplification rounds")
-    ("compsvar", po::value(&conf.compVarLimit)->default_value(conf.compVarLimit)
-        , "Only use components in case the number of variables is below this limit")
-    ("compslimit", po::value(&conf.comp_find_time_limitM)->default_value(conf.comp_find_time_limitM)
-        , "Limit how much time is spent in component-finding");
+    po::options_description gaussOptions("Gauss options");
+    gaussOptions.add_options()
+    ("nomatrixfind"
+        , "Don't find distinct matrixes. Put all xors into one big matrix")
+    ("noordercol"
+        , "Don't order variables in the columns of Gaussian elimination."
+        "Effectively disables iterative reduction of the matrix")
+    ("noiterreduce"
+        , "Don't reduce iteratively the matrix that is updated")
+    ("maxmatrixrows", po::value(&conf.gaussconf.max_matrix_rows)->default_value(conf.gaussconf.max_matrix_rows)
+        , "Set maximum no. of rows for gaussian matrix. Too large matrixes"
+        "should bee discarded for reasons of efficiency")
+    ("minmatrixrows"
+        , "Set minimum no. of rows for gaussian matrix. Normally, too small"
+        "matrixes are discarded for reasons of efficiency.")
+    ("savematrix", po::value(&conf.gaussconf.only_nth_gauss_save)->default_value(conf.gaussconf.only_nth_gauss_save)
+        , "Save matrix every Nth decision level.")
+    ("maxnummatrixes", po::value(&conf.gaussconf.max_num_matrixes)->default_value(conf.gaussconf.max_num_matrixes)
+        , "Maximum number of matrixes to treat.")
+    ;
 
     p.add("input", 1);
     p.add("drup", 1);
@@ -672,6 +719,39 @@ void Main::add_supported_options()
     #endif
     .add(gateOptions)
     .add(miscOptions)
+    .add(hiddenOptions)
+    ;
+
+    help_options_complicated
+    .add(generalOptions)
+    #if defined(USE_MYSQL) or defined(USE_SQLITE3)
+    .add(sqlOptions)
+    #endif
+    .add(restartOptions)
+    .add(printOptions)
+    .add(propOptions)
+    .add(reduceDBOptions)
+    .add(varPickOptions)
+    .add(polar_options)
+    .add(conflOptions)
+    .add(iterativeOptions)
+    .add(probeOptions)
+    .add(stampOptions)
+    .add(simplificationOptions)
+    .add(eqLitOpts)
+    .add(componentOptions)
+    #ifdef USE_M4RI
+    .add(xorOptions)
+    #endif
+    .add(gateOptions)
+    .add(miscOptions)
+    #ifdef USE_GAUSS
+    .add(gaussOptions)
+    #endif
+    ;
+
+    help_options_simple
+    .add(generalOptions)
     ;
 }
 
@@ -679,11 +759,13 @@ void Main::check_options_correctness()
 {
     try {
         po::store(po::command_line_parser(argc, argv).options(cmdline_options).positional(p).run(), vm);
-        //po::store(po::parse_command_line(argc, argv, desc), vm);
-        if (vm.count("help"))
+        if (vm.count("hhelp"))
         {
             cout
-            << "USAGE: " << argv[0] << " [options] <input-files>" << endl
+            << "USAGE 1: " << argv[0] << " [options] inputfile [drat-trim-file]" << endl
+            << "USAGE 2: " << argv[0] << " --preproc 1 [options] inputfile simplified-cnf-file" << endl
+            << "USAGE 2: " << argv[0] << " --preproc 2 [options] solution-file" << endl
+
             << " where input is "
             #ifndef USE_ZLIB
             << "plain"
@@ -692,12 +774,34 @@ void Main::check_options_correctness()
             #endif
             << " DIMACS." << endl;
 
-            cout << cmdline_options << endl;
-            cout << "Default schedule for simplifier: " << conf.simplify_nonstartup_sequence << endl;
-            cout << "Default schedule for simplifier at startup: " << conf.simplify_at_startup_sequence << endl;
+            cout << help_options_complicated << endl;
+            cout << "NORMAL RUN SCHEDULES" << endl;
+            cout << "--------------------" << endl;
+            cout << "Default schedule: " << conf.simplify_schedule_nonstartup << endl;
+            cout << "Default schedule at startup: " << conf.simplify_schedule_startup << endl << endl;
 
-            cout << "Default schedule for occur simplifier: " << conf.occsimp_schedule_nonstartup<< endl;
-            cout << "Default schedule for occur simplifier at startup: " << conf.occsimp_schedule_startup << endl;
+            cout << "PREPROC RUN SCHEDULES" << endl;
+            cout << "--------------------" << endl;
+            cout << "Default schedule: " << conf.simplify_schedule_preproc<< endl;
+            std::exit(0);
+        }
+
+        if (vm.count("help"))
+        {
+            cout
+            << "USAGE 1: " << argv[0] << " [options] inputfile [drat-trim-file]" << endl
+            << "USAGE 2: " << argv[0] << " --preproc 1 [options] inputfile simplified-cnf-file" << endl
+            << "USAGE 2: " << argv[0] << " --preproc 2 [options] solution-file" << endl
+
+            << " where input is "
+            #ifndef USE_ZLIB
+            << "plain"
+            #else
+            << "plain or gzipped"
+            #endif
+            << " DIMACS." << endl;
+
+            cout << help_options_simple << endl;
             std::exit(0);
         }
 
@@ -747,9 +851,11 @@ void Main::check_options_correctness()
         boost::exception_detail::error_info_injector<po::too_many_positional_options_error> > what
     ) {
         cerr
-        << "ERROR: You gave too many files. Only 2 files can be given:" << endl
-        << "       the 1st the CNF file input, the 2nd the DRUP file output"
-        << endl;
+        << "ERROR: You gave too many positional arguments. Only at most two can be given:" << endl
+        << "       the 1st the CNF file input, and optinally, the 2nd the DRUP file output" << endl
+        << "    OR (pre-processing)  1st for the input CNF, 2nd for the simplified CNF" << endl
+        << "    OR (post-processing) 1st for the solution file" << endl
+        ;
 
         std::exit(-1);
     } catch (boost::exception_detail::clone_impl<
@@ -786,16 +892,6 @@ void Main::handle_drup_option()
     if (drupDebug) {
         drupf = &std::cout;
     } else {
-        if (drupExistsCheck && fileExists(drupfilname)) {
-            std::cerr
-            << "ERROR! File selected for DRUP output, '"
-            << drupfilname
-            << "' already exists. Please delete the file or pick another"
-            << endl
-            << "DRUP filename"
-            << endl;
-            std::exit(-1);
-        }
         std::ofstream* drupfTmp = new std::ofstream;
         drupfTmp->open(drupfilname.c_str(), std::ofstream::out);
         if (!*drupfTmp) {
@@ -901,6 +997,61 @@ void Main::manually_parse_some_options()
         std::exit(-1);
     }
 
+    if (conf.preprocess != 0) {
+        conf.varelim_time_limitM *= 3;
+        conf.global_timeout_multiplier *= 1.5;
+        if (conf.doCompHandler) {
+            conf.doCompHandler = false;
+            cout << "c Cannot handle components when preprocessing. Turning it off." << endl;
+        }
+
+        if (num_threads > 1) {
+            num_threads = 1;
+            cout << "c Cannot handle multiple threads for preprocessing. Setting to 1." << endl;
+        }
+
+
+        if (!redDumpFname.empty()
+            || !irredDumpFname.empty()
+        ) {
+            std::cerr << "ERROR: dumping clauses with preprocessing makes no sense. Exiting" << endl;
+            std::exit(-1);
+        }
+
+        if (max_nr_of_solutions > 1) {
+            std::cerr << "ERROR: multi-solutions make no sense with preprocessing. Exiting." << endl;
+            std::exit(-1);
+        }
+
+        if (!filesToRead.empty()) {
+            std::cerr << "ERROR: reading in CNF file(s) make no sense with preprocessing. Exiting." << endl;
+            std::exit(-1);
+        }
+
+        if (!debugLib.empty()) {
+            std::cerr << "ERROR: debugLib makes no sense with preprocessing. Exiting." << endl;
+            std::exit(-1);
+        }
+
+        if (vm.count("schedule")) {
+            std::cerr << "ERROR: Pleaase adjust the --preschedule not the --schedule when preprocessing. Exiting." << endl;
+            std::exit(-1);
+        }
+
+        if (vm.count("occschedule")) {
+            std::cerr << "ERROR: Pleaase adjust the --preoccschedule not the --occschedule when preprocessing. Exiting." << endl;
+            std::exit(-1);
+        }
+
+        if (!vm.count("preschedule")) {
+            conf.simplify_schedule_startup = conf.simplify_schedule_preproc;
+        }
+
+        if (!vm.count("eratio")) {
+            conf.varElimRatioPerIter = 1.0;
+        }
+    }
+
     if (vm.count("dumpresult")) {
         needResultFile = true;
     }
@@ -919,7 +1070,21 @@ void Main::manually_parse_some_options()
     parse_restart_type();
     parse_var_elim_strategy();
 
-    if (vm.count("input")) {
+    if (conf.preprocess == 2) {
+        if (vm.count("input") == 0) {
+            cout << "ERROR: When post-processing you must give the solution as the positional argument"
+            << endl;
+            std::exit(-1);
+        }
+
+        vector<string> solution = vm["input"].as<vector<string> >();
+        if (solution.size() > 1) {
+            cout << "ERROR: When post-processing you must give only the solution as the positional argument"
+            << endl;
+            std::exit(-1);
+        }
+        conf.solution_file = solution[0];
+    } else if (vm.count("input")) {
         filesToRead = vm["input"].as<vector<string> >();
         if (!vm.count("sqlitedb")) {
             conf.sqlite_filename = filesToRead[0] + ".sqlite";
@@ -931,18 +1096,27 @@ void Main::manually_parse_some_options()
         fileNamePresent = false;
     }
 
-    if (vm.count("drup")) {
+    if (conf.preprocess == 1) {
+        if (!vm.count("drup")) {
+            cout << "ERROR: When preprocessing, you must give the simplified file name as 2nd argument" << endl;
+            std::exit(-1);
+        }
+        conf.simplified_cnf = vm["drup"].as<string>();
+    }
+
+    if (conf.preprocess == 2) {
+        if (vm.count("drup")) {
+            cout << "ERROR: When postprocessing, you must NOT give a 2nd argument" << endl;
+            std::exit(-1);
+        }
+    }
+
+    if (conf.preprocess == 0 && vm.count("drup")) {
         handle_drup_option();
     }
 
     if (conf.verbosity >= 1) {
         cout << "c Outputting solution to console" << endl;
-    }
-
-    if (satcomp) {
-        conf.varElimRatioPerIter = 1.0;
-        conf.simplify_at_startup = true;
-        conf.probe_bogoprops_time_limitM *= 2;
     }
 }
 
@@ -1034,6 +1208,7 @@ void Main::check_num_threads_sanity(const unsigned thread_num) const
 
 int Main::solve()
 {
+
     solver = new SATSolver((void*)&conf);
     solverToInterrupt = solver;
     if (drupf) {
@@ -1067,7 +1242,9 @@ int Main::solve()
 
     //Parse in DIMACS (maybe gzipped) files
     //solver->log_to_file("mydump.cnf");
-    parseInAllFiles();
+    if (conf.preprocess != 2) {
+        parseInAllFiles();
+    }
 
     //Multi-solutions
     unsigned long current_nr_of_solutions = 0;
@@ -1106,19 +1283,21 @@ int Main::solve()
 
     dumpIfNeeded();
 
-    if (ret == l_Undef && conf.verbosity >= 1) {
-        cout
-        << "c Not finished running -- signal caught or some maximum reached"
-        << endl;
-    }
-    if (conf.verbosity >= 1) {
-        solver->print_stats();
-    }
+    if (conf.preprocess != 1) {
+        if (ret == l_Undef && conf.verbosity >= 1) {
+            cout
+            << "c Not finished running -- signal caught or some maximum reached"
+            << endl;
+        }
+        if (conf.verbosity >= 1) {
+            solver->print_stats();
+        }
 
-    //Final print of solution
-    printResultFunc(&cout, false, ret, current_nr_of_solutions == 1);
-    if (needResultFile) {
-        printResultFunc(&resultfile, true, ret, current_nr_of_solutions == 1);
+        //Final print of solution
+        printResultFunc(&cout, false, ret, current_nr_of_solutions == 1);
+        if (needResultFile) {
+            printResultFunc(&resultfile, true, ret, current_nr_of_solutions == 1);
+        }
     }
 
     //Delete solver
@@ -1161,11 +1340,17 @@ int Main::correctReturnValue(const lbool ret) const
 
 int main(int argc, char** argv)
 {
+    #if defined(__GNUC__) && defined(__linux__)
+    feenableexcept(FE_INVALID   |
+                   FE_DIVBYZERO |
+                   FE_OVERFLOW
+    );
+    #endif
+
     Main main(argc, argv);
     main.parseCommandLine();
 
     signal(SIGINT, SIGINT_handler);
-    //signal(SIGHUP,SIGINT_handler);
 
     return main.solve();
 }

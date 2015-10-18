@@ -36,7 +36,7 @@ using std::mutex;
 
 using namespace CMSat;
 
-static const bool print_thread_start_and_finish = false;
+static bool print_thread_start_and_finish = false;
 
 namespace CMSat {
     struct CMSatPrivateData {
@@ -111,6 +111,9 @@ DLL_PUBLIC SATSolver::SATSolver(void* config, bool* interrupt_asap)
         data = new CMSatPrivateData(interrupt_asap);
     }
 
+    if (config && ((SolverConf*) config)->verbosity >= 2) {
+        print_thread_start_and_finish = true;
+    }
     data->solvers.push_back(new Solver((SolverConf*) config, data->must_interrupt));
 }
 
@@ -232,6 +235,7 @@ void update_config(SolverConf& conf, unsigned thread_num)
             conf.ratio_keep_clauses[clean_to_int(ClauseClean::glue)] = 0;
             conf.ratio_keep_clauses[clean_to_int(ClauseClean::size)] = 0;
             conf.ratio_keep_clauses[clean_to_int(ClauseClean::activity)] = 0.3;
+            break;
         }
         case 15: {
             conf.inc_max_temp_red_cls = 1.001;
@@ -300,7 +304,7 @@ struct OneThreadAddCls
         solver.new_external_vars(data_for_thread.vars_to_add);
 
         vector<Lit> lits;
-        vector<Var> vars;
+        vector<uint32_t> vars;
         bool ret = true;
         size_t at = 0;
         const vector<Lit>& orig_lits = (*data_for_thread.lits_to_add);
@@ -475,7 +479,7 @@ DLL_PUBLIC bool SATSolver::add_xor_clause(const std::vector<unsigned>& vars, boo
 
         data->cls_lits.push_back(lit_Error);
         data->cls_lits.push_back(Lit(0, rhs));
-        for(Var var: vars) {
+        for(uint32_t var: vars) {
             data->cls_lits.push_back(Lit(var, false));
         }
     } else {
@@ -499,8 +503,9 @@ struct OneThreadSolve
     void operator()()
     {
         if (print_thread_start_and_finish) {
+            start_time = cpuTime();
             data_for_thread.update_mutex->lock();
-            cout << "Starting thread" << tid << endl;
+            //cout << "c Starting thread " << tid << endl;
             data_for_thread.update_mutex->unlock();
         }
 
@@ -509,8 +514,12 @@ struct OneThreadSolve
         lbool ret = data_for_thread.solvers[tid]->solve_with_assumptions(data_for_thread.assumptions);
 
         if (print_thread_start_and_finish) {
+            double end_time = cpuTime();
             data_for_thread.update_mutex->lock();
-            cout << "Finished tread " << tid << " with result: " << ret << endl;
+            cout << "c Finished thread " << tid << " with result: " << ret
+            << " T-diff: " << std::fixed << std::setprecision(2)
+            << (end_time-start_time)
+            << endl;
             data_for_thread.update_mutex->unlock();
         }
 
@@ -523,11 +532,11 @@ struct OneThreadSolve
             data_for_thread.solvers[0]->set_must_interrupt_asap();
             data_for_thread.update_mutex->unlock();
         }
-        data_for_thread.solvers[tid]->unset_must_interrupt_asap();
     }
 
     DataForThread& data_for_thread;
     const size_t tid;
+    double start_time;
 };
 
 DLL_PUBLIC lbool SATSolver::solve(const vector< Lit >* assumptions)
@@ -552,15 +561,23 @@ DLL_PUBLIC lbool SATSolver::solve(const vector< Lit >* assumptions)
         return ret;
     }
 
+    //Multi-thread from now on.
     DataForThread data_for_thread(data, assumptions);
     std::vector<std::thread> thds;
-    for(size_t i = 0; i < data->solvers.size(); i++) {
+    for(size_t i = 0
+        ; i < data->solvers.size()
+        ; i++
+    ) {
         thds.push_back(thread(OneThreadSolve(data_for_thread, i)));
     }
     for(std::thread& thread : thds){
         thread.join();
     }
     lbool real_ret = *data_for_thread.ret;
+
+    for(size_t i = 0; i < data->solvers.size(); i++) {
+        data_for_thread.solvers[i]->unset_must_interrupt_asap();
+    }
 
     //clear what has been added
     data->cls_lits.clear();
@@ -628,7 +645,13 @@ DLL_PUBLIC const char* SATSolver::get_compilation_env()
 
 DLL_PUBLIC void SATSolver::print_stats() const
 {
-    data->solvers[data->which_solved]->print_stats();
+    double cpu_time;
+    if (data->solvers.size() > 1) {
+        cpu_time = cpuTimeTotal();
+    } else {
+        cpu_time = cpuTime();
+    }
+    data->solvers[data->which_solved]->print_stats(cpu_time);
 }
 
 DLL_PUBLIC void SATSolver::set_drup(std::ostream* os)

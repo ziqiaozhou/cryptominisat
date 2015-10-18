@@ -49,7 +49,7 @@ bool GateFinder::doAll()
     runStats.clear();
     orGates.clear();
 
-    solver->watches.clear_smudged();
+    assert(solver->watches.get_smudged_list().empty());
     find_or_gates_and_update_stats();
     if (!all_simplifications_with_gates())
         goto end;
@@ -98,7 +98,7 @@ void GateFinder::find_or_gates_and_update_stats()
     }
     const double time_used = cpuTime() - myTime;
     const bool time_out = (numMaxGateFinder <= 0);
-    const double time_remain = calc_percentage(numMaxGateFinder, orig_numMaxGateFinder);
+    const double time_remain = float_div(numMaxGateFinder, orig_numMaxGateFinder);
     runStats.findGateTime = time_used;
     runStats.find_gate_timeout = time_out;
     if (solver->sqlStats) {
@@ -112,13 +112,13 @@ void GateFinder::find_or_gates_and_update_stats()
     }
 
     if (solver->conf.verbosity >= 2) {
-        cout << "c [gate] found"
+        cout << "c [occ-gates] found"
         << " irred:" << runStats.numIrred
         << " avg-s: " << std::fixed << std::setprecision(1)
-        << ((double)runStats.irredGatesSize/(double)runStats.numIrred)
+        << float_div(runStats.irredGatesSize, runStats.numIrred)
         << " red: " << runStats.numRed
         /*<< " avg-s: " << std::fixed << std::setprecision(1)
-        << ((double)learntGatesSize/(double)numRed)*/
+        << float_div(learntGatesSize, numRed)*/
         << solver->conf.print_times(time_used, time_out, time_remain)
         << endl;
     }
@@ -154,7 +154,7 @@ bool GateFinder::shorten_with_all_or_gates()
 
     const double time_used = cpuTime() - myTime;
     const bool time_out = (numMaxShortenWithGates <= 0);
-    const double time_remain = calc_percentage(numMaxShortenWithGates, orig_numMaxShortenWithGates);
+    const double time_remain = float_div(numMaxShortenWithGates, orig_numMaxShortenWithGates);
     runStats.orBasedTime = time_used;
     runStats.or_based_timeout = time_out;
     if (solver->sqlStats) {
@@ -168,7 +168,7 @@ bool GateFinder::shorten_with_all_or_gates()
     }
 
     if (solver->conf.verbosity >= 2) {
-        cout << "c [gate] shorten"
+        cout << "c [occ-gates] shorten"
         << " cl: " << std::setw(5) << runStats.orGateUseful
         << " l-rem: " << std::setw(6) << runStats.litsRem
         << solver->conf.print_times(time_used, time_out, time_remain)
@@ -188,9 +188,6 @@ bool GateFinder::remove_clauses_with_all_or_gates()
     simplifier->limit_to_decrease = &numMaxClRemWithGates;
     const double myTime = cpuTime();
 
-    //Do clause removal
-    uint32_t foundPotential;
-
     //Go through each gate, see if we can do something with it
     for (const OrGate& gate: orGates) {
         if (numMaxClRemWithGates < 0
@@ -199,15 +196,15 @@ bool GateFinder::remove_clauses_with_all_or_gates()
             break;
         }
 
-        if (!remove_clauses_using_and_gate(gate, true, false, foundPotential))
+        if (!remove_clauses_using_and_gate(gate, true, false))
             break;
 
-        if (!remove_clauses_using_and_gate_tri(gate, true, false, foundPotential))
+        if (!remove_clauses_using_and_gate_tri(gate, true, false))
             break;
     }
     const double time_used = cpuTime() - myTime;
     const bool time_out = (numMaxClRemWithGates <= 0);
-    const double time_remain = (double)numMaxClRemWithGates/(double)orig_numMaxClRemWithGates;
+    const double time_remain = float_div(numMaxClRemWithGates, orig_numMaxClRemWithGates);
     runStats.andBasedTime = time_used;
     runStats.and_based_timeout = time_out;
     if (solver->sqlStats) {
@@ -221,10 +218,10 @@ bool GateFinder::remove_clauses_with_all_or_gates()
     }
 
     if (solver->conf.verbosity >= 2) {
-        cout << "c [gate] rem"
+        cout << "c [occ-gates] rem"
         << " cl: " << runStats.andGateUseful
         << " avg s: " << std::setprecision(1)
-        << (double)runStats.clauseSizeRem/(double)runStats.andGateUseful
+        << float_div(runStats.clauseSizeRem, runStats.andGateUseful)
         << solver->conf.print_times(time_used, time_out, time_remain)
         << endl;
     }
@@ -266,7 +263,7 @@ bool GateFinder::all_simplifications_with_gates()
         }
 
         if (solver->conf.verbosity >= 2) {
-            cout << "c [gate] eqlit"
+            cout << "c [occ-gates] eqlit"
             << " v-rep: " << std::setw(3) << runStats.varReplaced
             << solver->conf.print_times(time_used)
             << endl;
@@ -332,7 +329,7 @@ void GateFinder::find_or_gates_in_sweep_mode(const Lit lit)
     watch_subarray_const ws = solver->watches[lit.toInt()];
     *simplifier->limit_to_decrease -= ws.size();
     for(const Watched w: ws) {
-        if (w.isBinary() && !w.red()) {
+        if (w.isBin() && !w.red()) {
             seen[(~w.lit2()).toInt()] = 1;
             toClear.push_back(~w.lit2());
         }
@@ -401,7 +398,7 @@ bool GateFinder::shortenWithOrGate(const OrGate& gate)
 
     //Find clauses that potentially could be shortened
     subs.clear();
-    simplifier->subsumeStrengthen->find_subsumed(
+    simplifier->sub_str->find_subsumed(
         std::numeric_limits< uint32_t >::max()
         , gate.getLits()
         , calcAbstraction(gate.getLits())
@@ -723,7 +720,6 @@ bool GateFinder::remove_clauses_using_and_gate(
     const OrGate& gate
     , const bool really_remove
     , const bool only_irred
-    , uint32_t& reduction
 ) {
     assert(clToUnlink.empty());
     if (solver->watches[(~(gate.lit1)).toInt()].empty()
@@ -758,7 +754,6 @@ bool GateFinder::remove_clauses_using_and_gate(
             clToUnlink.insert(this_cl_offs);
             treatAndGateClause(other_cl_offs, gate, this_cl_offs);
         }
-        reduction += (other_cl_offs != CL_OFFSET_MAX);
 
         if (!solver->ok)
             return false;
@@ -784,7 +779,6 @@ bool GateFinder::remove_clauses_using_and_gate_tri(
     const OrGate& gate
     , const bool really_remove
     , const bool only_irred
-    , uint32_t& reduction
 ) {
     if (solver->watches[(~(gate.lit1)).toInt()].empty()
         || solver->watches[(~(gate.lit2)).toInt()].empty()
@@ -821,7 +815,6 @@ bool GateFinder::remove_clauses_using_and_gate_tri(
             if (!solver->ok)
                 return false;
         }
-        reduction += found_pair;
     }
 
     //Clear from seen2 bits that have been set

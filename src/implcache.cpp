@@ -84,7 +84,7 @@ void ImplCache::print_statsSort(const Solver* solver) const
     for(size_t i = 0; i < implCache.size(); i++) {
         Lit lit = Lit::toLit(i);
 
-        if (solver->varData[lit.var()].is_decision) {
+        if (solver->varData[lit.var()].removed == Removed::none) {
             activeLits++;
             totalElems += implCache[i].lits.size();
             numHasElems += !implCache[i].lits.empty();
@@ -116,7 +116,7 @@ bool ImplCache::clean(Solver* solver, bool* setSomething)
     uint64_t numFreed = 0;
 
     //Merge in & free memory
-    for (Var var = 0; var < solver->nVars(); var++) {
+    for (uint32_t var = 0; var < solver->nVars(); var++) {
 
         //If replaced, merge it into the one that replaced it
         if (solver->varData[var].removed == Removed::replaced) {
@@ -275,7 +275,7 @@ bool ImplCache::clean(Solver* solver, bool* setSomething)
 
 void ImplCache::handleNewData(
     vector<uint16_t>& val
-    , Var var
+    , uint32_t var
     , Lit lit
 ) {
     //Unfortunately, we cannot add the clauses, because that could mess up
@@ -371,7 +371,7 @@ bool ImplCache::tryBoth(Solver* solver)
     //Measuring time & usefulness
     double myTime = cpuTime();
 
-    for (Var var = 0; var < solver->nVars(); var++) {
+    for (uint32_t var = 0; var < solver->nVars(); var++) {
 
         //If value is set or eliminated, skip
         if (solver->value(var) != l_Undef
@@ -409,7 +409,7 @@ end:
 
 void ImplCache::tryVar(
     Solver* solver
-    , Var var
+    , uint32_t var
 ) {
     //Sanity check
     assert(solver->ok);
@@ -433,7 +433,7 @@ void ImplCache::tryVar(
         ; it != end
         ; ++it
     ) {
-        const Var var2 = it->getLit().var();
+        const uint32_t var2 = it->getLit().var();
 
         //A variable that has been really eliminated, skip
         if (solver->varData[var2].removed != Removed::none) {
@@ -450,7 +450,7 @@ void ImplCache::tryVar(
         ; it != end
         ; ++it
     ) {
-        if (!it->isBinary())
+        if (!it->isBin())
             continue;
 
         const Lit otherLit = it->lit2();
@@ -473,7 +473,7 @@ void ImplCache::tryVar(
         ; ++it
     ) {
         assert(it->getLit().var() != var);
-        const Var var2 = it->getLit().var();
+        const uint32_t var2 = it->getLit().var();
 
         //Only if the other one also contained it
         if (!seen[var2])
@@ -490,11 +490,11 @@ void ImplCache::tryVar(
     //Try to see if we propagate the same or opposite from the other end
     //Using binary clauses
     for (watch_subarray::const_iterator it = ws2.begin(), end = ws2.end(); it != end; ++it) {
-        if (!it->isBinary())
+        if (!it->isBin())
             continue;
 
         assert(it->lit2().var() != var);
-        const Var var2 = it->lit2().var();
+        const uint32_t var2 = it->lit2().var();
         assert(var2 < solver->nVars());
 
         //Only if the other one also contained it
@@ -511,7 +511,7 @@ void ImplCache::tryVar(
     }
 
     for (watch_subarray::const_iterator it = ws1.begin(), end = ws1.end(); it != end; ++it) {
-        if (!it->isBinary())
+        if (!it->isBin())
             continue;
 
         seen[it->lit2().var()] = false;
@@ -523,7 +523,7 @@ bool TransCache::merge(
     const vector<LitExtra>& otherLits //Lits to add
     , const Lit extraLit //Add this, too to the list of lits
     , const bool red //The step was a redundant-dependent step?
-    , const Var leaveOut //Leave this literal out
+    , const uint32_t leaveOut //Leave this literal out
     , vector<uint16_t>& seen
 ) {
     //Mark every literal that is to be added in 'seen'
@@ -560,7 +560,7 @@ bool TransCache::merge(
     const vector<Lit>& otherLits //Lits to add
     , const Lit extraLit //Add this, too to the list of lits
     , const bool red //The step was a redundant-dependent step?
-    , const Var leaveOut //Leave this literal out
+    , const uint32_t leaveOut //Leave this literal out
     , vector<uint16_t>& seen
 ) {
     //Mark every literal that is to be added in 'seen'
