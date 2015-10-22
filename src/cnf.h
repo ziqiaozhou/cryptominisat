@@ -72,8 +72,10 @@ public:
             conf = *_conf;
         }
         drup = new Drup();
-        _needToInterrupt = new bool;
-        assert(_needToInterrupt != NULL);
+        if (needToInterrupt == NULL) {
+            //mem leak. Only for SWIG usability. Don't use outside of SWIG.
+            needToInterrupt = new bool;
+        }
         needToInterrupt = _needToInterrupt;
     }
 

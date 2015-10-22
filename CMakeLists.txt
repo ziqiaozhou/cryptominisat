@@ -222,17 +222,8 @@ MESSAGE(STATUS "PROJECT_VERSION_PATCH: ${PROJECT_VERSION_PATCH}")
 option(ONLY_SIMPLE "Only build very simplistic executable -- no Boost needed" OFF)
 if (NOT ONLY_SIMPLE)
     set (boost_components "")
-    if (ENABLE_TESTING)
-        set(boost_components ${boost_components} unit_test_framework)
-    endif()
     set(boost_components ${boost_components} program_options)
     find_package( Boost 1.46 COMPONENTS ${boost_components})
-endif()
-
-if(NOT Boost_FOUND)
-    set(ONLY_SIMPLE ON)
-    set(ENABLE_TESTING OFF)
-    message(STATUS "Only building executable with few command-line options because the boost program_options library were not available")
 endif()
 
 option(ALSO_BUILD_STATIC_LIB "Also build the static library" ON)
@@ -296,7 +287,9 @@ else()
     message(STATUS "Cannot find valgrind, we will not be able to mark memory pool objects as undefined")
 endif()
 
-#M4RI
+# -----------------------------------------------------------------------------
+# Look for M4RI (for Gauss)
+# -----------------------------------------------------------------------------
 option(NOM4RI "Don't use m4ri" OFF)
 if (NOT NOM4RI)
     find_package(M4RI)
@@ -340,8 +333,32 @@ macro(cmsat_add_public_header LIBTARGET HEADER)
     endif()
 endmacro()
 
-if (ENABLE_TESTING)
-    enable_testing()
+# -----------------------------------------------------------------------------
+# Look for python
+# -----------------------------------------------------------------------------
+option(ENABLE_PYTHON_INTERFACE "Enable Python interface" ON)
+find_package (PythonInterp 2.7)
+find_package (PythonLibs 2.7)
+if (PYTHON_EXECUTABLE AND PYTHON_LIBRARY AND PYTHON_INCLUDE_DIRS)
+    message(STATUS "PYTHON_EXECUTABLE:FILEPATH=${PYTHON_EXECUTABLE}")
+    message(STATUS "PYTHON_LIBRARY:FILEPATH=${PYTHON_LIBRARY}")
+    message(STATUS "PYTHON_INCLUDE_DIR:FILEPATH=${PYTHON_INCLUDE_DIR}")
+    message(STATUS "PYTHONLIBS_VERSION_STRING=${PYTHONLIBS_VERSION_STRING}")
+    set(PYTHON_OK ON)
+    message(STATUS "OK, found python interpreter, libs and header files -> building python plugin")
+else()
+    message(WARNING "Cannot find python interpreter, libs and header files -> not building python plugin")
+endif()
+
+if (ENABLE_PYTHON_INTERFACE AND PYTHON_OK)
+    add_subdirectory(python pycryptosat)
+endif()
+
+#command-line parsing executable needs boost program-options
+if(NOT Boost_FOUND)
+    set(ONLY_SIMPLE ON)
+    message(STATUS "Only building executable with few command-line options because the boost program_options library were not available")
+    set(ENABLE_TESTING OFF)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -350,26 +367,6 @@ endif()
 set(CRYPTOMINISAT4_EXPORT_NAME "cryptominisat4Targets")
 
 add_subdirectory(src cmsat4-src)
-
-# -----------------------------------------------------------------------------
-# Look for python
-# -----------------------------------------------------------------------------
-option(ENABLE_PYTHON_INTERFACE "Enable Python interface" ON)
-
-if (ENABLE_PYTHON_INTERFACE)
-    find_package (PythonInterp 2.7)
-    find_package (PythonLibs 2.7)
-    if (PYTHON_EXECUTABLE AND PYTHON_LIBRARY AND PYTHON_INCLUDE_DIRS)
-#     message(STATUS "PYTHON_EXECUTABLE:FILEPATH=${PYTHON_EXECUTABLE}")
-#     message(STATUS "PYTHON_LIBRARY:FILEPATH=${PYTHON_LIBRARY}")
-#     message(STATUS "PYTHON_INCLUDE_DIR:FILEPATH=${PYTHON_INCLUDE_DIR}")
-#     message(STATUS "PYTHONLIBS_VERSION_STRING=${PYTHONLIBS_VERSION_STRING}")
-        message(STATUS "OK, found python interpreter, libs and header files -> building python plugin")
-        add_subdirectory(python py-lib)
-    else()
-        message(WARNING "Cannot find python interpreter, libs and header files -> not building python plugin")
-    endif()
-endif()
 
 # -----------------------------------------------------------------------------
 # Add uninstall target for makefiles
@@ -384,7 +381,11 @@ add_custom_target(uninstall
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
 )
 
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
 if (ENABLE_TESTING)
+    enable_testing()
     add_test (NAME basic_test COMMAND tests/basic_test --log_level=test_suite)
     add_test (NAME assump_test COMMAND tests/assump_test --log_level=test_suite)
     add_test (NAME readme_test COMMAND tests/readme_test --log_level=test_suite)

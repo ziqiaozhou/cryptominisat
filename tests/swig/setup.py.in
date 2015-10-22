@@ -74,36 +74,20 @@ sysconfig._init_posix = _init_posix(sysconfig._init_posix)
 __version__ = '@PROJECT_VERSION@'
 
 ext_kwds = dict(
-    name = "pycryptosat",
-    sources = ["${CMAKE_CURRENT_SOURCE_DIR}/pycryptosat.cpp"],
+    name = "_solver",
+    sources = ["${CMAKE_CURRENT_BINARY_DIR}/solver_module.cpp"],
     define_macros = [],
-    extra_compile_args = cconf + ['-I${PROJECT_SOURCE_DIR}', '-I${PROJECT_BINARY_DIR}/cmsat4-src'],
+    extra_compile_args = cconf + ['-std=c++11', '-I${PROJECT_SOURCE_DIR}/src', '-I${PROJECT_BINARY_DIR}/cmsat4-src'],
     extra_link_args = ldconf,
     language = "c++",
     library_dirs=['.', '${PROJECT_BINARY_DIR}/lib'],
     libraries = ['cryptominisat4']
+    # runtime_library_dirs = ["/home/soos/development/sat_solvers/cryptominisat/build/lib"]
 )
 
 setup(
-    name = "pycryptosat",
+    name = "_solver",
     version = __version__,
-    author = "Mate Soos",
-    author_email = "soos.mate@gmail.com",
-    url = "https://github.com/msoos/cryptominisat",
-    license = "LGPLv2",
-    classifiers = [
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Developers",
-        "Operating System :: OS Independent",
-        "Programming Language :: C++",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.5",
-        "Programming Language :: Python :: 2.6",
-        "Programming Language :: Python :: 2.7",
-        "Topic :: Utilities",
-    ],
+    py_modules = ['_solver'],
     ext_modules = [Extension(**ext_kwds)],
-    py_modules = ['pycryptosat'],
-    description = "bindings to CryptoMiniSat (a SAT solver)",
-    long_description = open('${CMAKE_CURRENT_SOURCE_DIR}/README.rst').read(),
 )

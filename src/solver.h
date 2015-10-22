@@ -36,7 +36,7 @@
 #include "searcher.h"
 #include "cleaningstats.h"
 #include "clauseusagestats.h"
-#include "features.h"
+#include "solvefeatures.h"
 #include "searchstats.h"
 
 namespace CMSat {
@@ -64,8 +64,6 @@ class DataSync;
 class SharedData;
 class ReduceDB;
 class InTree;
-/*typedef size_t (*ReadFun)(void*, size_t, size_t, FILE*);
-template<typename A, ReadFun B> class StreamBuffer;*/
 
 class LitReachData {
     public:
@@ -77,6 +75,11 @@ class LitReachData {
         uint32_t numInCache;
 };
 
+struct SolveStats
+{
+    uint64_t numSimplify = 0;
+    uint32_t num_solve_calls = 0;
+};
 
 class Solver : public Searcher
 {
@@ -101,11 +104,6 @@ class Solver : public Searcher
         void open_file_and_dump_red_clauses(string fname) const;
         vector<pair<Lit, Lit> > get_all_binary_xors() const;
 
-        struct SolveStats
-        {
-            uint64_t numSimplify = 0;
-            uint32_t num_solve_calls = 0;
-        };
         static const char* get_version_tag();
         static const char* get_version_sha1();
         static const char* get_compilation_env();
@@ -127,13 +125,10 @@ class Solver : public Searcher
         uint64_t print_watch_mem_used(uint64_t totalMem) const;
         unsigned long get_sql_id() const;
         const SolveStats& get_solve_stats() const;
+        const SearchStats& get_stats() const;
         void add_in_partial_solving_stats();
         void check_implicit_stats(const bool onlypairs = false) const;
         void check_stats(const bool allowFreed = false) const;
-
-
-        ///Return number of variables waiting to be replaced
-        const SearchStats& get_stats() const;
 
 
         //Checks
@@ -237,7 +232,7 @@ class Solver : public Searcher
         void parse_sql_option();
         void dump_memory_stats_to_sql();
         uint64_t mem_used_vardata() const;
-        Features calculate_features() const;
+        SolveFeatures calculate_features() const;
         void reconfigure(int val);
         void reset_reason_levels_of_vars_to_zero();
 
@@ -367,7 +362,7 @@ inline const SearchStats& Solver::get_stats() const
     return sumStats;
 }
 
-inline const Solver::SolveStats& Solver::get_solve_stats() const
+inline const SolveStats& Solver::get_solve_stats() const
 {
     return solveStats;
 }
