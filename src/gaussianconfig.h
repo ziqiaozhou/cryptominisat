@@ -33,13 +33,11 @@ class GaussConf
 
     GaussConf() :
         only_nth_gauss_save(2)
-        , decision_until(0)
-        , dontDisable(false)
-        , noMatrixFind(false)
-        , orderCols(true)
+        , decision_until(10000)
+        , autodisable(true)
         , iterativeReduce(true)
         , max_matrix_rows(1000)
-        , minMatrixRows(20)
+        , min_matrix_rows(20)
         , max_num_matrixes(3)
     {
     }
@@ -47,13 +45,15 @@ class GaussConf
     //tuneable gauss parameters
     uint32_t only_nth_gauss_save;  //save only every n-th gauss matrix
     uint32_t decision_until; //do Gauss until this level
-    bool dontDisable; //If activated, gauss elimination is never disabled
-    bool noMatrixFind; //Put all xor-s into one matrix, don't find matrixes
-    bool orderCols; //Order columns according to activity
-    bool iterativeReduce; //Don't minimise matrix work
+    bool autodisable; //If activated, gauss elimination is never disabled
+    bool iterativeReduce; //Minimise matrix work
     uint32_t max_matrix_rows; //The maximum matrix size -- no. of rows
-    uint32_t minMatrixRows; //The minimum matrix size -- no. of rows
+    uint32_t min_matrix_rows; //The minimum matrix size -- no. of rows
     uint32_t max_num_matrixes; //Maximum number of matrixes
+
+    uint32_t min_gauss_xor_clauses = 3;
+    uint32_t max_gauss_xor_clauses = 50000;
+    bool doMatrixFind = true;
 };
 
 }

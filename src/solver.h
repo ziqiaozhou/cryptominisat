@@ -50,11 +50,11 @@ class ClauseCleaner;
 class Prober;
 class OccSimplifier;
 class SCCFinder;
-class Distiller;
-class DistillerWithBin;
+class DistillerAllWithAll;
+class DistillerLongWithImpl;
+class StrImplWImplStamp;
 class CalcDefPolars;
 class SolutionExtender;
-class SQLStats;
 class ImplCache;
 class CompFinder;
 class CompHandler;
@@ -84,14 +84,14 @@ struct SolveStats
 class Solver : public Searcher
 {
     public:
-        Solver(const SolverConf *_conf = NULL, bool* _needToInterrupt = NULL);
+        Solver(const SolverConf *_conf = NULL, std::atomic<bool>* _must_interrupt_inter = NULL);
         ~Solver() override;
 
         void add_sql_tag(const string& tagname, const string& tag);
         const vector<std::pair<string, string> >& get_sql_tags() const;
         void new_external_var();
         void new_external_vars(size_t n);
-        bool add_clause_outer(const vector<Lit>& lits);
+        bool add_clause_outer(const vector<Lit>& lits, bool red = false);
         bool add_xor_clause_outer(const vector<uint32_t>& vars, bool rhs);
 
         lbool solve_with_assumptions(const vector<Lit>* _assumptions = NULL);
@@ -119,7 +119,6 @@ class Solver : public Searcher
         size_t   get_num_long_irred_cls() const;
         size_t   get_num_long_red_cls() const;
         size_t get_num_vars_elimed() const;
-        size_t get_num_vars_replaced() const;
         uint32_t num_active_vars() const;
         void print_mem_stats() const;
         uint64_t print_watch_mem_used(uint64_t totalMem) const;
@@ -137,15 +136,23 @@ class Solver : public Searcher
         bool find_with_cache_a_or_b(Lit a, Lit b, int64_t* limit) const;
         bool find_with_watchlist_a_or_b(Lit a, Lit b, int64_t* limit) const;
 
-        SQLStats* sqlStats = NULL;
-        ClauseCleaner *clauseCleaner = NULL;
-        VarReplacer *varReplacer = NULL;
-        SubsumeImplicit *subsumeImplicit = NULL;
-        DataSync *datasync = NULL;
-        ReduceDB* reduceDB = NULL;
+        //Systems that are used to accompilsh the tasks
+        ClauseCleaner*         clauseCleaner = NULL;
+        VarReplacer*           varReplacer = NULL;
+        SubsumeImplicit*       subsumeImplicit = NULL;
+        DataSync*              datasync = NULL;
+        ReduceDB*              reduceDB = NULL;
+        Prober*                prober = NULL;
+        InTree*                intree = NULL;
+        OccSimplifier*         occsimplifier = NULL;
+        DistillerAllWithAll*   distill_all_with_all = NULL;
+        DistillerLongWithImpl* dist_long_with_impl = NULL;
+        StrImplWImplStamp* dist_impl_with_impl = NULL;
+        CompHandler*           compHandler = NULL;
+
         vector<LitReachData> litReachable;
 
-        SearchStats sumStats;
+        SearchStats sumSearchStats;
         PropStats sumPropStats;
 
         bool prop_at_head() const;
@@ -162,12 +169,12 @@ class Solver : public Searcher
         lbool load_solution_from_file(const string& fname);
 
         uint64_t getNumLongClauses() const;
-        bool addClause(const vector<Lit>& ps);
+        bool addClause(const vector<Lit>& ps, const bool red = false);
         bool add_xor_clause_inter(
             const vector< Lit >& lits
             , bool rhs
             , bool attach
-            , bool addDrup = true
+            , bool addDrat = true
         );
         void new_var(const bool bva = false, const uint32_t orig_outer = std::numeric_limits<uint32_t>::max()) override;
         void new_vars(const size_t n) override;
@@ -203,8 +210,8 @@ class Solver : public Searcher
             , bool red
             , bool allow_empty_watch = false
         ) override;
-        void detachClause(const Clause& c, const bool removeDrup = true);
-        void detachClause(const ClOffset offset, const bool removeDrup = true);
+        void detachClause(const Clause& c, const bool removeDrat = true);
+        void detachClause(const ClOffset offset, const bool removeDrat = true);
         void detach_modified_clause(
             const Lit lit1
             , const Lit lit2
@@ -217,20 +224,24 @@ class Solver : public Searcher
             , const ClauseStats stats = ClauseStats()
             , const bool attach = true
             , vector<Lit>* finalLits = NULL
-            , bool addDrup = true
-            , const Lit drup_first = lit_Undef
+            , bool addDrat = true
+            , const Lit drat_first = lit_Undef
         );
         void clear_clauses_stats();
         template<class T> vector<Lit> clauseBackNumbered(const T& cl) const;
-        void consolidate_mem();
         size_t mem_used() const;
+        void dump_memory_stats_to_sql();
+        void set_sqlite(string filename);
+        void set_mysql(
+            string sqlServer
+            , string sqlUser
+            , string sqlPass
+            , string sqlDatabase);
 
     private:
         friend class Prober;
         friend class ClauseDumper;
         lbool iterate_until_solved();
-        void parse_sql_option();
-        void dump_memory_stats_to_sql();
         uint64_t mem_used_vardata() const;
         SolveFeatures calculate_features() const;
         void reconfigure(int val);
@@ -243,8 +254,8 @@ class Solver : public Searcher
 
         void check_config_parameters() const;
         void handle_found_solution(const lbool status);
-        void add_every_combination_xor(const vector<Lit>& lits, bool attach, bool addDrup);
-        void add_xor_clause_inter_cleaned_cut(const vector<Lit>& lits, bool attach, bool addDrup);
+        void add_every_combination_xor(const vector<Lit>& lits, bool attach, bool addDrat);
+        void add_xor_clause_inter_cleaned_cut(const vector<Lit>& lits, bool attach, bool addDrat);
         unsigned num_bits_set(const size_t x, const unsigned max_size) const;
         void check_too_large_variable_number(const vector<Lit>& lits) const;
         void set_assumptions();
@@ -286,15 +297,6 @@ class Solver : public Searcher
         void check_minimization_effectiveness(lbool status);
         void check_recursive_minimization_effectiveness(const lbool status);
         void extend_solution();
-
-        /////////////////////
-        // Objects that help us accomplish the task
-        Prober              *prober = NULL;
-        InTree              *intree = NULL;
-        OccSimplifier       *simplifier = NULL;
-        Distiller           *distiller = NULL;
-        DistillerWithBin    *distillerwithbin = NULL;
-        CompHandler         *compHandler = NULL;
 
         /////////////////////////////
         // Temporary datastructs -- must be cleared before use
@@ -359,17 +361,12 @@ inline uint64_t Solver::getNumLongClauses() const
 
 inline const SearchStats& Solver::get_stats() const
 {
-    return sumStats;
+    return sumSearchStats;
 }
 
 inline const SolveStats& Solver::get_solve_stats() const
 {
     return solveStats;
-}
-
-inline void Solver::add_sql_tag(const string& tagname, const string& tag)
-{
-    sql_tags.push_back(std::make_pair(tagname, tag));
 }
 
 inline size_t Solver::get_num_long_irred_cls() const
@@ -414,8 +411,9 @@ inline lbool Solver::solve_with_assumptions(
     outside_assumptions.clear();
     if (_assumptions) {
         for(const Lit lit: *_assumptions) {
-            if (lit.var() >= nVars()) {
-                std::cerr << "ERROR: Assumption variable is too large, you never"
+            if (lit.var() >= nVarsOutside()) {
+                std::cerr << "ERROR: Assumption variable " << (lit.var()+1)
+                << " is too large, you never"
                 << " inserted that variable into the solver. Exiting."
                 << endl;
                 exit(-1);
@@ -449,7 +447,7 @@ inline bool Solver::find_with_stamp_a_or_b(Lit a, const Lit b) const
 
 inline bool Solver::find_with_cache_a_or_b(Lit a, Lit b, int64_t* limit) const
 {
-    const vector<LitExtra>& cache = solver->implCache[a.toInt()].lits;
+    const vector<LitExtra>& cache = solver->implCache[a].lits;
     *limit -= cache.size();
     for (LitExtra cacheLit: cache) {
         if (cacheLit.getOnlyIrredBin()
@@ -461,7 +459,7 @@ inline bool Solver::find_with_cache_a_or_b(Lit a, Lit b, int64_t* limit) const
 
     std::swap(a,b);
 
-    const vector<LitExtra>& cache2 = solver->implCache[a.toInt()].lits;
+    const vector<LitExtra>& cache2 = solver->implCache[a].lits;
     *limit -= cache2.size();
     for (LitExtra cacheLit: cache) {
         if (cacheLit.getOnlyIrredBin()
@@ -476,11 +474,11 @@ inline bool Solver::find_with_cache_a_or_b(Lit a, Lit b, int64_t* limit) const
 
 inline bool Solver::find_with_watchlist_a_or_b(Lit a, Lit b, int64_t* limit) const
 {
-    if (watches[a.toInt()].size() > watches[b.toInt()].size()) {
+    if (watches[a].size() > watches[b].size()) {
         std::swap(a,b);
     }
 
-    watch_subarray_const ws = watches[a.toInt()];
+    watch_subarray_const ws = watches[a];
     *limit -= ws.size();
     for (const Watched w: ws) {
         if (!w.isBin())

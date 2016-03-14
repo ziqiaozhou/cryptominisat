@@ -21,127 +21,131 @@
 # so we can set different configurations via environment variables.
 
 set -e
+set -x
 
 COMMON_CMAKE_ARGS="-G \"Unix Makefiles\" -DENABLE_TESTING:BOOL=ON"
+COMMON_CMAKE_ARGS_NO_TEST="-G \"Unix Makefiles\""
 
 #license check -- first print and then fail in case of problems
 ./utils/licensecheck/licensecheck.pl -m  ./src
-# grep UNK licenses
-# grep UNK licenses | read && return -1 || return 0
+NUM=`./utils/licensecheck/licensecheck.pl -m  ./src | grep UNK | wc -l`
+if [ "$NUM" != "0" ]; then
+    echo "There are some files without license information!"
+    exit -1
+fi
+
+NUM=`./utils/licensecheck/licensecheck.pl -m  ./tests | grep UNK | wc -l`
+if [ "$NUM" != "0" ]; then
+    echo "There are some files without license information!"
+    exit -1
+fi
 
 set -x
 
-SOURCE_DIR=`pwd`
+SOURCE_DIR=$(pwd)
 cd build
-BUILD_DIR=`pwd`
+BUILD_DIR=$(pwd)
 
 
 # Note eval is needed so COMMON_CMAKE_ARGS is expanded properly
 case $CMS_CONFIG in
     SLOW_DEBUG)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
+        eval cmake "${COMMON_CMAKE_ARGS}" \
                    -DSLOW_DEBUG:BOOL=ON \
-                   ${SOURCE_DIR}
+                   "${SOURCE_DIR}"
     ;;
 
-    NORMAL|AWS)
+    NORMAL)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   "${SOURCE_DIR}"
     ;;
 
     COVERAGE)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                    -DCOVERAGE:BOOL=ON \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   -DCOVERAGE:BOOL=ON \
+                   "${SOURCE_DIR}"
     ;;
 
     STATIC_BIN)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
+        eval cmake "${COMMON_CMAKE_ARGS}" \
                    -DSTATICCOMPILE:BOOL=ON \
-                   ${SOURCE_DIR}
+                   "${SOURCE_DIR}"
     ;;
 
     ONLY_SIMPLE)
-        eval cmake ${COMMON_CMAKE_ARGS} \
+        eval cmake "${COMMON_CMAKE_ARGS}" \
                    -DONLY_SIMPLE:BOOL=ON \
-                   ${SOURCE_DIR}
+                   "${SOURCE_DIR}"
     ;;
 
     ONLY_SIMPLE_STATIC)
-        eval cmake ${COMMON_CMAKE_ARGS} \
+        eval cmake "${COMMON_CMAKE_ARGS}" \
                    -DONLY_SIMPLE:BOOL=ON \
                    -DSTATICCOMPILE:BOOL=ON \
-                   ${SOURCE_DIR}
-    ;;
-
-    MORE_DEBUG)
-        sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                   -DMORE_DEBUG:BOOL=ON \
-                   ${SOURCE_DIR}
+                   "${SOURCE_DIR}"
     ;;
 
     STATS)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
+        eval cmake "${COMMON_CMAKE_ARGS}" \
                    -DSTATS:BOOL=ON \
-                   ${SOURCE_DIR}
+                   "${SOURCE_DIR}"
     ;;
 
     NOZLIB)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
+        eval cmake "${COMMON_CMAKE_ARGS}" \
                    -DNOZLIB:BOOL=ON \
-                   ${SOURCE_DIR}
+                   "${SOURCE_DIR}"
     ;;
 
     RELEASE)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
+        eval cmake "${COMMON_CMAKE_ARGS}" \
                    -DCMAKE_BUILD_TYPE:STRING=Release \
-                   ${SOURCE_DIR}
+                   "${SOURCE_DIR}"
     ;;
 
     NOSQLITE)
         sudo apt-get install libboost-program-options-dev
         sudo apt-get remove libsqlite3-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   "${SOURCE_DIR}"
     ;;
 
     NOMYSQL)
         sudo apt-get install libboost-program-options-dev
         sudo apt-get remove libmysqlclient-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   "${SOURCE_DIR}"
     ;;
 
     NOMYSQLNOSQLITE)
         sudo apt-get install libboost-program-options-dev
         sudo apt-get remove libmysqlclient-dev
         sudo apt-get remove libsqlite3-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   "${SOURCE_DIR}"
     ;;
 
     NOPYTHON)
         sudo apt-get install libboost-program-options-dev
         sudo apt-get remove python2.7-dev python-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   "${SOURCE_DIR}"
     ;;
 
     INTREE_BUILD)
         cd ..
-        SOURCE_DIR=`pwd`
-        BUILD_DIR=`pwd`
+        SOURCE_DIR=$(pwd)
+        BUILD_DIR=$(pwd)
         sudo apt-get install libboost-program-options-dev
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   "${SOURCE_DIR}"
     ;;
 
     MYSQL|WEB)
@@ -151,22 +155,37 @@ case $CMS_CONFIG in
         sudo apt-get install mysql-server
         sudo apt-get install mysql-client
         sudo apt-get install libmysqlclient-dev
-        cd $SOURCE_DIR
+        cd "$SOURCE_DIR"
         ./cmsat_mysql_setup.sh
-        cd $BUILD_DIR
+        cd "$BUILD_DIR"
 
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                    -DSTATS:BOOL=ON \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   -DSTATS:BOOL=ON \
+                   "${SOURCE_DIR}"
     ;;
 
     SQLITE)
         sudo apt-get install libboost-program-options-dev
         sudo apt-get install libsqlite3-dev
 
-        eval cmake ${COMMON_CMAKE_ARGS} \
-                    -DSTATS:BOOL=ON \
-                   ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                   -DSTATS:BOOL=ON \
+                   "${SOURCE_DIR}"
+    ;;
+
+    NOTEST)
+        sudo apt-get install libboost-program-options-dev
+        eval cmake "${COMMON_CMAKE_ARGS_NO_TEST}" \
+                   "${SOURCE_DIR}"
+    ;;
+
+    GAUSS)
+        sudo apt-get install libboost-program-options-dev
+        sudo apt-get install libsqlite3-dev
+
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+                    -DUSE_GAUSS=ON \
+                   "${SOURCE_DIR}"
     ;;
 
     M4RI)
@@ -179,8 +198,8 @@ case $CMS_CONFIG in
         sudo make install
         cd ..
 
-        eval cmake ${COMMON_CMAKE_ARGS} \
-            ${SOURCE_DIR}
+        eval cmake "${COMMON_CMAKE_ARGS}" \
+            "${SOURCE_DIR}"
     ;;
 
     *)
@@ -189,19 +208,27 @@ case $CMS_CONFIG in
     ;;
 esac
 
-if [ "$CMS_CONFIG" != "AWS" ]; then
-    make
-    ctest -V
-    sudo make install
+make
+if [ "$CMS_CONFIG" == "GAUSS" ]; then
+    echo "Currently, Gauss is only being *built*. Not tried for correctness"
+    exit 0
 fi
+
+if [ "$CMS_CONFIG" == "NOTEST" ]; then
+    sudo make install
+    exit 0
+fi
+
+ctest -V
+sudo make install
 
 case $CMS_CONFIG in
     MYSQL|WEB)
-        echo "1 2 0" | ./cryptominisat4 --sql 2 --wsql 2 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --sql 1 --zero-exit-status
     ;;
 
     SQLITE)
-        echo "1 2 0" | ./cryptominisat4 --sql 2 --wsql 3 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --sql 2 --zero-exit-status
     ;;
 
     M4RI)
@@ -214,15 +241,44 @@ case $CMS_CONFIG in
 esac
 
 if [ "$CMS_CONFIG" == "NORMAL" ]; then
+    #elimination checks
     CMS_PATH="${BUILD_DIR}/cryptominisat4"
     cd ../tests/simp-checks/
     git clone --depth 1 https://github.com/msoos/testfiles.git
-    ./checks.py $CMS_PATH testfiles/*
-    cd $BUILD_DIR
+
+    echo "Cloning and making minisat..."
+    git clone https://github.com/msoos/minisat.git
+    cd minisat
+    git checkout remotes/origin/only_elim_and_subsume
+    git checkout -b only_elim_and_subsume
+    make
+    cd ..
+    ./checks.py "$CMS_PATH" testfiles/*
+    cd "${BUILD_DIR}"
+
+    #STP build check
+    git clone --depth 1 https://github.com/niklasso/minisat.git
+    cd minisat
+    mkdir -p build
+    cd build
+    cmake ..
+    make -j2
+    sudo make install
+    cd "${BUILD_DIR}"
+
+    git clone --depth 1 https://github.com/stp/stp.git
+    cd stp
+    mkdir -p build
+    cd build
+    cmake ..
+    make -j2
+    sudo make install
+    cd "${BUILD_DIR}"
 fi
 
+
 #do fuzz testing
-if [ "$CMS_CONFIG" != "ONLY_SIMPLE" ] && [ "$CMS_CONFIG" != "AWS" ] && [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "NOPYTHON" ] && [ "$CMS_CONFIG" != "COVERAGE" ] && [ "$CMS_CONFIG" != "INTREE_BUILD" ]; then
+if [ "$CMS_CONFIG" != "ONLY_SIMPLE" ] && [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "NOPYTHON" ] && [ "$CMS_CONFIG" != "COVERAGE" ] && [ "$CMS_CONFIG" != "INTREE_BUILD" ] && [ "$CMS_CONFIG" != "STATS" ] && [ "$CMS_CONFIG" != "SQLITE" ] && [ "$CMS_CONFIG" != "MYSQL" ]; then
     cd ../scripts/fuzz/
     ./fuzz_test.py --novalgrind --small --fuzzlim 30
 fi
@@ -239,15 +295,6 @@ case $CMS_CONFIG in
         sudo apt-get update
         sudo apt-get install -y nodejs
         ./install_web.sh
-    ;;
-
-    AWS)
-        sudo apt-get install -y python-boto
-        sudo apt-get install -y python-pip
-        sudo pip install awscli
-        cd scripts/aws
-        ./local_test.sh
-        exit 0
     ;;
 
     *)
@@ -267,6 +314,6 @@ if [ "$CMS_CONFIG" = "COVERAGE" ]; then
 
   # only attempt upload if $COVERTOKEN is set
   if [ -n "$COVERTOKEN" ]; then
-    coveralls-lcov --repo-token $COVERTOKEN coverage.info # uploads to coveralls
+    coveralls-lcov --repo-token "$COVERTOKEN" coverage.info # uploads to coveralls
   fi
 fi

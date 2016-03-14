@@ -34,50 +34,88 @@
 #include "watched.h"
 #include "alg.h"
 #include "clabstraction.h"
+#include "avgcalc.h"
 #include "constants.h"
+#include "searchhist.h"
 
 namespace CMSat {
 
 class ClauseAllocator;
 
 template <class T>
-struct ResolutionTypes
+struct AtecedentData
 {
     void clear()
     {
-        *this = ResolutionTypes<T>();
+        *this = AtecedentData<T>();
     }
 
-    uint64_t sum() const
+    uint64_t num() const
     {
-        return bin + tri + irredL + redL;
+        return binRed + binIrred + triRed + triIrred + longIrred + longRed;
     }
 
-    template <class T2>
-    ResolutionTypes& operator+=(const ResolutionTypes<T2>& other)
+    template<class T2>
+    AtecedentData& operator+=(const AtecedentData<T2>& other)
     {
-        bin += other.bin;
-        tri += other.tri;
-        irredL += other.irredL;
-        redL += other.redL;
+        binRed += other.binRed;
+        binIrred += other.binIrred;
+        triRed += other.triRed;
+        triIrred += other.triIrred;
+        longIrred += other.longIrred;
+        longRed += other.longRed;
+
+        glue_long_reds += other.glue_long_reds;
+        size_longs += other.size_longs;
+        age_long_reds += other.age_long_reds;
+        vsids_vars += other.vsids_vars;
 
         return *this;
     }
 
-    ResolutionTypes& operator-=(const ResolutionTypes& other)
+    template<class T2>
+    AtecedentData& operator-=(const AtecedentData<T2>& other)
     {
-        bin -= other.bin;
-        tri -= other.tri;
-        irredL -= other.irredL;
-        redL -= other.redL;
+        binRed -= other.binRed;
+        binIrred -= other.binIrred;
+        triRed -= other.triRed;
+        triIrred -= other.triIrred;
+        longIrred -= other.longIrred;
+        longRed -= other.longRed;
+
+        glue_long_reds -= other.glue_long_reds;
+        size_longs -= other.size_longs;
+        age_long_reds -= other.age_long_reds;
+        vsids_vars -= other.vsids_vars;
 
         return *this;
     }
 
-    T bin = 0;
-    T tri = 0;
-    T irredL = 0;
-    T redL = 0;
+    uint32_t sum_size() const
+    {
+        uint32_t sum = 0;
+        sum += binIrred*2;
+        sum += binRed*2;
+        sum += triIrred*3;
+        sum += triRed*3;
+        sum += size_longs.get_sum();
+
+        return sum;
+    }
+
+    T binRed = 0;
+    T binIrred = 0;
+    T triRed = 0;
+    T triIrred = 0;
+    T longIrred = 0;
+    T longRed = 0;
+    AvgCalc<uint32_t> glue_long_reds;
+    AvgCalc<uint32_t> size_longs;
+    AvgCalc<uint32_t> age_long_reds;
+    AvgCalc<double, double> vsids_all_incoming_vars;
+    AvgCalc<double, double> vsids_vars;
+    AvgCalc<double, double> vsids_of_resolving_literals;
+    AvgCalc<double, double> vsids_of_ants;
 };
 
 struct ClauseStats
@@ -85,6 +123,7 @@ struct ClauseStats
     ClauseStats()
     {
         memset(this, 0, sizeof(ClauseStats));
+        ID = 1;
     }
 
     //Stored data
@@ -93,29 +132,34 @@ struct ClauseStats
     uint32_t marked_clause:1;
     uint32_t ttl:1;
     double   activity = 0.0;
+    int64_t ID;
     #ifdef STATS_NEEDED
     uint64_t introduced_at_conflict = 0; ///<At what conflict number the clause  was introduced
-    uint32_t conflicts_made = 0; ///<Number of times caused conflict
+    uint64_t conflicts_made = 0; ///<Number of times caused conflict
     uint64_t sum_of_branch_depth_conflict = 0;
-    uint32_t propagations_made = 0; ///<Number of times caused propagation
+    uint64_t propagations_made = 0; ///<Number of times caused propagation
     uint64_t clause_looked_at = 0; ///<Number of times the clause has been deferenced during propagation
-    uint32_t used_for_uip_creation = 0; ///Number of times the claue was using during 1st UIP conflict generation
+    uint64_t used_for_uip_creation = 0; ///Number of times the claue was using during 1st UIP conflict generation
     #endif
 
     ///Number of resolutions it took to make the clause when it was
     ///originally learnt. Only makes sense for redundant clauses
-    ResolutionTypes<uint16_t> resolutions;
+    AtecedentData<uint16_t> antec_data;
 
     void clear()
     {
+        /*
+         * We should never clear stats
+         *
         activity = 0;
         #ifdef STATS_NEEDED
         conflicts_made = 0;
         sum_of_branch_depth_conflict = 0;
-        propagations_made = 0;;
+        propagations_made = 0;
         clause_looked_at = 0;
         used_for_uip_creation = 0;
         #endif
+        */
     }
 
     static ClauseStats combineStats(const ClauseStats& first, const ClauseStats& second)
@@ -174,6 +218,8 @@ protected:
     uint16_t is_distilled:1;
     uint16_t occurLinked:1;
     uint16_t must_recalc_abst:1;
+    uint16_t _used_in_xor:1;
+    uint16_t _gauss_temp_cl:1; ///Used ONLY by Gaussian elimination to incicate where a proagation is coming from
 
 
     Lit* getData()
@@ -192,9 +238,9 @@ public:
 
     template<class V>
     Clause(const V& ps
-        , const uint32_t
         #ifdef STATS_NEEDED
-        _introduced_at_conflict
+        , const uint32_t _introduced_at_conflict
+        , const int64_t _ID
         #endif
         )
     {
@@ -202,6 +248,8 @@ public:
 
         #ifdef STATS_NEEDED
         stats.introduced_at_conflict = _introduced_at_conflict;
+        stats.ID = _ID;
+        assert(_ID >= 0);
         #endif
         stats.glue = std::min<uint32_t>(stats.glue, ps.size());
         isFreed = false;
@@ -210,6 +258,8 @@ public:
         isRemoved = false;
         is_distilled = false;
         must_recalc_abst = true;
+        _used_in_xor = false;
+        _gauss_temp_cl = false;
 
         for (uint32_t i = 0; i < ps.size(); i++) {
             getData()[i] = ps[i];
@@ -222,6 +272,26 @@ public:
     uint32_t size() const
     {
         return mySize;
+    }
+
+    bool gauss_temp_cl() const
+    {
+        return _gauss_temp_cl;
+    }
+
+    void set_gauss_temp_cl()
+    {
+        _gauss_temp_cl = true;
+    }
+
+    bool used_in_xor() const
+    {
+        return _used_in_xor;
+    }
+
+    void set_used_in_xor(const bool val)
+    {
+        _used_in_xor = val;
     }
 
     void shrink(const uint32_t i)

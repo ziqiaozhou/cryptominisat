@@ -27,6 +27,7 @@
 #include "varreplacer.h"
 #include "occsimplifier.h"
 #include <string>
+#include <cmath>
 #include <time.h>
 #include "constants.h"
 #include "reducedb.h"
@@ -37,45 +38,39 @@ using std::cerr;
 using std::endl;
 using std::string;
 
-MySQLStats::MySQLStats() :
-    bindAt(0)
-{
-}
-
 MySQLStats::~MySQLStats()
 {
-    if (!setup_ok)
-        return;
+    if (setup_ok) {
+        //Free all the prepared statements
+        my_bool ret = mysql_stmt_close(stmtRst.stmt);
+        if (ret) {
+            cout << "Error closing prepared statement" << endl;
+            std::exit(-1);
+        }
 
-    //Free all the prepared statements
-    my_bool ret = mysql_stmt_close(stmtRst.stmt);
-    if (ret) {
-        cout << "Error closing prepared statement" << endl;
-        std::exit(-1);
-    }
+        ret = mysql_stmt_close(stmtReduceDB.stmt);
+        if (ret) {
+            cout << "Error closing prepared statement" << endl;
+            std::exit(-1);
+        }
 
-    ret = mysql_stmt_close(stmtReduceDB.stmt);
-    if (ret) {
-        cout << "Error closing prepared statement" << endl;
-        std::exit(-1);
-    }
+        ret = mysql_stmt_close(stmtTimePassed.stmt);
+        if (ret) {
+            cout << "Error closing prepared statement" << endl;
+            std::exit(-1);
+        }
 
-    ret = mysql_stmt_close(stmtTimePassed.stmt);
-    if (ret) {
-        cout << "Error closing prepared statement" << endl;
-        std::exit(-1);
-    }
+        ret = mysql_stmt_close(stmtTimePassedMin.stmt);
+        if (ret) {
+            cout << "Error closing prepared statement" << endl;
+            std::exit(-1);
+        }
 
-    ret = mysql_stmt_close(stmtTimePassedMin.stmt);
-    if (ret) {
-        cout << "Error closing prepared statement" << endl;
-        std::exit(-1);
-    }
-
-    ret = mysql_stmt_close(stmtMemUsed.stmt);
-    if (ret) {
-        cout << "Error closing prepared statement" << endl;
-        std::exit(-1);
+        ret = mysql_stmt_close(stmtMemUsed.stmt);
+        if (ret) {
+            cout << "Error closing prepared statement" << endl;
+            std::exit(-1);
+        }
     }
 
     //Close clonnection
@@ -90,8 +85,7 @@ bool MySQLStats::setup(const Solver* solver)
     }
 
     getID(solver);
-    add_tags(solver);
-    addStartupData(solver);
+    addStartupData();
     initRestartSTMT();
     initReduceDBSTMT();
     initTimePassedSTMT();
@@ -115,10 +109,10 @@ bool MySQLStats::connectServer(const Solver* solver)
     //Connect to server
     if (!mysql_real_connect(
         serverConn
-        , solver->getConf().sqlServer.c_str()
-        , solver->getConf().sqlUser.c_str()
-        , solver->getConf().sqlPass.c_str()
-        , solver->getConf().sqlDatabase.c_str()
+        , sqlServer.c_str()
+        , sqlUser.c_str()
+        , sqlPass.c_str()
+        , sqlDatabase.c_str()
         , 0
         , NULL
         , 0)
@@ -143,15 +137,13 @@ bool MySQLStats::tryIDInSQL(const Solver* solver)
 {
     std::stringstream ss;
     ss
-    << "INSERT INTO solverRun (runID, version, time) values ("
+    << "INSERT INTO solverRun (runID, `runtime`) values ("
     << runID
-    << ", \"" << Solver::get_version_sha1() << "\""
     << ", " << time(NULL)
     << ");";
 
     //Inserting element into solverruns to get unique ID
     if (mysql_query(serverConn, ss.str().c_str())) {
-
         if (solver->getConf().verbosity >= 6) {
             cerr << "c ERROR Couldn't insert into table 'solverruns'" << endl;
             cerr << "c " << mysql_error(serverConn) << endl;
@@ -174,14 +166,15 @@ void MySQLStats::getID(const Solver* solver)
         //Check if we have been in this loop for too long
         if (numTries > 10) {
             cerr
-            << "ERROR: Something is wrong while adding runID!" << endl
-            << " Exiting!"
+            << "ERROR: Something is wrong while adding runID! "
+            << "Exiting!"
             << endl;
 
             cerr
             << "Maybe you didn't create the tables in the database?" << endl
             << "You can fix this by executing: " << endl
             << "$ mysql -u root -p cmsat < cmsat_tablestructure.sql" << endl
+            << "Beware: THIS DELETES ALL PREVIOUS CryptoMiniSat DATA!" << endl;
             ;
 
             std::exit(-1);
@@ -193,38 +186,30 @@ void MySQLStats::getID(const Solver* solver)
     }
 }
 
-void MySQLStats::add_tags(const Solver* solver)
-{
-    for(vector<std::pair<string, string> >::const_iterator
-        it = solver->get_sql_tags().begin(), end = solver->get_sql_tags().end()
-        ; it != end
-        ; ++it
-    ) {
-
-        std::stringstream ss;
-        ss
-        << "INSERT INTO `tags` (`runID`, `tagname`, `tag`) VALUES("
-        << runID
-        << ", '" << it->first << "'"
-        << ", '" << it->second << "'"
-        << ");";
-
-        //Inserting element into solverruns to get unique ID
-        if (mysql_query(serverConn, ss.str().c_str())) {
-            cerr << "ERROR Couldn't insert into table 'tags'" << endl;
-            std::exit(-1);
-        }
-    }
-}
-
-void MySQLStats::addStartupData(const Solver* solver)
+void MySQLStats::add_tag(const std::pair<string, string>& tag)
 {
     std::stringstream ss;
     ss
-    << "INSERT INTO `startup` (`runID`, `startTime`, `verbosity`) VALUES ("
+    << "INSERT INTO `tags` (`runID`, `tagname`, `tag`) VALUES("
+    << runID
+    << ", '" << tag.first << "'"
+    << ", '" << tag.second << "'"
+    << ");";
+
+    //Inserting element into solverruns to get unique ID
+    if (mysql_query(serverConn, ss.str().c_str())) {
+        cerr << "MySQL: ERROR Couldn't insert into table 'tags'" << endl;
+        std::exit(-1);
+    }
+}
+
+void MySQLStats::addStartupData()
+{
+    std::stringstream ss;
+    ss
+    << "INSERT INTO `startup` (`runID`, `startTime`) VALUES ("
     << runID << ","
-    << "NOW() , "
-    << solver->getConf().verbosity
+    << "NOW()"
     << ");";
 
     if (mysql_query(serverConn, ss.str().c_str())) {
@@ -274,7 +259,7 @@ void MySQLStats::initTimePassedSTMT()
     ss << "insert into `timepassed`"
     << "("
     //Position
-    << "  `runID`, `simplifications`, `conflicts`, `time`"
+    << "  `runID`, `simplifications`, `conflicts`, `runtime`"
 
     //Clause stats
     << ", `name`, `elapsed`, `timeout`, `percenttimeremain`"
@@ -344,7 +329,7 @@ void MySQLStats::initMemUsedSTMT()
     ss << "insert into `memused`"
     << "("
     //Position
-    << "  `runID`, `simplifications`, `conflicts`, `time`"
+    << "  `runID`, `simplifications`, `conflicts`, `runtime`"
 
     //Clause stats
     << ", `name`, `MB`"
@@ -412,7 +397,7 @@ void MySQLStats::initTimePassedMinSTMT()
     ss << "insert into `timepassed`"
     << "("
     //Position
-    << "  `runID`, `simplifications`, `conflicts`, `time`"
+    << "  `runID`, `simplifications`, `conflicts`, `runtime`"
 
     //Clause stats
     << ", `name`, `elapsed`"
@@ -480,7 +465,7 @@ void MySQLStats::initRestartSTMT()
     ss << "insert into `restart`"
     << "("
     //Position
-    << "  `runID`, `simplifications`, `restarts`, `conflicts`, `time`"
+    << "  `runID`, `simplifications`, `restarts`, `conflicts`, `runtime`"
 
     //Clause stats
     << ", numIrredBins, numIrredTris, numIrredLongs"
@@ -513,7 +498,9 @@ void MySQLStats::initRestartSTMT()
     << ", `learntUnits`, `learntBins`, `learntTris`, `learntLongs`"
 
     //Resolutions
-    << ", `resolBin`, `resolTri`, `resolLIrred`, `resolLRed`"
+    << ", `resolBinIrred`, `resolBinRed`"
+    << ", `resolTriIrred`, `resolTriRed`"
+    << ", `resolLIrred`, `resolLRed`"
 
     //Var stats
     << ", `propagations`"
@@ -637,10 +624,12 @@ void MySQLStats::initRestartSTMT()
     bindTo(stmtRst, stmtRst.learntLongs);
 
     //Resolutions
-    bindTo(stmtRst, stmtRst.resolv.bin);
-    bindTo(stmtRst, stmtRst.resolv.tri);
-    bindTo(stmtRst, stmtRst.resolv.irredL);
-    bindTo(stmtRst, stmtRst.resolv.redL);
+    bindTo(stmtRst, stmtRst.resolv.binIrred);
+    bindTo(stmtRst, stmtRst.resolv.binRed);
+    bindTo(stmtRst, stmtRst.resolv.triIrred);
+    bindTo(stmtRst, stmtRst.resolv.triRed);
+    bindTo(stmtRst, stmtRst.resolv.longIrred);
+    bindTo(stmtRst, stmtRst.resolv.longRed);
 
     //Var stats
     bindTo(stmtRst, stmtRst.propagations);
@@ -672,7 +661,7 @@ void MySQLStats::initReduceDBSTMT()
     ss << "insert into `reduceDB`"
     << "("
     //Position
-    << "  `runID`, `simplifications`, `restarts`, `conflicts`, `time`"
+    << "  `runID`, `simplifications`, `restarts`, `conflicts`, `runtime`"
     << ", `reduceDBs`"
 
     //Actual data
@@ -681,14 +670,18 @@ void MySQLStats::initReduceDBSTMT()
 
     //Clean data
     << ", removedNum, removedLits, removedGlue"
-    << ", removedResolBin, removedResolTri, removedResolLIrred, removedResolLRed"
-    << ", removedAge, removedAct"
+    << ", removedResolBinIrred, removedResolBinRed"
+    << ", removedResolTriIrred, removedResolTriRed"
+    << ", removedResolLIrred, removedResolLRed"
+    << ", removedAge"
     << ", removedProp, removedConfl"
     << ", removedLookedAt, removedUsedUIP"
 
     << ", remainNum, remainLits, remainGlue"
-    << ", remainResolBin, remainResolTri, remainResolLIrred, remainResolLRed"
-    << ", remainAge, remainAct"
+    << ", remainResolBinIrred, remainResolBinRed"
+    << ", remainResolTriIrred, remainResolTriRed"
+    << ", remainResolLIrred, remainResolLRed"
+    << ", remainAge"
     << ", remainProp, remainConfl"
     << ", remainLookedAt, remainUsedUIP"
     << ") values ";
@@ -748,12 +741,13 @@ void MySQLStats::initReduceDBSTMT()
     bindTo(stmtReduceDB, stmtReduceDB.clean.removed.num);
     bindTo(stmtReduceDB, stmtReduceDB.clean.removed.lits);
     bindTo(stmtReduceDB, stmtReduceDB.clean.removed.glue);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.resol.bin);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.resol.tri);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.resol.irredL);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.resol.redL);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.antec_data.binIrred);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.antec_data.binRed);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.antec_data.triIrred);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.antec_data.triRed);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.antec_data.longIrred);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.antec_data.longRed);
     bindTo(stmtReduceDB, stmtReduceDB.clean.removed.age);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.removed.act);
     bindTo(stmtReduceDB, stmtReduceDB.clean.removed.numProp);
     bindTo(stmtReduceDB, stmtReduceDB.clean.removed.numConfl);
     bindTo(stmtReduceDB, stmtReduceDB.clean.removed.numLookedAt);
@@ -762,12 +756,13 @@ void MySQLStats::initReduceDBSTMT()
     bindTo(stmtReduceDB, stmtReduceDB.clean.remain.num);
     bindTo(stmtReduceDB, stmtReduceDB.clean.remain.lits);
     bindTo(stmtReduceDB, stmtReduceDB.clean.remain.glue);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.resol.bin);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.resol.tri);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.resol.irredL);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.resol.redL);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.antec_data.binIrred);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.antec_data.binRed);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.antec_data.triIrred);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.antec_data.triRed);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.antec_data.longIrred);
+    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.antec_data.longRed);
     bindTo(stmtReduceDB, stmtReduceDB.clean.remain.age);
-    bindTo(stmtReduceDB, stmtReduceDB.clean.remain.act);
     bindTo(stmtReduceDB, stmtReduceDB.clean.remain.numProp);
     bindTo(stmtReduceDB, stmtReduceDB.clean.remain.numConfl);
     bindTo(stmtReduceDB, stmtReduceDB.clean.remain.numLookedAt);
@@ -905,7 +900,7 @@ void MySQLStats::restart(
     , const Solver* solver
     , const Searcher* search
 ) {
-    const Searcher::Hist& searchHist = search->getHistory();
+    const SearchHist& searchHist = search->getHistory();
     const BinTriStats& binTri = solver->getBinTriStats();
 
     //Position of solving
@@ -926,19 +921,19 @@ void MySQLStats::restart(
 
     //Conflict stats
     stmtRst.glueHist        = searchHist.glueHist.getLongtTerm().avg();
-    stmtRst.glueHistSD      = sqrt(searchHist.glueHist.getLongtTerm().var());
+    stmtRst.glueHistSD      = std::sqrt(searchHist.glueHist.getLongtTerm().var());
     stmtRst.glueHistMin      = searchHist.glueHist.getLongtTerm().getMin();
     stmtRst.glueHistMax      = searchHist.glueHist.getLongtTerm().getMax();
 
     stmtRst.conflSizeHist   = searchHist.conflSizeHist.avg();
-    stmtRst.conflSizeHistSD = sqrt(searchHist.conflSizeHist.var());
+    stmtRst.conflSizeHistSD = std::sqrt(searchHist.conflSizeHist.var());
     stmtRst.conflSizeHistMin = searchHist.conflSizeHist.getMin();
     stmtRst.conflSizeHistMax = searchHist.conflSizeHist.getMax();
 
     stmtRst.numResolutionsHist =
         searchHist.numResolutionsHist.avg();
     stmtRst.numResolutionsHistSD =
-        sqrt(searchHist.numResolutionsHist.var());
+        std::sqrt(searchHist.numResolutionsHist.var());
     stmtRst.numResolutionsHistMin =
         searchHist.numResolutionsHist.getMin();
     stmtRst.numResolutionsHistMax =
@@ -949,23 +944,23 @@ void MySQLStats::restart(
 
     //Search stats
     stmtRst.branchDepthHist         = searchHist.branchDepthHist.avg();
-    stmtRst.branchDepthHistSD       = sqrt(searchHist.branchDepthHist.var());
+    stmtRst.branchDepthHistSD       = std::sqrt(searchHist.branchDepthHist.var());
     stmtRst.branchDepthHistMin      = searchHist.branchDepthHist.getMin();
     stmtRst.branchDepthHistMax      = searchHist.branchDepthHist.getMax();
 
 
     stmtRst.branchDepthDeltaHist    = searchHist.branchDepthDeltaHist.avg();
-    stmtRst.branchDepthDeltaHistSD  = sqrt(searchHist.branchDepthDeltaHist.var());
+    stmtRst.branchDepthDeltaHistSD  = std::sqrt(searchHist.branchDepthDeltaHist.var());
     stmtRst.branchDepthDeltaHistMin  = searchHist.branchDepthDeltaHist.getMin();
     stmtRst.branchDepthDeltaHistMax  = searchHist.branchDepthDeltaHist.getMax();
 
     stmtRst.trailDepthHist          = searchHist.trailDepthHist.getLongtTerm().avg();
-    stmtRst.trailDepthHistSD        = sqrt(searchHist.trailDepthHist.getLongtTerm().var());
+    stmtRst.trailDepthHistSD        = std::sqrt(searchHist.trailDepthHist.getLongtTerm().var());
     stmtRst.trailDepthHistMin       = searchHist.trailDepthHist.getLongtTerm().getMin();
     stmtRst.trailDepthHistMax       = searchHist.trailDepthHist.getLongtTerm().getMax();
 
     stmtRst.trailDepthDeltaHist     = searchHist.trailDepthDeltaHist.avg();
-    stmtRst.trailDepthDeltaHistSD   = sqrt(searchHist.trailDepthDeltaHist.var());
+    stmtRst.trailDepthDeltaHistSD   = std::sqrt(searchHist.trailDepthDeltaHist.var());
     stmtRst.trailDepthDeltaHistMin  = searchHist.trailDepthDeltaHist.getMin();
     stmtRst.trailDepthDeltaHistMax  = searchHist.trailDepthDeltaHist.getMax();
 
@@ -1002,7 +997,7 @@ void MySQLStats::restart(
     stmtRst.varSetPos       = thisPropStats.varSetPos;
     stmtRst.varSetNeg       = thisPropStats.varSetNeg;
     stmtRst.numFreeVars     = solver->get_num_free_vars();
-    stmtRst.numReplacedVars = solver->get_num_vars_replaced();
+    stmtRst.numReplacedVars = solver->varReplacer->get_num_replaced_vars();
     stmtRst.numVarsElimed   = solver->get_num_vars_elimed();
     stmtRst.trailSize       = search->getTrailSize();
 

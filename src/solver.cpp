@@ -37,12 +37,11 @@
 #include "searcher.h"
 #include "occsimplifier.h"
 #include "prober.h"
-#include "distiller.h"
+#include "distillerallwithall.h"
 #include "clausecleaner.h"
 #include "solutionextender.h"
 #include "varupdatehelper.h"
 #include "gatefinder.h"
-#include "sqlstats.h"
 #include "completedetachreattacher.h"
 #include "compfinder.h"
 #include "comphandler.h"
@@ -50,7 +49,8 @@
 #include "watchalgos.h"
 #include "clauseallocator.h"
 #include "subsumeimplicit.h"
-#include "distillerwithbin.h"
+#include "distillerlongwithimpl.h"
+#include "str_impl_w_impl_stamp.h"
 #include "datasync.h"
 #include "reducedb.h"
 #include "clausedumper.h"
@@ -61,6 +61,9 @@
 #include "features_to_reconf.h"
 #include "trim.h"
 #include "streambuffer.h"
+#include "gaussian.h"
+#include "matrixfinder.h"
+#include "sqlstats.h"
 
 using namespace CMSat;
 using std::cout;
@@ -74,26 +77,27 @@ using std::endl;
 #include "sqlitestats.h"
 #endif
 
-//#define DRUP_DEBUG
+//#define DRAT_DEBUG
 
 //#define DEBUG_RENUMBER
 
 //#define DEBUG_IMPLICIT_PAIRS_TRIPLETS
 
-Solver::Solver(const SolverConf *_conf, bool* _needToInterrupt) :
-    Searcher(_conf, this, _needToInterrupt)
+Solver::Solver(const SolverConf *_conf, std::atomic<bool>* _must_interrupt_inter) :
+    Searcher(_conf, this, _must_interrupt_inter)
 {
-    parse_sql_option();
+    sqlStats = NULL;
 
     if (conf.doProbe) {
         prober = new Prober(this);
     }
     intree = new InTree(this);
     if (conf.perform_occur_based_simp) {
-        simplifier = new OccSimplifier(this);
+        occsimplifier = new OccSimplifier(this);
     }
-    distiller = new Distiller(this);
-    distillerwithbin = new DistillerWithBin(this);
+    distill_all_with_all = new DistillerAllWithAll(this);
+    dist_long_with_impl = new DistillerLongWithImpl(this);
+    dist_impl_with_impl = new StrImplWImplStamp(this);
     clauseCleaner = new ClauseCleaner(this);
     varReplacer = new VarReplacer(this);
     if (conf.doCompHandler) {
@@ -105,6 +109,8 @@ Solver::Solver(const SolverConf *_conf, bool* _needToInterrupt) :
     datasync = new DataSync(this, NULL);
     Searcher::solver = this;
     reduceDB = new ReduceDB(this);
+
+    set_up_sql_writer();
 }
 
 Solver::~Solver()
@@ -113,9 +119,10 @@ Solver::~Solver()
     delete sqlStats;
     delete prober;
     delete intree;
-    delete simplifier;
-    delete distiller;
-    delete distillerwithbin;
+    delete occsimplifier;
+    delete distill_all_with_all;
+    delete dist_long_with_impl;
+    delete dist_impl_with_impl;
     delete clauseCleaner;
     delete varReplacer;
     delete subsumeImplicit;
@@ -123,73 +130,39 @@ Solver::~Solver()
     delete reduceDB;
 }
 
-void Solver::parse_sql_option()
+void Solver::set_mysql(
+        string sqlServer
+        , string sqlUser
+        , string sqlPass
+        , string sqlDatabase)
 {
-    if (conf.doSQL > 2) {
-        std::cerr << "ERROR: '--sql'  option must be given value 0..2"
-        << endl;
-        std::exit(-1);
+    #if defined(USE_MYSQL)
+    sqlStats = new MySQLStats(sqlServer, sqlUser, sqlPass, sqlDatabase);
+    sqlStats->setup(this);
+    if (conf.verbosity >= 4) {
+        cout << "c Connected to MySQL server" << endl;
     }
-    if (conf.whichSQL > 3) {
-        std::cerr << "ERROR: '--wsql'  option must be given value 0..3"
-        << endl;
-        std::exit(-1);
+    #else
+    std::cerr << "MySQL support was not compiled in, cannot use it. Exiting."
+    << endl;
+    std::exit(-1);
+    #endif
+}
+
+void Solver::set_sqlite(string filename)
+{
+
+    #if defined(USE_SQLITE3)
+    sqlStats = new SQLiteStats(filename);
+    sqlStats->setup(this);
+    if (conf.verbosity >= 4) {
+        cout << "c Connected to SQLite server" << endl;
     }
-
-    sqlStats = NULL;
-    if (conf.doSQL) {
-        if (conf.whichSQL == 2) {
-            #if defined(USE_MYSQL)
-            sqlStats = new MySQLStats();
-            #else
-            if (conf.doSQL >= 2) {
-                std::cerr << "MySQL support was not compiled in, cannot use it. Exiting."
-                << endl;
-                std::exit(-1);
-            }
-            #endif
-        }
-
-        if (conf.whichSQL == 3) {
-            #if defined(USE_SQLITE3)
-            sqlStats = new SQLiteStats();
-            #else
-            if (conf.doSQL == 2) {
-                std::cerr << "SQLite support was not compiled in, cannot use it. Exiting."
-                << endl;
-                std::exit(-1);
-            }
-            #endif
-        }
-
-        if (conf.whichSQL == 0) {
-            #if defined(USE_MYSQL)
-            sqlStats = new MySQLStats();
-            #elif defined(USE_SQLITE3)
-            sqlStats = new SQLiteStats();
-            #else
-            if (conf.doSQL == 2) {
-                std::cerr << "Neither MySQL nor SQLite support was compiled in"
-                << ", cannot use either. Exiting." << endl;
-                std::exit(-1);
-            }
-            #endif
-        }
-
-        if (conf.whichSQL == 1) {
-            #if defined(USE_SQLITE3)
-            sqlStats = new SQLiteStats();
-            #elif defined(USE_MYSQL)
-            sqlStats = new MySQLStats();
-            #else
-            if (conf.doSQL == 2) {
-                std::cerr << "Neither MySQL nor SQLite support was compiled in"
-                << ", cannot use either. Exiting." << endl;
-                std::exit(-1);
-            }
-            #endif
-        }
-    }
+    #else
+    std::cerr << "SQLite support was not compiled in, cannot use it. Exiting."
+    << endl;
+    std::exit(-1);
+    #endif
 }
 
 void Solver::set_shared_data(SharedData* shared_data)
@@ -202,7 +175,7 @@ bool Solver::add_xor_clause_inter(
     const vector<Lit>& lits
     , bool rhs
     , const bool attach
-    , bool addDrup
+    , bool addDrat
 ) {
     assert(ok);
     assert(!attach || qhead == trail.size());
@@ -254,14 +227,14 @@ bool Solver::add_xor_clause_inter(
         ps[0] ^= rhs;
     } else {
         if (rhs) {
-            *drup << fin;
+            *drat << fin;
             ok = false;
         }
         return ok;
     }
 
     //cout << "without rhs is: " << ps << endl;
-    add_every_combination_xor(ps, attach, addDrup);
+    add_every_combination_xor(ps, attach, addDrat);
 
     return ok;
 }
@@ -269,7 +242,7 @@ bool Solver::add_xor_clause_inter(
 void Solver::add_every_combination_xor(
     const vector<Lit>& lits
     , const bool attach
-    , const bool addDrup
+    , const bool addDrat
 ) {
     //cout << "add_every_combination got: " << lits << endl;
 
@@ -306,7 +279,7 @@ void Solver::add_every_combination_xor(
             lastlit_added = toadd;
         }
 
-        add_xor_clause_inter_cleaned_cut(xorlits, attach, addDrup);
+        add_xor_clause_inter_cleaned_cut(xorlits, attach, addDrat);
         if (!ok)
             break;
 
@@ -317,7 +290,7 @@ void Solver::add_every_combination_xor(
 void Solver::add_xor_clause_inter_cleaned_cut(
     const vector<Lit>& lits
     , const bool attach
-    , const bool addDrup
+    , const bool addDrat
 ) {
     //cout << "xor_inter_cleaned_cut got: " << lits << endl;
     vector<Lit> new_lits;
@@ -333,7 +306,7 @@ void Solver::add_xor_clause_inter_cleaned_cut(
             new_lits.push_back(lits[at] ^ xorwith);
         }
         //cout << "Added. " << new_lits << endl;
-        Clause* cl = add_clause_int(new_lits, false, ClauseStats(), attach, NULL, addDrup);
+        Clause* cl = add_clause_int(new_lits, false, ClauseStats(), attach, NULL, addDrat);
         if (cl) {
             longIrredCls.push_back(cl_alloc.get_offset(cl));
         }
@@ -400,8 +373,8 @@ Clause* Solver::add_clause_int(
     , ClauseStats stats
     , const bool attach_long
     , vector<Lit>* finalLits
-    , bool addDrup
-    , const Lit drup_first
+    , bool addDrat
+    , const Lit drat_first
 ) {
     assert(ok);
     assert(decisionLevel() == 0);
@@ -429,17 +402,17 @@ Clause* Solver::add_clause_int(
         *finalLits = ps;
     }
 
-    if (addDrup) {
+    if (addDrat) {
         size_t i = 0;
-        if (drup_first != lit_Undef) {
+        if (drat_first != lit_Undef) {
             for(i = 0; i < ps.size(); i++) {
-                if (ps[i] == drup_first) {
+                if (ps[i] == drat_first) {
                     break;
                 }
             }
         }
         std::swap(ps[0], ps[i]);
-        *drup << ps << fin;
+        *drat << ps << fin;
         std::swap(ps[0], ps[i]);
 
         if (ps.size() == 2) {
@@ -478,9 +451,15 @@ Clause* Solver::add_clause_int(
             return NULL;
 
         default:
-            Clause* c = cl_alloc.Clause_new(ps, sumStats.conflStats.numConflicts);
-            if (red)
+            Clause* c = cl_alloc.Clause_new(ps
+            #ifdef STATS_NEEDED
+            , sumSearchStats.conflStats.numConflicts
+            , 1
+            #endif
+            );
+            if (red) {
                 c->makeRed(stats.glue);
+            }
             c->stats = stats;
 
             //In class 'OccSimplifier' we don't need to attach normall
@@ -501,12 +480,12 @@ void Solver::attachClause(
     const Clause& cl
     , const bool checkAttach
 ) {
-    #if defined(DRUP_DEBUG) && defined(DRUP)
-    if (drup) {
+    #if defined(DRAT_DEBUG) && defined(DRAT)
+    if (drat) {
         for(size_t i = 0; i < cl.size(); i++) {
-            *drup << cl[i];
+            *drat << cl[i];
         }
-        *drup << fin;
+        *drat << fin;
     }
     #endif
 
@@ -526,9 +505,9 @@ void Solver::attach_tri_clause(
     , const Lit lit3
     , const bool red
 ) {
-    #if defined(DRUP_DEBUG) && defined(DRUP)
-    if (drup) {
-        *drup << lit1  << lit2  << lit3 << fin;
+    #if defined(DRAT_DEBUG) && defined(DRAT)
+    if (drat) {
+        *drat << lit1  << lit2  << lit3 << fin;
     }
     #endif
 
@@ -549,8 +528,8 @@ void Solver::attach_bin_clause(
     , const bool red
     , const bool checkUnassignedFirst
 ) {
-    #if defined(DRUP_DEBUG)
-    *drup << lit1 << lit2 << fin;
+    #if defined(DRAT_DEBUG)
+    *drat << lit1 << lit2 << fin;
     #endif
 
     //Update stats
@@ -596,20 +575,20 @@ void Solver::detach_bin_clause(
     PropEngine::detach_bin_clause(lit1, lit2, red, allow_empty_watch);
 }
 
-void Solver::detachClause(const Clause& cl, const bool removeDrup)
+void Solver::detachClause(const Clause& cl, const bool removeDrat)
 {
-    if (removeDrup) {
-        *drup << del << cl << fin;
+    if (removeDrat) {
+        *drat << del << cl << fin;
     }
 
     assert(cl.size() > 3);
     detach_modified_clause(cl[0], cl[1], cl.size(), &cl);
 }
 
-void Solver::detachClause(const ClOffset offset, const bool removeDrup)
+void Solver::detachClause(const ClOffset offset, const bool removeDrat)
 {
     Clause* cl = cl_alloc.ptr(offset);
-    detachClause(*cl, removeDrup);
+    detachClause(*cl, removeDrat);
 }
 
 void Solver::detach_modified_clause(
@@ -709,7 +688,7 @@ bool Solver::addClauseHelper(vector<Lit>& ps)
             #ifdef VERBOSE_DEBUG_RECONSTRUCT
             cout << "Uneliminating var " << lit.var() + 1 << endl;
             #endif
-            if (!simplifier->uneliminate(lit.var()))
+            if (!occsimplifier->uneliminate(lit.var()))
                 return false;
         }
     }
@@ -725,9 +704,9 @@ bool Solver::addClauseHelper(vector<Lit>& ps)
     return true;
 }
 
-bool Solver::addClause(const vector<Lit>& lits)
+bool Solver::addClause(const vector<Lit>& lits, bool red)
 {
-    if (conf.perform_occur_based_simp && simplifier->getAnythingHasBeenBlocked()) {
+    if (conf.perform_occur_based_simp && occsimplifier->getAnythingHasBeenBlocked()) {
         std::cerr
         << "ERROR: Cannot add new clauses to the system if blocking was"
         << " enabled. Turn it off from conf.doBlockClauses"
@@ -750,57 +729,42 @@ bool Solver::addClause(const vector<Lit>& lits)
     std::sort(ps.begin(), ps.end());
     Clause* cl = add_clause_int(
         ps
-        , false //irred
+        , red
         , ClauseStats() //default stats
         , true //yes, attach
         , &finalCl_tmp
-        , false
+        , false //add drat?
     );
 
-    //Drup -- We manipulated the clause, delete
-    if (drup->enabled()
+    //Drat -- We manipulated the clause, delete
+    if (drat->enabled()
         && ps != finalCl_tmp
     ) {
         //Dump only if non-empty (UNSAT handled later)
         if (!finalCl_tmp.empty()) {
-            *drup << finalCl_tmp << fin;
+            *drat << finalCl_tmp << fin;
         }
 
         //Empty clause, it's UNSAT
         if (!okay()) {
-            *drup << fin;
+            *drat << fin;
         }
-        *drup << del << ps << fin;
+        *drat << del << ps << fin;
     }
 
     if (cl != NULL) {
         ClOffset offset = cl_alloc.get_offset(cl);
-        longIrredCls.push_back(offset);
+        if (!red) {
+            longIrredCls.push_back(offset);
+        } else {
+            longRedCls.push_back(offset);
+        }
     }
 
     zeroLevAssignsByCNF += trail.size() - origTrailSize;
 
     return ok;
 }
-
-/*bool Solver::addRedClause(
-    const vector<Lit>& lits
-    , const ClauseStats& stats
-) {
-    vector<Lit> ps(lits.size());
-    std::copy(lits.begin(), lits.end(), ps.begin());
-
-    if (!addClauseHelper(ps))
-        return false;
-
-    Clause* cl = add_clause_int(ps, true, stats);
-    if (cl != NULL) {
-        ClOffset offset = cl_alloc.get_offset(cl);
-        longRedCls.push_back(offset);
-    }
-
-    return ok;
-}*/
 
 void Solver::test_renumbering() const
 {
@@ -939,9 +903,8 @@ void Solver::renumber_variables()
     const double time_used = cpuTime() - myTime;
     if (conf.verbosity >= 2) {
         cout
-        << "c [renumber] T: "
-        << std::fixed << std::setw(5) << std::setprecision(2)
-        << time_used
+        << "c [renumber]"
+        << conf.print_times(time_used)
         << endl;
     }
     if (sqlStats) {
@@ -963,7 +926,7 @@ void Solver::renumber_variables()
 void Solver::check_switchoff_limits_newvar(size_t n)
 {
     if (conf.doStamp
-        && nVars() + n > 15ULL*1000ULL*1000ULL
+        && nVars() + n > 15ULL*1000ULL*1000ULL //~1 GB of RAM
     ) {
         conf.doStamp = false;
         stamp.freeMem();
@@ -976,7 +939,7 @@ void Solver::check_switchoff_limits_newvar(size_t n)
     }
 
     if (conf.doCache
-        && nVars() + n > 8ULL*1000ULL*1000ULL
+        && nVars() + n > 5ULL*1000ULL*1000ULL
     ) {
         conf.doCache = false;
         implCache.free();
@@ -984,21 +947,6 @@ void Solver::check_switchoff_limits_newvar(size_t n)
         if (conf.verbosity >= 2) {
             cout
             << "c Switching off caching due to excessive number of variables"
-            << " (it would take too much memory)"
-            << endl;
-        }
-    }
-
-    if (conf.perform_occur_based_simp
-        && conf.doFindXors
-        && nVars() + n > 3ULL*1000ULL*1000ULL
-    ) {
-        conf.doFindXors = false;
-        simplifier->freeXorMem();
-
-        if (conf.verbosity >= 2) {
-            cout
-            << "c Switching off XOR finding due to excessive number of variables"
             << " (it would take too much memory)"
             << endl;
         }
@@ -1019,7 +967,7 @@ void Solver::new_vars(size_t n)
     varReplacer->new_vars(n);
 
     if (conf.perform_occur_based_simp) {
-        simplifier->new_vars(n);
+        occsimplifier->new_vars(n);
     }
 
     if (compHandler) {
@@ -1040,7 +988,7 @@ void Solver::new_var(const bool bva, const uint32_t orig_outer)
     varReplacer->new_var(orig_outer);
 
     if (conf.perform_occur_based_simp) {
-        simplifier->new_var(orig_outer);
+        occsimplifier->new_var(orig_outer);
     }
 
     if (compHandler) {
@@ -1069,8 +1017,8 @@ void Solver::save_on_var_memory(const uint32_t newNumVars)
     litReachable.resize(nVars()*2);
     litReachable.shrink_to_fit();
     varReplacer->save_on_var_memory();
-    if (simplifier) {
-        simplifier->save_on_var_memory();
+    if (occsimplifier) {
+        occsimplifier->save_on_var_memory();
     }
     if (compHandler) {
         compHandler->save_on_var_memory();
@@ -1237,7 +1185,7 @@ void Solver::extend_solution()
         compHandler->addSavedState(model);
     }
 
-    SolutionExtender extender(this, simplifier);
+    SolutionExtender extender(this, occsimplifier);
     extender.extend();
 
     model = map_back_to_without_bva(model);
@@ -1253,21 +1201,15 @@ void Solver::extend_solution()
 
 void Solver::set_up_sql_writer()
 {
-    if (!sqlStats || solveStats.num_solve_calls > 1) {
-        //Either it's already initialized, or it's not needed
+    if (!sqlStats) {
         return;
     }
 
     bool ret = sqlStats->setup(this);
     if (!ret) {
-        if (conf.doSQL == 2) {
-            std::cerr
-            << "c ERROR: SQL was required (with option '--sql 2'), but couldn't connect to SQL server." << endl;
-            std::exit(-1);
-        }
-        delete sqlStats;
-        sqlStats = NULL;
-        conf.doSQL = false;
+        std::cerr
+        << "c ERROR: SQL was required (with option '--sql 2'), but couldn't connect to SQL server." << endl;
+        std::exit(-1);
     }
 }
 
@@ -1299,11 +1241,9 @@ lbool Solver::solve()
     }
 
     if (conf.verbosity >= 6) {
-        cout << "c Solver::solve() called" << endl;
+        cout << "c " << __PRETTY_FUNCTION__ << " called" << endl;
     }
     conf.global_timeout_multiplier = solver->conf.orig_global_timeout_multiplier;
-
-    set_up_sql_writer();
 
     //Check if adding the clauses caused UNSAT
     lbool status = l_Undef;
@@ -1311,7 +1251,7 @@ lbool Solver::solve()
         conflict.clear();
         status = l_False;
         if (conf.verbosity >= 6) {
-            cout << "c Solver status l_Fase on startup of solve()" << endl;
+            cout << "c Solver status " << status << " on startup of solve()" << endl;
         }
         goto end;
     }
@@ -1323,6 +1263,7 @@ lbool Solver::solve()
     if (conf.preprocess == 2) {
         status = load_state(conf.saved_state_file);
         if (status == l_Undef) {
+            model = assigns;
             status = load_solution_from_file(conf.solution_file);
         }
     }
@@ -1446,19 +1387,26 @@ void Solver::dump_memory_stats_to_sql()
         );
     }
 
-    if (simplifier) {
+    if (occsimplifier) {
         sqlStats->mem_used(
             this
-            , "simplifier"
+            , "occsimplifier"
             , my_time
-            , simplifier->mem_used()/(1024*1024)
+            , occsimplifier->mem_used()/(1024*1024)
         );
 
         sqlStats->mem_used(
             this
             , "xor"
             , my_time
-            , simplifier->mem_used_xor()/(1024*1024)
+            , occsimplifier->mem_used_xor()/(1024*1024)
+        );
+
+        sqlStats->mem_used(
+            this
+            , "bva"
+            , my_time
+            , occsimplifier->mem_used_bva()/(1024*1024)
         );
     }
 
@@ -1504,7 +1452,7 @@ lbool Solver::iterate_until_solved()
     while (status == l_Undef
         && !must_interrupt_asap()
         && cpuTime() < conf.maxTime
-        && sumStats.conflStats.numConflicts < (uint64_t)conf.maxConfl
+        && sumSearchStats.conflStats.numConflicts < (uint64_t)conf.maxConfl
     ) {
         iteration_num++;
         if (conf.verbosity >= 2 && iteration_num >= 2) {
@@ -1516,26 +1464,28 @@ lbool Solver::iterate_until_solved()
         dump_memory_stats_to_sql();
 
         const size_t origTrailSize = trail.size();
-        long num_conflicts_of_search = conf.num_conflicts_of_search
-            *(std::pow(conf.num_conflicts_of_search_inc, (double)iteration_num));
+        double mult = std::pow(conf.num_conflicts_of_search_inc, (double)iteration_num);
+        mult = std::min(mult, conf.num_conflicts_of_search_inc_max);
+        long num_conflicts_of_search = (double)conf.num_conflicts_of_search*mult;
         if (conf.never_stop_search) {
             num_conflicts_of_search = 500ULL*1000ULL*1000ULL;
         }
         num_conflicts_of_search = std::min<long>(
             num_conflicts_of_search
-            , (long)conf.maxConfl - (long)sumStats.conflStats.numConflicts
+            , (long)conf.maxConfl - (long)sumSearchStats.conflStats.numConflicts
         );
         if (num_conflicts_of_search <= 0) {
             break;
         }
         status = Searcher::solve(num_conflicts_of_search, iteration_num);
+        clear_gauss();
 
         //Check for effectiveness
         check_recursive_minimization_effectiveness(status);
         check_minimization_effectiveness(status);
 
         //Update stats
-        sumStats += Searcher::get_stats();
+        sumSearchStats += Searcher::get_stats();
         sumPropStats += propStats;
         propStats.clear();
         Searcher::resetStats();
@@ -1546,7 +1496,7 @@ lbool Solver::iterate_until_solved()
         }
 
         //If we are over the limit, exit
-        if (sumStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
+        if (sumSearchStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
             || cpuTime() > conf.maxTime
             || must_interrupt_asap()
         ) {
@@ -1560,6 +1510,7 @@ lbool Solver::iterate_until_solved()
         }
     }
 
+    clear_gauss();
     conf.burst_search_len = backup_burst_len;
     return status;
 }
@@ -1591,12 +1542,12 @@ bool Solver::execute_inprocess_strategy(
     , const string& strategy
 ) {
     //std::string input = "abc,def,ghi";
-    std::istringstream ss(strategy);
+    std::istringstream ss(strategy + ", ");
     std::string token;
     std::string occ_strategy_tokens;
 
     while(std::getline(ss, token, ',')) {
-        if (sumStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
+        if (sumSearchStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
             || cpuTime() > conf.maxTime
             || must_interrupt_asap()
             || nVars() == 0
@@ -1605,21 +1556,35 @@ bool Solver::execute_inprocess_strategy(
             return ok;
         }
         assert(solver->watches.get_smudged_list().empty());
+        #ifdef SLOW_DEBUG
+        solver->check_stats();
+        #endif
 
         token = trim(token);
         std::transform(token.begin(), token.end(), token.begin(), ::tolower);
-        if (conf.verbosity >= 2 && token.substr(0,3) != "occ") {
+        if (conf.verbosity >= 2 && token.substr(0,3) != "occ" && token != "") {
             cout << "c --> Executing strategy token: " << token << '\n';
         }
 
         if (!occ_strategy_tokens.empty() && token.substr(0,3) != "occ") {
             if (conf.perform_occur_based_simp
-                && simplifier
+                && occsimplifier
             ) {
-                simplifier->simplify(startup, occ_strategy_tokens);
+                occ_strategy_tokens = trim(occ_strategy_tokens);
+                if (conf.verbosity >= 2) {
+                    cout << "c --> Executing OCC strategy token(s): '"
+                    << occ_strategy_tokens << "'\n";
+                }
+                occsimplifier->simplify(startup, occ_strategy_tokens);
+                if (occ_strategy_tokens == "occ-gauss,") {
+                    #ifdef USE_GAUSS
+                    MatrixFinder finder(this);
+                    finder.findMatrixes();
+                    #endif
+                }
             }
             occ_strategy_tokens.clear();
-            if (sumStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
+            if (sumSearchStats.conflStats.numConflicts >= (uint64_t)conf.maxConfl
                 || cpuTime() > conf.maxTime
                 || must_interrupt_asap()
                 || nVars() == 0
@@ -1647,7 +1612,7 @@ bool Solver::execute_inprocess_strategy(
         }  else if (token == "scc-vrepl") {
             if (conf.doFindAndReplaceEqLits) {
                 varReplacer->replace_if_enough_is_found(
-                    floor((double)get_num_free_vars()*0.001));
+                    std::floor((double)get_num_free_vars()*0.001));
             }
         } else if (token == "cache-clean") {
             if (conf.doCache) {
@@ -1672,17 +1637,17 @@ bool Solver::execute_inprocess_strategy(
         } else if (token == "sub-str-cls-with-bin") {
             //Subsumes and strengthens long clauses with binary clauses
             if (conf.do_distill_clauses) {
-                distillerwithbin->distill_with_bin(true);
+                dist_long_with_impl->distill_long_with_implicit(true);
             }
         } else if (token == "distill-cls") {
             //Enqueues literals in long + tri clauses two-by-two and propagates
             if (conf.do_distill_clauses) {
-                distiller->distill(true);
+                distill_all_with_all->distill(solver->conf.distill_queue_by);
             }
         } else if (token == "str-impl") {
             //Strengthens BIN&TRI with BIN&TRI
             if (conf.doStrSubImplicit) {
-                distillerwithbin->strengthen_implicit();
+                dist_impl_with_impl->str_impl_w_impl_stamp();
             }
         } else if (token == "check-cache-size") {
             //Delete and disable cache if too large
@@ -1726,22 +1691,76 @@ bool Solver::execute_inprocess_strategy(
             exit(-1);
         }
 
+        #ifdef SLOW_DEBUG
+        solver->check_stats();
+        #endif
+
         if (!ok) {
             return ok;
         }
     }
 
-    if (!occ_strategy_tokens.empty() && token.substr(0,3) != "occ") {
-        if (conf.perform_occur_based_simp
-            && simplifier
-        ) {
-            simplifier->simplify(startup, occ_strategy_tokens);
-        }
-        occ_strategy_tokens.clear();
-    }
-
     return ok;
 }
+
+/*void Solver::remove_xors()
+{
+    if (xorclauses.empty()) {
+        return;
+    }
+
+    for(watch_subarray ws: solver->watches) {
+        watch_subarray::iterator i = ws.begin();
+        watch_subarray::iterator j = i;
+        for (watch_subarray::iterator end = ws.end(); i != end; i++) {
+            if (!i->isClause()) {
+                *j++ = *i;
+                continue;
+            }
+            Clause& cl = *cl_alloc.ptr(i->get_offset());
+            if (!cl.is_xor()) {
+                *j++ = *i;
+            }
+        }
+        ws.shrink_(i-j);
+    }
+
+    for(ClOffset offs: xorclauses) {
+        Clause* cl = cl_alloc.ptr(offs);
+        assert(cl->is_xor());
+        cl_alloc.clauseFree(cl);
+    }
+    xorclauses.clear();
+
+    for(ClOffset offs: cls_of_xorclauses) {
+        Clause& cl = *cl_alloc.ptr(offs);
+        unsigned at = 0;
+        bool rem = false;
+        for (Lit& l: cl) {
+            if (value(l) == l_True) {
+                rem = true;
+            }
+            if (value(l) == l_Undef) {
+                std::swap(cl[at], l);
+                at++;
+            }
+        }
+        if (rem) {
+            cl_alloc.clauseFree(&cl);
+            continue;
+        }
+        assert(at >= 2);
+        attachClause(cl, false);
+        cl.set_represented_by_xor(false);
+        assert(!cl.freed());
+        if (cl.red()) {
+            longRedCls.push_back(offs);
+        } else {
+            longIrredCls.push_back(offs);
+        }
+    }
+    cls_of_xorclauses.clear();
+}*/
 
 /**
 @brief The function that brings together almost all CNF-simplifications
@@ -1758,10 +1777,11 @@ lbool Solver::simplify_problem(const bool startup)
     #endif
 
     update_polarity_and_activity = false;
+    //remove_xors();
 
     if (conf.verbosity >= 6) {
         cout
-        << "c Solver::simplify_problem() called"
+        << "c " <<  __PRETTY_FUNCTION__ << " called"
         << endl;
     }
 
@@ -1782,20 +1802,18 @@ lbool Solver::simplify_problem(const bool startup)
     }
 
     update_polarity_and_activity = true;
-    if (conf.verbosity >= 3) {
-        cout << "c Searcher::simplify_problem() finished" << endl;
+    if (conf.verbosity >= 6) {
+        cout << "c " << __PRETTY_FUNCTION__ << " finished" << endl;
     }
     test_all_clause_attached();
     check_wrong_attach();
     conf.global_timeout_multiplier *= solver->conf.global_timeout_multiplier_multiplier;
+    conf.global_timeout_multiplier =
+        std::max(
+            conf.global_timeout_multiplier, conf.orig_global_timeout_multiplier*conf.global_multiplier_multiplier_max
+        );
 
-    //TODO not so good....
-    //The algorithms above probably have changed the propagation&usage data
-    //so let's clear it
-    if (conf.doClearStatEveryClauseCleaning) {
-        clear_clauses_stats();
-    }
-
+    //Reconfigure
     if (nVars() > 2
         && (longIrredCls.size() > 1 ||
             (binTri.irredBins + binTri.redBins
@@ -1878,26 +1896,12 @@ void Solver::print_prop_confl_stats(
     }
 }
 
-void Solver::consolidate_mem()
-{
-    const double myTime = cpuTime();
-    cl_alloc.consolidate(this, true);
-    const double time_used = cpuTime() - myTime;
-    if (sqlStats) {
-        sqlStats->time_passed_min(
-            this
-            , "consolidate mem"
-            , time_used
-        );
-    }
-}
-
 void Solver::print_stats(const double cpu_time) const
 {
     cout << "c ------- FINAL TOTAL SEARCH STATS ---------" << endl;
     print_stats_line("c UIP search time"
-        , sumStats.cpu_time
-        , stats_line_percent(sumStats.cpu_time, cpu_time)
+        , sumSearchStats.cpu_time
+        , stats_line_percent(sumSearchStats.cpu_time, cpu_time)
         , "% time"
     );
 
@@ -1913,12 +1917,12 @@ void Solver::print_stats(const double cpu_time) const
 
 void Solver::print_min_stats(const double cpu_time) const
 {
-    sumStats.print_short();
+    sumSearchStats.print_short();
     print_stats_line("c props/decision"
-        , float_div(propStats.propagations, sumStats.decisions)
+        , float_div(propStats.propagations, sumSearchStats.decisions)
     );
     print_stats_line("c props/conflict"
-        , float_div(propStats.propagations, sumStats.conflStats.numConflicts)
+        , float_div(propStats.propagations, sumSearchStats.conflStats.numConflicts)
     );
 
     print_stats_line("c 0-depth assigns", trail.size()
@@ -1937,8 +1941,8 @@ void Solver::print_min_stats(const double cpu_time) const
     //OccSimplifier stats
     if (conf.perform_occur_based_simp) {
         print_stats_line("c OccSimplifier time"
-            , simplifier->get_stats().total_time()
-            , stats_line_percent(simplifier->get_stats().total_time() ,cpu_time)
+            , occsimplifier->get_stats().total_time()
+            , stats_line_percent(occsimplifier->get_stats().total_time() ,cpu_time)
             , "% time"
         );
     }
@@ -1951,23 +1955,23 @@ void Solver::print_min_stats(const double cpu_time) const
 
     //varReplacer->get_stats().print_short(nVars());
     print_stats_line("c distill time"
-                    , distiller->get_stats().time_used
-                    , stats_line_percent(distiller->get_stats().time_used, cpu_time)
+                    , distill_all_with_all->get_stats().time_used
+                    , stats_line_percent(distill_all_with_all->get_stats().time_used, cpu_time)
                     , "% time"
     );
     print_stats_line("c strength cache-irred time"
-                    , distillerwithbin->get_stats().irredCacheBased.cpu_time
-                    , stats_line_percent(distillerwithbin->get_stats().irredCacheBased.cpu_time, cpu_time)
+                    , dist_long_with_impl->get_stats().irredCacheBased.cpu_time
+                    , stats_line_percent(dist_long_with_impl->get_stats().irredCacheBased.cpu_time, cpu_time)
                     , "% time"
     );
     print_stats_line("c strength cache-red time"
-                    , distillerwithbin->get_stats().redCacheBased.cpu_time
-                    , stats_line_percent(distillerwithbin->get_stats().redCacheBased.cpu_time, cpu_time)
+                    , dist_long_with_impl->get_stats().redCacheBased.cpu_time
+                    , stats_line_percent(dist_long_with_impl->get_stats().redCacheBased.cpu_time, cpu_time)
                     , "% time"
     );
     print_stats_line("c Conflicts in UIP"
-        , sumStats.conflStats.numConflicts
-        , float_div(sumStats.conflStats.numConflicts, cpu_time)
+        , sumSearchStats.conflStats.numConflicts
+        , float_div(sumSearchStats.conflStats.numConflicts, cpu_time)
         , "confl/TOTAL_TIME_SEC"
     );
     print_stats_line("c Total time", cpu_time);
@@ -1979,12 +1983,12 @@ void Solver::print_min_stats(const double cpu_time) const
 
 void Solver::print_norm_stats(const double cpu_time) const
 {
-    sumStats.print_short();
+    sumSearchStats.print_short();
     print_stats_line("c props/decision"
-        , float_div(propStats.propagations, sumStats.decisions)
+        , float_div(propStats.propagations, sumSearchStats.decisions)
     );
     print_stats_line("c props/conflict"
-        , float_div(propStats.propagations, sumStats.conflStats.numConflicts)
+        , float_div(propStats.propagations, sumSearchStats.conflStats.numConflicts)
     );
 
     print_stats_line("c 0-depth assigns", trail.size()
@@ -2023,11 +2027,11 @@ void Solver::print_norm_stats(const double cpu_time) const
     //OccSimplifier stats
     if (conf.perform_occur_based_simp) {
         print_stats_line("c OccSimplifier time"
-            , simplifier->get_stats().total_time()
-            , stats_line_percent(simplifier->get_stats().total_time() ,cpu_time)
+            , occsimplifier->get_stats().total_time()
+            , stats_line_percent(occsimplifier->get_stats().total_time() ,cpu_time)
             , "% time"
         );
-        simplifier->get_stats().print_short(this, nVars());
+        occsimplifier->get_stats().print_short();
     }
     print_stats_line("c SCC time"
         , varReplacer->get_scc_finder()->get_stats().cpu_time
@@ -2039,23 +2043,23 @@ void Solver::print_norm_stats(const double cpu_time) const
 
     //varReplacer->get_stats().print_short(nVars());
     print_stats_line("c distill time"
-                    , distiller->get_stats().time_used
-                    , stats_line_percent(distiller->get_stats().time_used, cpu_time)
+                    , distill_all_with_all->get_stats().time_used
+                    , stats_line_percent(distill_all_with_all->get_stats().time_used, cpu_time)
                     , "% time"
     );
     print_stats_line("c strength cache-irred time"
-                    , distillerwithbin->get_stats().irredCacheBased.cpu_time
-                    , stats_line_percent(distillerwithbin->get_stats().irredCacheBased.cpu_time, cpu_time)
+                    , dist_long_with_impl->get_stats().irredCacheBased.cpu_time
+                    , stats_line_percent(dist_long_with_impl->get_stats().irredCacheBased.cpu_time, cpu_time)
                     , "% time"
     );
     print_stats_line("c strength cache-red time"
-                    , distillerwithbin->get_stats().redCacheBased.cpu_time
-                    , stats_line_percent(distillerwithbin->get_stats().redCacheBased.cpu_time, cpu_time)
+                    , dist_long_with_impl->get_stats().redCacheBased.cpu_time
+                    , stats_line_percent(dist_long_with_impl->get_stats().redCacheBased.cpu_time, cpu_time)
                     , "% time"
     );
     print_stats_line("c Conflicts in UIP"
-        , sumStats.conflStats.numConflicts
-        , float_div(sumStats.conflStats.numConflicts, cpu_time)
+        , sumSearchStats.conflStats.numConflicts
+        , float_div(sumSearchStats.conflStats.numConflicts, cpu_time)
         , "confl/TOTAL_TIME_SEC"
     );
     print_stats_line("c Total time", cpu_time);
@@ -2070,13 +2074,13 @@ void Solver::print_norm_stats(const double cpu_time) const
 
 void Solver::print_all_stats(const double cpu_time) const
 {
-    sumStats.print();
-    sumPropStats.print(sumStats.cpu_time);
+    sumSearchStats.print();
+    sumPropStats.print(sumSearchStats.cpu_time);
     print_stats_line("c props/decision"
-        , float_div(propStats.propagations, sumStats.decisions)
+        , float_div(propStats.propagations, sumSearchStats.decisions)
     );
     print_stats_line("c props/conflict"
-        , float_div(propStats.propagations, sumStats.conflStats.numConflicts)
+        , float_div(propStats.propagations, sumSearchStats.conflStats.numConflicts)
     );
     cout << "c ------- FINAL TOTAL SOLVING STATS END ---------" << endl;
     reduceDB->get_stats().print(cpu_time);
@@ -2117,16 +2121,16 @@ void Solver::print_all_stats(const double cpu_time) const
     //OccSimplifier stats
     if (conf.perform_occur_based_simp) {
         print_stats_line("c OccSimplifier time"
-            , simplifier->get_stats().total_time()
-            , stats_line_percent(simplifier->get_stats().total_time(), cpu_time)
+            , occsimplifier->get_stats().total_time()
+            , stats_line_percent(occsimplifier->get_stats().total_time(), cpu_time)
             , "% time"
         );
 
-        simplifier->get_stats().print(nVars());
+        occsimplifier->get_stats().print(nVars());
     }
 
-    if (simplifier && conf.doGateFind) {
-        simplifier->print_gatefinder_stats();
+    if (occsimplifier && conf.doGateFind) {
+        occsimplifier->print_gatefinder_stats();
     }
 
     //GateFinder stats
@@ -2154,22 +2158,22 @@ void Solver::print_all_stats(const double cpu_time) const
     varReplacer->get_stats().print(nVars());
     varReplacer->print_some_stats(cpu_time);
 
-    //Distiller stats
+    //DistillerAllWithAll stats
     print_stats_line("c distill time"
-                    , distiller->get_stats().time_used
-                    , stats_line_percent(distiller->get_stats().time_used, cpu_time)
+                    , distill_all_with_all->get_stats().time_used
+                    , stats_line_percent(distill_all_with_all->get_stats().time_used, cpu_time)
                     , "% time");
-    distiller->get_stats().print(nVars());
+    distill_all_with_all->get_stats().print(nVars());
 
     print_stats_line("c strength cache-irred time"
-                    , distillerwithbin->get_stats().irredCacheBased.cpu_time
-                    , stats_line_percent(distillerwithbin->get_stats().irredCacheBased.cpu_time, cpu_time)
+                    , dist_long_with_impl->get_stats().irredCacheBased.cpu_time
+                    , stats_line_percent(dist_long_with_impl->get_stats().irredCacheBased.cpu_time, cpu_time)
                     , "% time");
     print_stats_line("c strength cache-red time"
-                    , distillerwithbin->get_stats().redCacheBased.cpu_time
-                    , stats_line_percent(distillerwithbin->get_stats().redCacheBased.cpu_time, cpu_time)
+                    , dist_long_with_impl->get_stats().redCacheBased.cpu_time
+                    , stats_line_percent(dist_long_with_impl->get_stats().redCacheBased.cpu_time, cpu_time)
                     , "% time");
-    distillerwithbin->get_stats().print();
+    dist_long_with_impl->get_stats().print();
 
     if (conf.doStrSubImplicit) {
         subsumeImplicit->get_stats().print();
@@ -2181,8 +2185,8 @@ void Solver::print_all_stats(const double cpu_time) const
 
     //Other stats
     print_stats_line("c Conflicts in UIP"
-        , sumStats.conflStats.numConflicts
-        , float_div(sumStats.conflStats.numConflicts, cpu_time)
+        , sumSearchStats.conflStats.numConflicts
+        , float_div(sumSearchStats.conflStats.numConflicts, cpu_time)
         , "confl/TOTAL_TIME_SEC"
     );
     print_stats_line("c Total time", cpu_time);
@@ -2303,9 +2307,9 @@ void Solver::print_mem_stats() const
         account += mem;
     }
 
-    if (simplifier) {
-        mem = simplifier->mem_used();
-        print_stats_line("c Mem for simplifier"
+    if (occsimplifier) {
+        mem = occsimplifier->mem_used();
+        print_stats_line("c Mem for occsimplifier"
             , mem/(1024UL*1024UL)
             , "MB"
             , stats_line_percent(mem, rss_mem_used)
@@ -2313,7 +2317,7 @@ void Solver::print_mem_stats() const
         );
         account += mem;
 
-        mem = simplifier->mem_used_xor();
+        mem = occsimplifier->mem_used_xor();
         print_stats_line("c Mem for xor-finder"
             , mem/(1024UL*1024UL)
             , "MB"
@@ -2566,9 +2570,9 @@ size_t Solver::get_num_nonfree_vars() const
         nonfree += trail_lim[0];
     }
 
-    if (simplifier) {
+    if (occsimplifier) {
         if (conf.perform_occur_based_simp) {
-            nonfree += simplifier->get_num_elimed_vars();
+            nonfree += occsimplifier->get_num_elimed_vars();
         }
     }
     nonfree += varReplacer->get_num_replaced_vars();
@@ -2735,15 +2739,10 @@ void Solver::check_implicit_propagated() const
 size_t Solver::get_num_vars_elimed() const
 {
     if (conf.perform_occur_based_simp) {
-        return simplifier->get_num_elimed_vars();
+        return occsimplifier->get_num_elimed_vars();
     } else {
         return 0;
     }
-}
-
-size_t Solver::get_num_vars_replaced() const
-{
-    return varReplacer->get_num_replaced_vars();
 }
 
 void Solver::calculate_reachability()
@@ -2766,7 +2765,7 @@ void Solver::calculate_reachability()
             continue;
         }
 
-        const vector<LitExtra>& cache = implCache[lit.toInt()].lits;
+        const vector<LitExtra>& cache = implCache[lit].lits;
         uint32_t cacheSize = cache.size();
         for (const LitExtra litex: cache) {
             assert(litex.getLit() != lit);
@@ -2815,7 +2814,8 @@ void Solver::free_unused_watches()
             ws.clear();
         }
     }
-    watches.consolidate();
+
+    consolidate_watches();
 }
 
 bool Solver::fully_enqueue_these(const vector<Lit>& toEnqueue)
@@ -2862,29 +2862,27 @@ void Solver::new_external_vars(size_t n)
 void Solver::add_in_partial_solving_stats()
 {
     Searcher::add_in_partial_solving_stats();
-    sumStats += Searcher::get_stats();
+    sumSearchStats += Searcher::get_stats();
     sumPropStats += propStats;
 }
 
 unsigned long Solver::get_sql_id() const
 {
-    if (!conf.doSQL
-        || sqlStats == NULL)
-    {
+    if (sqlStats == NULL) {
         return 0;
     }
 
     return sqlStats->get_runID();
 }
 
-bool Solver::add_clause_outer(const vector<Lit>& lits)
+bool Solver::add_clause_outer(const vector<Lit>& lits, bool red)
 {
     if (!ok) {
         return false;
     }
     check_too_large_variable_number(lits);
     back_number_from_outside_to_outer(lits);
-    return addClause(back_number_from_outside_to_outer_tmp);
+    return addClause(back_number_from_outside_to_outer_tmp, red);
 }
 
 bool Solver::add_xor_clause_outer(const vector<uint32_t>& vars, bool rhs)
@@ -3091,8 +3089,8 @@ uint32_t Solver::num_active_vars() const
         numActive++;
     }
     assert(removed_non_decision == 0);
-    if (simplifier) {
-        assert(removed_elimed == simplifier->get_num_elimed_vars());
+    if (occsimplifier) {
+        assert(removed_elimed == occsimplifier->get_num_elimed_vars());
     } else {
         assert(removed_elimed == 0);
     }
@@ -3134,18 +3132,18 @@ SolveFeatures Solver::calculate_features() const
     feat.num_resolutions_max = hist.numResolutionsHistLT.getMax();
 
     if (sumPropStats.propagations != 0
-        && sumStats.conflStats.numConflicts != 0
-        && sumStats.numRestarts != 0
+        && sumSearchStats.conflStats.numConflicts != 0
+        && sumSearchStats.numRestarts != 0
     ) {
-        feat.props_per_confl = (double)sumStats.conflStats.numConflicts / (double)sumPropStats.propagations;
-        feat.confl_per_restart = (double)sumStats.conflStats.numConflicts / (double)sumStats.numRestarts;
-        feat.decisions_per_conflict = (double)sumStats.decisions / (double)sumStats.conflStats.numConflicts;
-        feat.learnt_bins_per_confl = (double)sumStats.learntBins / (double)sumStats.conflStats.numConflicts;
-        feat.learnt_tris_per_confl = (double)sumStats.learntTris / (double)sumStats.conflStats.numConflicts;
+        feat.props_per_confl = (double)sumSearchStats.conflStats.numConflicts / (double)sumPropStats.propagations;
+        feat.confl_per_restart = (double)sumSearchStats.conflStats.numConflicts / (double)sumSearchStats.numRestarts;
+        feat.decisions_per_conflict = (double)sumSearchStats.decisions / (double)sumSearchStats.conflStats.numConflicts;
+        feat.learnt_bins_per_confl = (double)sumSearchStats.learntBins / (double)sumSearchStats.conflStats.numConflicts;
+        feat.learnt_tris_per_confl = (double)sumSearchStats.learntTris / (double)sumSearchStats.conflStats.numConflicts;
     }
 
-    feat.num_gates_found_last = sumStats.num_gates_found_last;
-    feat.num_xors_found_last = sumStats.num_xors_found_last;
+    feat.num_gates_found_last = sumSearchStats.num_gates_found_last;
+    feat.num_xors_found_last = sumSearchStats.num_xors_found_last;
 
     if (conf.verbosity >= 1) {
         feat.print_stats();
@@ -3156,6 +3154,8 @@ SolveFeatures Solver::calculate_features() const
 
 void Solver::reconfigure(int val)
 {
+    //TODO adjust distill_queue_by !!
+
     assert(val > 0);
     switch (val) {
         case 1: {
@@ -3195,7 +3195,8 @@ void Solver::reconfigure(int val)
 
         case 5: {
             //Lots of simplifying
-            conf.global_timeout_multiplier = 2;
+            conf.orig_global_timeout_multiplier = 2;
+            conf.global_timeout_multiplier = conf.orig_global_timeout_multiplier;
             conf.num_conflicts_of_search_inc = 1.25;
             break;
         }
@@ -3242,7 +3243,7 @@ void Solver::reconfigure(int val)
             conf.max_temporary_learnt_clauses = 29633;
             conf.burst_search_len = 1114;
             conf.probe_bogoprops_time_limitM = 309;
-            conf.strengthen_implicit_time_limitM = 145;
+            conf.distill_implicit_with_implicit_time_limitM = 145;
             conf.blocking_restart_multip = 0.10120348330944741;
             conf.do_blocking_restart = 1;
             conf.shortTermHistorySize = 84;
@@ -3294,7 +3295,8 @@ void Solver::reconfigure(int val)
         }
 
         case 13: {
-            conf.global_timeout_multiplier = 5;
+            conf.orig_global_timeout_multiplier = 5;
+            conf.global_timeout_multiplier = conf.orig_global_timeout_multiplier;
             conf.num_conflicts_of_search_inc = 1.15;
             conf.more_red_minim_limit_cache = 1200;
             conf.more_red_minim_limit_binary = 600;
@@ -3306,6 +3308,23 @@ void Solver::reconfigure(int val)
 
         case 14: {
             conf.shortTermHistorySize = 600;
+            break;
+        }
+
+        case 15: {
+            //Like OLD-OLD minisat
+            conf.varElimRatioPerIter = 1;
+            conf.restartType = Restart::geom;
+            conf.polarity_mode = CMSat::PolarityMode::polarmode_neg;
+
+            conf.inc_max_temp_red_cls = 1.02;
+            conf.glue_must_keep_clause_if_below_or_eq = 0;
+            conf.update_glues_on_prop = 0;
+            conf.update_glues_on_analyze = 0;
+            conf.ratio_keep_clauses[clean_to_int(ClauseClean::glue)] = 0;
+            conf.ratio_keep_clauses[clean_to_int(ClauseClean::size)] = 0;
+            conf.ratio_keep_clauses[clean_to_int(ClauseClean::activity)] = 0.5;
+            reset_temp_cl_num();
             break;
         }
 
@@ -3340,8 +3359,8 @@ void Solver::save_state(const string& fname, const lbool status) const
     //f.put_vector(litReachable);
 
     varReplacer->save_state(f);
-    if (simplifier) {
-        simplifier->save_state(f);
+    if (occsimplifier) {
+        occsimplifier->save_state(f);
     }
 }
 
@@ -3358,8 +3377,8 @@ lbool Solver::load_state(const string& fname)
     //f.get_vector(litReachable);
 
     varReplacer->load_state(f);
-    if (simplifier) {
-        simplifier->load_state(f);
+    if (occsimplifier) {
+        occsimplifier->load_state(f);
     }
 
     return status;
@@ -3370,7 +3389,6 @@ lbool Solver::load_solution_from_file(const string& fname)
     //At this point, model is set up, we just need to fill the l_Undef in
     //from assigns
     lbool status = l_Undef;
-    model = assigns;
     FILE* input_stream = fopen(fname.c_str(), "r");
     if (input_stream == NULL) {
         std::cerr << "ERROR: could not open solution file "
@@ -3466,6 +3484,9 @@ void Solver::parse_v_line(A* in, const size_t lineNum)
             && varData[var].removed == Removed::none
         ) {
             model[var] = parsed_lit < 0 ? l_False : l_True;
+            if (conf.verbosity >= 10) {
+                cout << "Read V line: model for var " << (var+1) << " set to " << model[var] << endl;
+            }
         }
     }
 }
@@ -3607,7 +3628,7 @@ void Solver::check_stats(const bool allowFreed) const
     check_implicit_stats();
 
     const double myTime = cpuTime();
-    uint64_t numLitsIrred = count_lits(longIrredCls, allowFreed);
+    uint64_t numLitsIrred = count_lits(longIrredCls, false, allowFreed);
     if (numLitsIrred != litStats.irredLits) {
         std::cerr << "ERROR: " << endl
         << "->numLitsIrred: " << numLitsIrred << endl
@@ -3615,7 +3636,7 @@ void Solver::check_stats(const bool allowFreed) const
     }
     assert(numLitsIrred == litStats.irredLits);
 
-    uint64_t numLitsRed = count_lits(longRedCls, allowFreed);
+    uint64_t numLitsRed = count_lits(longRedCls, true, allowFreed);
     if (numLitsRed != litStats.redLits) {
         std::cerr << "ERROR: " << endl
         << "->numLitsRed: " << numLitsRed << endl
@@ -3630,5 +3651,12 @@ void Solver::check_stats(const bool allowFreed) const
             , "check literal stats"
             , time_used
         );
+    }
+}
+
+void Solver::add_sql_tag(const string& tagname, const string& tag)
+{
+    if (sqlStats) {
+        sqlStats->add_tag(std::make_pair(tagname, tag));
     }
 }

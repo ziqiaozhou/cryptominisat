@@ -29,6 +29,10 @@ class SQLiteStats: public SQLStats
 {
 public:
     ~SQLiteStats() override;
+    SQLiteStats(std::string _filename) :
+        filename(_filename)
+    {
+    }
 
     void restart(
         const PropStats& thisPropStats
@@ -65,22 +69,34 @@ public:
         , uint64_t mem_used_mb
     ) override;
 
+    void dump_clause_stats(
+        const Solver* solver
+        , uint64_t clauseID
+        , uint32_t glue
+        , const uint32_t backtrack_level
+        , uint32_t size
+        , AtecedentData<uint16_t> resoltypes
+        , size_t decision_level
+        , size_t trail_depth
+        , uint64_t conflicts_this_restart
+        , const SearchHist& hist
+    ) override;
+
     bool setup(const Solver* solver) override;
     void finishup(lbool status) override;
+    void add_tag(const std::pair<std::string, std::string>& tag) override;
 
 private:
 
-    bool connectServer(const std::string& sqlite_filename
-        , const int verbosity
-    );
+    bool connectServer(const int verbosity);
     void getID(const Solver* solver);
     bool tryIDInSQL(const Solver* solver);
-    void add_tags(const Solver* solver);
 
-    void addStartupData(const Solver* solver);
+    void addStartupData();
     void initRestartSTMT();
     void initTimePassedSTMT();
     void initMemUsedSTMT();
+    void init_clause_stats_STMT();
 
     void writeQuestionMarks(size_t num, std::stringstream& ss);
     void initReduceDBSTMT();
@@ -89,7 +105,9 @@ private:
     sqlite3_stmt *stmtMemUsed = NULL;
     sqlite3_stmt *stmtReduceDB = NULL;
     sqlite3_stmt *stmtRst = NULL;
+    sqlite3_stmt *stmt_clause_stats = NULL;
 
     sqlite3 *db = NULL;
     bool setup_ok = false;
+    const string filename;
 };

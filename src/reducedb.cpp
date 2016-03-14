@@ -22,7 +22,6 @@
 #include "reducedb.h"
 #include "solver.h"
 #include "sqlstats.h"
-#include "clausecleaner.h"
 #include <functional>
 
 using namespace CMSat;
@@ -134,14 +133,6 @@ CleaningStats ReduceDB::reduceDB()
     cl_ttl = 0;
     cl_locked_solver = 0;
     remove_cl_from_array_and_count_stats(tmpStats, sumConfl);
-    if (solver->conf.verbosity >= 2) {
-        cout << "c [DBclean] locked:" << cl_locked
-        << " marked: " << cl_marked
-        << " glue: " << cl_glue
-        << " ttl:" << cl_ttl
-        << " locked_solver:" << cl_locked_solver
-        << endl;
-    }
 
     solver->clean_occur_from_removed_clauses_only_smudged();
     for(ClOffset offset: delayed_clause_free) {
@@ -157,6 +148,14 @@ CleaningStats ReduceDB::reduceDB()
         tmpStats.print(0);
     else if (solver->conf.verbosity >= 3) {
         tmpStats.print_short(solver);
+    } else if (solver->conf.verbosity >= 2) {
+        cout << "c [DBclean] locked:" << cl_locked
+        << " marked: " << cl_marked
+        << " glue: " << cl_glue
+        << " ttl:" << cl_ttl
+        << " locked_solver:" << cl_locked_solver
+        << solver->conf.print_times(tmpStats.cpu_time)
+        << endl;
     }
     cleaningStats += tmpStats;
 
@@ -226,22 +225,12 @@ void ReduceDB::mark_top_N_clauses(const uint64_t keep_num)
     }
 }
 
-#ifdef STATS_NEEDED
-bool ReduceDB::red_cl_too_young(const Clause* cl) const
-{
-    return cl->stats.introduced_at_conflict + solver->conf.min_time_in_db_before_eligible_for_cleaning
-            >= solver->sumConflicts();
-}
-#endif
-
 bool ReduceDB::cl_needs_removal(const Clause* cl, const ClOffset offset) const
 {
     assert(cl->red());
     return
          !cl->stats.locked
-         #ifdef STATS_NEEDED
-         && !red_cl_too_young(cl)
-        #endif
+         && !cl->used_in_xor()
          && !cl->stats.marked_clause
          && cl->stats.ttl == 0
          && cl->stats.glue > solver->conf.glue_must_keep_clause_if_below_or_eq
@@ -289,7 +278,7 @@ void ReduceDB::remove_cl_from_array_and_count_stats(
         tmpStats.removed.incorporate(cl, sumConfl);
         solver->litStats.redLits -= cl->size();
 
-        *solver->drup << del << *cl << fin;
+        *solver->drat << del << *cl << fin;
         delayed_clause_free.push_back(offset);
     }
     solver->longRedCls.resize(solver->longRedCls.size() - (i - j));
@@ -297,6 +286,7 @@ void ReduceDB::remove_cl_from_array_and_count_stats(
 
 void ReduceDB::reduce_db_and_update_reset_stats()
 {
+    solver->dump_memory_stats_to_sql();
     ClauseUsageStats irred_cl_usage_stats = sumClauseData(solver->longIrredCls);
     ClauseUsageStats red_cl_usage_stats = sumClauseData(solver->longRedCls);
     ClauseUsageStats sum_cl_usage_stats;
@@ -317,10 +307,6 @@ void ReduceDB::reduce_db_and_update_reset_stats()
 
     if (solver->sqlStats) {
         solver->sqlStats->reduceDB(irred_cl_usage_stats, red_cl_usage_stats, iterCleanStat, solver);
-    }
-
-    if (solver->conf.doClearStatEveryClauseCleaning) {
-        solver->clear_clauses_stats();
     }
 }
 

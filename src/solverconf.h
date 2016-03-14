@@ -142,7 +142,6 @@ class SolverConf
         double    clean_prop_multiplier;
         int       doPreClauseCleanPropAndConfl;
         unsigned  long long preClauseCleanLimit;
-        int       doClearStatEveryClauseCleaning;
         double    ratio_keep_clauses[10]; ///< Remove this ratio of clauses at every database reduction round
         double    inc_max_temp_red_cls;
         double    maxNumRedsRatio; ///<Number of red clauses must not be more than red*maxNumRedsRatio
@@ -199,14 +198,8 @@ class SolverConf
         int       rewardShortenedClauseWithConfl; //Shortened through OTF subsumption
 
         //SQL
-        int       doSQL;
-        int       whichSQL;
         bool      dump_individual_search_time;
-        std::string sqlite_filename;
-        std::string sqlServer;
-        std::string sqlUser;
-        std::string sqlPass;
-        std::string sqlDatabase;
+        bool      dump_individual_restarts_and_clauses;
 
         //Var-elim
         int      doVarElim;          ///<Perform variable elimination
@@ -253,7 +246,7 @@ class SolverConf
 
         //XORs
         int      doFindXors;
-        int      maxXorToFind;
+        unsigned maxXorToFind;
         int      useCacheWhenFindingXors;
         int      doEchelonizeXOR;
         unsigned long long  maxXORMatrix;
@@ -276,6 +269,7 @@ class SolverConf
         int      never_stop_search;
         uint64_t num_conflicts_of_search;
         double   num_conflicts_of_search_inc;
+        double   num_conflicts_of_search_inc_max;
         string   simplify_schedule_startup;
         string   simplify_schedule_nonstartup;
         string   simplify_schedule_preproc;
@@ -290,6 +284,7 @@ class SolverConf
         double   subsume_gothrough_multip;
 
         //Distillation
+        uint32_t distill_queue_by;
         int      do_distill_clauses;
         unsigned long long distill_long_irred_cls_time_limitM;
         long watch_cache_stamp_based_str_time_limitM;
@@ -311,7 +306,7 @@ class SolverConf
         int      doSortWatched;      ///<Sort watchlists according to size&type: binary, tertiary, normal (>3-long), xor clauses
         int      doStrSubImplicit;
         long long  subsume_implicit_time_limitM;
-        long long  strengthen_implicit_time_limitM;
+        long long  distill_implicit_with_implicit_time_limitM;
         int      doCalcReach; ///<Calculate reachability, and influence variable decisions with that
 
         //Gates
@@ -331,6 +326,7 @@ class SolverConf
         double orig_global_timeout_multiplier;
         double global_timeout_multiplier;
         double global_timeout_multiplier_multiplier;
+        double global_multiplier_multiplier_max;
         unsigned  maxDumpRedsSize; ///<When dumping the redundant clauses, this is the maximum clause size that should be dumped
         unsigned origSeed;
         unsigned long long sync_every_confl;

@@ -67,8 +67,8 @@ void SolutionExtender::extend()
     solver->watches.resize(nVarsOuter()*2);
 
     //Sanity check
-    if (solver->simplifier) {
-        solver->simplifier->check_elimed_vars_are_unassignedAndStats();
+    if (solver->occsimplifier) {
+        solver->occsimplifier->check_elimed_vars_are_unassignedAndStats();
     }
 
     //Adding binary clauses representing equivalent literals
@@ -109,8 +109,8 @@ void SolutionExtender::extend()
     if (solver->conf.verbosity >= 3) {
         cout << "c Adding blocked clauses" << endl;
     }
-    if (solver->simplifier) {
-        solver->simplifier->extend_model(this);
+    if (solver->occsimplifier) {
+        solver->occsimplifier->extend_model(this);
     }
 
     //Copy&check model
@@ -200,7 +200,6 @@ bool SolutionExtender::addClause(
     Clause* cl = solver->cl_alloc.Clause_new(
         tmpLits //the literals
         , 0 //the time it was created -- useless, ignoring
-        , true //yes, this is extender, so don't care if it's <=3 in size
     );
     ClOffset offset = solver->cl_alloc.get_offset(cl);
     clausesToFree.push_back(offset);
@@ -301,7 +300,7 @@ bool SolutionExtender::propagate()
     bool ret = true;
     while(qhead < trail.size()) {
         const Lit p = trail[qhead++];
-        watch_subarray_const ws = solver->watches[(~p).toInt()];
+        watch_subarray_const ws = solver->watches[~p];
         for(watch_subarray::const_iterator
             it = ws.begin(), end = ws.end()
             ; it != end

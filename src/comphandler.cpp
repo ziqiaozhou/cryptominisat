@@ -137,18 +137,14 @@ bool CompHandler::handle()
 
     delete compFinder;
     compFinder = new CompFinder(solver);
-    if (!compFinder->find_components()) {
-        delete compFinder;
-        compFinder = NULL;
-        return false;
-    }
+    compFinder->find_components();
     if (compFinder->getTimedOut()) {
         delete compFinder;
         compFinder = NULL;
         return solver->okay();
     }
 
-    const uint32_t num_comps = compFinder->getReverseTable().size();
+    const uint32_t num_comps = compFinder->getNumComps();
 
     //If there is only one big comp, we can't do anything
     if (num_comps <= 1) {
@@ -242,8 +238,9 @@ bool CompHandler::solve_component(
     , const vector<uint32_t>& vars_orig
     , const size_t num_comps
 ) {
-    assert(!solver->drup->enabled());
+    assert(!solver->drat->enabled());
     vector<uint32_t> vars(vars_orig);
+    components_solved++;
 
     //Sort and renumber
     std::sort(vars.begin(), vars.end());
@@ -259,7 +256,10 @@ bool CompHandler::solve_component(
 
     //Set up new solver
     SolverConf conf = configureNewSolver(vars.size());
-    SATSolver newSolver((void*)&conf, solver->get_must_interrupt_asap_ptr());
+    SATSolver newSolver(
+        (void*)&conf
+        , solver->get_must_interrupt_inter_asap_ptr()
+    );
     moveVariablesBetweenSolvers(&newSolver, vars, comp);
 
     //Move clauses over
@@ -390,7 +390,6 @@ SolverConf CompHandler::configureNewSolver(
         conf.otfHyperbin = false;
         conf.verbosity = std::min(solver->conf.verbosity, 0);
     }
-    conf.doSQL = false;
 
     //To small, don't clogger up the screen
     if (numVars < 20 && solver->conf.verbosity < 3) {
@@ -680,7 +679,7 @@ void CompHandler::moveClausesImplicit(
     for(const uint32_t var: vars) {
     for(unsigned sign = 0; sign < 2; ++sign) {
         const Lit lit = Lit(var, sign);
-        watch_subarray ws = solver->watches[lit.toInt()];
+        watch_subarray ws = solver->watches[lit];
 
         //If empty, nothing to to, skip
         if (ws.empty()) {

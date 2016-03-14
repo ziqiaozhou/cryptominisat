@@ -56,7 +56,7 @@
 // Verbose Debug
 ///////////////////
 
-//#define DRUP_DEBUG
+//#define DRAT_DEBUG
 //#define VERBOSE_DEBUG
 
 #ifdef VERBOSE_DEBUG
@@ -76,7 +76,6 @@
 #endif
 
 #ifdef FAST_DEBUG
-#define ENQUEUE_DEBUG
 #define DEBUG_VARELIM
 #define DEBUG_WATCHED
 #define DEBUG_ATTACH
@@ -90,6 +89,7 @@
 #define DEBUG_ATTACH_MORE
 #define DEBUG_IMPLICIT_PAIRS_TRIPLETS
 #define DEBUG_IMPLICIT_STATS
+#define DEBUG_GAUSS
 #endif
 
 //#define DEBUG_ATTACH_FULL

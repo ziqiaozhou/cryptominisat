@@ -30,8 +30,8 @@ using namespace CMSat;
 DLL_PUBLIC SolverConf::SolverConf() :
         //Variable activities
         var_inc_start(1)
-        , var_decay_start(0.8)
-        , var_decay_max(0.95)
+        , var_decay_start(0.8) // 1/0.8 = 1.2 -- large is better for frequent restarts
+        , var_decay_max(0.95) // 1/0.95 = 1.05 -- smaller is better for hard instances
         , random_var_freq(0)
         , polarity_mode(PolarityMode::polarmode_automatic)
         , do_calc_polarity_first_time(true)
@@ -44,7 +44,6 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , clean_prop_multiplier(1.0)
         , doPreClauseCleanPropAndConfl(false)
         , preClauseCleanLimit(2)
-        , doClearStatEveryClauseCleaning(true)
         , inc_max_temp_red_cls(1.0)
         , maxNumRedsRatio(10)
         , clauseDecayActivity(1.0/0.999)
@@ -100,14 +99,8 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , rewardShortenedClauseWithConfl(3)
 
         //SQL
-        , doSQL          (1)
-        , whichSQL       (0)
-        , dump_individual_search_time(false)
-        , sqlite_filename ("cryptominisat.sqlite")
-        , sqlServer ("localhost")
-        , sqlUser ("cmsat_solver")
-        , sqlPass ("")
-        , sqlDatabase("cmsat")
+        , dump_individual_search_time(true)
+        , dump_individual_restarts_and_clauses(true)
 
         //Var-elim
         , doVarElim        (true)
@@ -154,7 +147,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
 
         //XOR
         , doFindXors       (true)
-        , maxXorToFind     (5)
+        , maxXorToFind     (6)
         , useCacheWhenFindingXors(false)
         , doEchelonizeXOR  (true)
         , maxXORMatrix     (10LL*1000LL*1000LL)
@@ -177,16 +170,26 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , never_stop_search(false)
         , num_conflicts_of_search(50ULL*1000ULL)
         , num_conflicts_of_search_inc(1.4)
-        , simplify_schedule_startup("sub-impl, occ-backw-sub-str, occ-clean-implicit, occ-bve, scc-vrepl")
+        , num_conflicts_of_search_inc_max(3)
+        , simplify_schedule_startup(
+            "sub-impl, occ-backw-sub-str, occ-clean-implicit, occ-bve,"
+            "scc-vrepl,"
+            #ifdef USE_GAUSS
+            "occ-gauss"
+            #endif
+        )
         , simplify_schedule_nonstartup(
             "handle-comps,"
             "scc-vrepl, cache-clean, cache-tryboth,"
             "sub-impl, intree-probe, probe,"
             "sub-str-cls-with-bin, distill-cls,"
-            "scc-vrepl, sub-impl, str-impl,"
-            "occ-backw-sub-str, occ-xor, occ-clean-implicit, occ-bve, occ-bva, occ-gates,"
-            "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls, scc-vrepl,"
-            "check-cache-size, renumber"
+            "scc-vrepl, sub-impl, str-impl, sub-impl,"
+            "occ-backw-sub-str, occ-clean-implicit, occ-bve, occ-bva, occ-gates, occ-xor,"
+            "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls,"
+            "scc-vrepl, check-cache-size, renumber,"
+            #ifdef USE_GAUSS
+            "occ-gauss"
+            #endif
         )
         , simplify_schedule_preproc(
             "handle-comps,"
@@ -194,7 +197,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
             "sub-impl, intree-probe, probe,"
             "sub-str-cls-with-bin, distill-cls, scc-vrepl, sub-impl,"
             "occ-backw-sub-str, occ-xor, occ-clean-implicit, occ-bve, occ-bva, occ-gates,"
-            "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls, scc-vrepl,"
+            "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls, scc-vrepl, sub-impl,"
             "str-impl, sub-impl, sub-str-cls-with-bin, occ-backw-sub-str, occ-bve,"
             "check-cache-size, renumber"
         )
@@ -209,6 +212,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , subsume_gothrough_multip(10.0)
 
         //Distillation
+        , distill_queue_by(2)
         , do_distill_clauses(true)
         , distill_long_irred_cls_time_limitM(10ULL)
         , watch_cache_stamp_based_str_time_limitM(30LL)
@@ -229,7 +233,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , doSortWatched    (true)
         , doStrSubImplicit (true)
         , subsume_implicit_time_limitM(30LL)
-        , strengthen_implicit_time_limitM(200LL)
+        , distill_implicit_with_implicit_time_limitM(200LL)
         , doCalcReach      (true)
 
         //Gates
@@ -245,7 +249,8 @@ DLL_PUBLIC SolverConf::SolverConf() :
         //Misc
         , orig_global_timeout_multiplier(1.0)
         , global_timeout_multiplier(1.0)
-        , global_timeout_multiplier_multiplier(1.2)
+        , global_timeout_multiplier_multiplier(1.1)
+        , global_multiplier_multiplier_max(3)
         , maxDumpRedsSize(std::numeric_limits<uint32_t>::max())
         , origSeed(0)
         , sync_every_confl(20000)

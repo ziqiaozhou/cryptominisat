@@ -53,20 +53,6 @@ CompFinder::CompFinder(Solver* _solver) :
 {
 }
 
-void CompFinder::time_out_print(const double myTime) const
-{
-    if (solver->conf.verbosity >= 2) {
-        cout
-        << "c [comp] Timed out finding components "
-        << "BP: "
-        << std::setprecision(2) << std::fixed
-        << (double)(orig_bogoprops-bogoprops_remain)/(1000.0*1000.0)
-        << "M"
-        << solver->conf.print_times(cpuTime() - myTime)
-        << endl;
-    }
-}
-
 void CompFinder::print_found_components() const
 {
     size_t notPrinted = 0;
@@ -112,8 +98,9 @@ bool CompFinder::reverse_table_is_correct() const
     return true;
 }
 
-bool CompFinder::find_components()
+void CompFinder::find_components()
 {
+    assert(solver->okay());
     const double myTime = cpuTime();
 
     table.clear();
@@ -124,12 +111,6 @@ bool CompFinder::find_components()
 
     solver->clauseCleaner->remove_and_clean_all();
 
-    if (solver->conf.doFindAndReplaceEqLits
-        && !solver->varReplacer->replace_if_enough_is_found()
-    ) {
-        return false;
-    }
-
     //Add the clauses to the sets
     bogoprops_remain =
         solver->conf.comp_find_time_limitM*1000ULL*1000ULL
@@ -138,9 +119,12 @@ bool CompFinder::find_components()
     timedout = false;
     add_clauses_to_component(solver->longIrredCls);
     addToCompImplicits();
+    if (timedout) {
+        reverseTable.clear();
+    }
     print_and_add_to_sql_result(myTime);
 
-    return solver->okay();
+    assert(solver->okay());
 }
 
 void CompFinder::print_and_add_to_sql_result(const double myTime) const
@@ -148,26 +132,19 @@ void CompFinder::print_and_add_to_sql_result(const double myTime) const
     const double time_used = cpuTime() - myTime;
     const double time_remain = float_div(bogoprops_remain, orig_bogoprops);
 
-    if (timedout) {
-        time_out_print(myTime);
-    } else {
-        assert(reverse_table_is_correct());
+    assert(reverse_table_is_correct());
 
-        if (solver->conf.verbosity >= 2
-            || (solver->conf.verbosity >=1 && used_comp_no > 1)
-        ) {
-            cout
-            << "c [comp] Found component(s): " <<  reverseTable.size()
-            << " BP: "
-            << std::setprecision(2) << std::fixed
-            << (double)(orig_bogoprops-bogoprops_remain)/(1000.0*1000.0)<< "M"
-            << " T-r: " << time_remain*100.0 << "%"
-            << solver->conf.print_times(time_used)
-            << endl;
+    if (solver->conf.verbosity >= 2) {
+        cout
+        << "c [comp] Found component(s): " <<  reverseTable.size()
+        << " BP: "
+        << std::setprecision(2) << std::fixed
+        << (double)(orig_bogoprops-bogoprops_remain)/(1000.0*1000.0)<< "M"
+        << solver->conf.print_times(time_used, timedout, time_remain)
+        << endl;
 
-            if (reverseTable.size() != 1) {
-                print_found_components();
-            }
+        if (reverseTable.size() > 1) {
+            print_found_components();
         }
     }
 
@@ -212,7 +189,7 @@ void CompFinder::addToCompImplicits()
         lits.push_back(lit);
         for(int sign = 0; sign < 2; sign++) {
             lit = Lit(var, sign);
-            watch_subarray ws = solver->watches[lit.toInt()];
+            watch_subarray ws = solver->watches[lit];
 
             //If empty, skip
             if (ws.empty())

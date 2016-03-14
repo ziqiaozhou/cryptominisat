@@ -35,7 +35,15 @@ using namespace CMSat;
 class MySQLStats: public SQLStats
 {
 public:
-    MySQLStats();
+    MySQLStats(std::string _sqlServer
+        , std::string _sqlUser
+        , std::string _sqlPass
+        , std::string _sqlDatabase):
+        sqlServer(_sqlServer)
+        , sqlUser(_sqlUser)
+        , sqlPass(_sqlPass)
+        , sqlDatabase(_sqlDatabase)
+    {}
     ~MySQLStats() override;
 
     void restart(
@@ -73,17 +81,31 @@ public:
         , uint64_t mem_used_mb
     ) override;
 
+    void dump_clause_stats(
+        const Solver* /*solver*/
+        , uint64_t /*clauseID*/
+        , uint32_t /*glue*/
+        , uint32_t /*backtrack_level*/
+        , uint32_t /*size*/
+        , AtecedentData<uint16_t> /*resoltypes*/
+        , size_t /*decision_level*/
+        , size_t /*trail_depth*/
+        , uint64_t /*conflicts_this_restart*/
+        , const SearchHist& /*hist*/
+    ) override
+    {}
+
     bool setup(const Solver* solver) override;
     void finishup(lbool status) override;
+    void add_tag(const std::pair<std::string, std::string>& tag) override;
 
 private:
 
     bool connectServer(const Solver* solver);
     void getID(const Solver* solver);
     bool tryIDInSQL(const Solver* solver);
-    void add_tags(const Solver* solver);
 
-    void addStartupData(const Solver* solver);
+    void addStartupData();
     void initRestartSTMT();
     void initTimePassedSTMT();
     void initMemUsedSTMT();
@@ -137,7 +159,7 @@ private:
             stmt(NULL)
         {}
 
-        MYSQL_BIND  bind[8 + 13*2];
+        MYSQL_BIND  bind[8 + 14*2];
         MYSQL_STMT  *stmt = NULL;
 
         //Position
@@ -212,13 +234,13 @@ private:
     };
     StmtTimePassedMin stmtTimePassedMin;
 
-    size_t bindAt;
+    size_t bindAt = 0;
     struct StmtRst {
         StmtRst() :
             stmt(NULL)
         {}
 
-        MYSQL_BIND  bind[70+1]; //+1 == runID
+        MYSQL_BIND  bind[72+1]; //+1 == runID
         MYSQL_STMT  *stmt = NULL;
 
         //Position
@@ -299,7 +321,7 @@ private:
         uint64_t learntLongs;
 
         //Resolution stats
-        ResolutionTypes<uint64_t> resolv;
+        AtecedentData<uint64_t> resolv;
 
         //Var stats
         uint64_t propagations;
@@ -317,4 +339,8 @@ private:
 
     MYSQL *serverConn;
     bool setup_ok = false;
+    std::string sqlServer;
+    std::string sqlUser;
+    std::string sqlPass;
+    std::string sqlDatabase;
 };

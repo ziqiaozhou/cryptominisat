@@ -140,7 +140,7 @@ bool ImplCache::clean(Solver* solver, bool* setSomething)
 
                     if (taut) {
                         toEnqueue.push_back(lit);
-                        (*solver->drup) << lit << fin;
+                        (*solver->drat) << lit << fin;
                     }
                 }
             }
@@ -148,9 +148,7 @@ bool ImplCache::clean(Solver* solver, bool* setSomething)
 
         //Free it
         if (solver->value(var) != l_Undef
-            || solver->varData[var].removed == Removed::elimed
-            || solver->varData[var].removed == Removed::replaced
-            || solver->varData[var].removed == Removed::decomposed
+            || solver->varData[var].removed != Removed::none
         ) {
             vector<LitExtra> tmp1;
             numFreed += implCache[Lit(var, false).toInt()].lits.capacity();
@@ -423,9 +421,9 @@ void ImplCache::tryVar(
 
     const vector<LitExtra>& cache1 = implCache[lit.toInt()].lits;
     assert(solver->watches.size() > (lit.toInt()));
-    watch_subarray_const ws1 = solver->watches[lit.toInt()];
+    watch_subarray_const ws1 = solver->watches[lit];
     const vector<LitExtra>& cache2 = implCache[(~lit).toInt()].lits;
-    watch_subarray_const ws2 = solver->watches[(~lit).toInt()];
+    watch_subarray_const ws2 = solver->watches[~lit];
 
     //Fill 'seen' and 'val' from cache
     for (vector<LitExtra>::const_iterator

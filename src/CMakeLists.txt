@@ -34,8 +34,9 @@ set(cryptoms_lib_files
     clauseallocator.cpp
     sccfinder.cpp
     solverconf.cpp
-    distiller.cpp
-    distillerwithbin.cpp
+    distillerallwithall.cpp
+    distillerlongwithimpl.cpp
+    str_impl_w_impl_stamp.cpp
     calcdefpolars.cpp
     solutionextender.cpp
     completedetachreattacher.cpp
@@ -60,16 +61,24 @@ set(cryptoms_lib_files
     features_to_reconf.cpp
     solvefeatures.cpp
     searchstats.cpp
+    xorfinder.cpp
 #    watcharray.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/GitSHA1.cpp
 )
 
 set(cryptoms_lib_link_libs "")
 
+if (USE_GAUSS)
+    SET(cryptoms_lib_files ${cryptoms_lib_files}
+        gaussian.cpp
+        matrixfinder.cpp
+    )
+endif()
+
 if (M4RI_FOUND)
     include_directories(${M4RI_INCLUDE_DIRS})
 
-    SET(cryptoms_lib_files ${cryptoms_lib_files} xorfinder.cpp)
+    SET(cryptoms_lib_files ${cryptoms_lib_files} toplevelgauss.cpp)
     SET(cryptoms_lib_link_libs ${cryptoms_lib_link_libs} ${M4RI_LIBRARIES})
 endif (M4RI_FOUND)
 
@@ -94,8 +103,6 @@ add_library(temp_lib_norm OBJECT
 )
 
 add_library(temp_lib_ipasir OBJECT
-    ${cryptoms_lib_files}
-    cryptominisat.cpp
     ipasir.cpp
 )
 
@@ -130,6 +137,7 @@ if (ALSO_BUILD_STATIC_LIB)
     add_library(libcryptominisat4_ipasir_static STATIC ${cms_lib_objects_ipasir})
     target_link_libraries(libcryptominisat4_ipasir_static LINK_INTERFACE_LIBRARIES
         ${cryptoms_lib_link_libs}
+        libcryptominisat4_static
     )
     set_target_properties(libcryptominisat4_ipasir_static PROPERTIES
         OUTPUT_NAME cryptominisat4ipasir
@@ -153,6 +161,7 @@ set_target_properties(libcryptominisat4 PROPERTIES
 add_library(libcryptominisat4ipasir SHARED ${cms_lib_objects_ipasir})
 target_link_libraries(libcryptominisat4ipasir
     LINK_PUBLIC ${cryptoms_lib_link_libs}
+    libcryptominisat4
 )
 set_target_properties(libcryptominisat4ipasir PROPERTIES
     OUTPUT_NAME cryptominisat4ipasir
@@ -205,6 +214,13 @@ endif()
 if (NOT ONLY_SIMPLE)
     add_executable(cryptominisat4
         main.cpp
+        main_exe.cpp
+        signalcode.cpp
+    )
+    add_executable(cusp4
+        main.cpp
+        signalcode.cpp
+        cusp.cpp
     )
 endif()
 add_executable(cryptominisat4_simple
@@ -215,6 +231,9 @@ if (STATICCOMPILE)
     if (NOT ONLY_SIMPLE)
         set_target_properties(cryptominisat4 PROPERTIES LINK_SEARCH_END_STATIC 1)
         set_target_properties(cryptominisat4 PROPERTIES LINK_SEARCH_START_STATIC 0)
+
+        set_target_properties(cusp4 PROPERTIES LINK_SEARCH_END_STATIC 1)
+        set_target_properties(cusp4 PROPERTIES LINK_SEARCH_START_STATIC 0)
     endif()
     set_target_properties(cryptominisat4_simple PROPERTIES LINK_SEARCH_END_STATIC 1)
     set_target_properties(cryptominisat4_simple PROPERTIES LINK_SEARCH_START_STATIC 0)
@@ -232,6 +251,9 @@ ENDIF()
 if (NOT ONLY_SIMPLE)
     set_target_properties(cryptominisat4 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
     set_target_properties(cryptominisat4 PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+    set_target_properties(cusp4 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+    set_target_properties(cusp4 PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 set_target_properties(cryptominisat4_simple PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 set_target_properties(cryptominisat4_simple PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -245,6 +267,16 @@ if (NOT ONLY_SIMPLE)
         RUNTIME DESTINATION bin
     )
     SET(CPACK_PACKAGE_EXECUTABLES "cryptominisat4")
+
+    target_link_libraries(cusp4
+        ${cryptoms_exec_link_libs}
+        rt
+    )
+    install(TARGETS cusp4
+        EXPORT ${CRYPTOMINISAT4_EXPORT_NAME}
+        RUNTIME DESTINATION bin
+    )
+    SET(CPACK_PACKAGE_EXECUTABLES "cusp4")
 endif()
 
 target_link_libraries(cryptominisat4_simple

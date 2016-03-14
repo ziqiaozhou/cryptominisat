@@ -63,7 +63,7 @@ void SubsumeImplicit::try_subsume_tri(
 
             lastBin->setRed(false);
             timeAvailable -= 20;
-            timeAvailable -= solver->watches[lastLit2.toInt()].size();
+            timeAvailable -= solver->watches[lastLit2].size();
             findWatchedOfBin(solver->watches, lastLit2, lit, true).setRed(false);
             solver->binTri.redBins--;
             solver->binTri.irredBins++;
@@ -92,7 +92,7 @@ void SubsumeImplicit::try_subsume_tri(
 
     //Subsumed by stamp
     if (doStamp && !remove
-        && (solver->conf.otfHyperbin || !solver->drup->enabled())
+        && (solver->conf.otfHyperbin || !solver->drat->enabled())
     ) {
         timeAvailable -= 15;
         remove = solver->stamp.stampBasedClRem(tmplits);
@@ -102,13 +102,13 @@ void SubsumeImplicit::try_subsume_tri(
     //Subsumed by cache
     if (!remove
         && solver->conf.doCache
-        && (solver->conf.otfHyperbin || !solver->drup->enabled())
+        && (solver->conf.otfHyperbin || !solver->drat->enabled())
     ) {
         for(size_t at = 0; at < tmplits.size() && !remove; at++) {
-            timeAvailable -= (int64_t)solver->implCache[lit.toInt()].lits.size();
+            timeAvailable -= (int64_t)solver->implCache[lit].lits.size();
             for (vector<LitExtra>::const_iterator
-                it2 = solver->implCache[tmplits[at].toInt()].lits.begin()
-                , end2 = solver->implCache[tmplits[at].toInt()].lits.end()
+                it2 = solver->implCache[tmplits[at]].lits.begin()
+                , end2 = solver->implCache[tmplits[at]].lits.end()
                 ; it2 != end2
                 ; it2++
             ) {
@@ -130,7 +130,7 @@ void SubsumeImplicit::try_subsume_tri(
         timeAvailable -= 30;
         solver->remove_tri_but_lit1(lit, i->lit2(), i->lit3(), i->red(), timeAvailable);
         runStats.remTris++;
-        (*solver->drup) << del << lit  << i->lit2()  << i->lit3() << fin;
+        (*solver->drat) << del << lit  << i->lit2()  << i->lit3() << fin;
         return;
     }
 
@@ -159,14 +159,14 @@ void SubsumeImplicit::try_subsume_bin(
         runStats.remBins++;
         assert(i->lit2().var() != lit.var());
         timeAvailable -= 30;
-        timeAvailable -= solver->watches[i->lit2().toInt()].size();
+        timeAvailable -= solver->watches[i->lit2()].size();
         removeWBin(solver->watches, i->lit2(), lit, i->red());
         if (i->red()) {
             solver->binTri.redBins--;
         } else {
             solver->binTri.irredBins--;
         }
-        (*solver->drup) << del << lit << i->lit2() << fin;
+        (*solver->drat) << del << lit << i->lit2() << fin;
 
         return;
     } else {
@@ -203,11 +203,7 @@ void SubsumeImplicit::subsume_implicit(const bool check_stats)
         const size_t at = (rnd_start + numDone)  % solver->watches.size();
         runStats.numWatchesLooked++;
         const Lit lit = Lit::toLit(at);
-        watch_subarray ws = solver->watches[lit.toInt()];
-
-        //We can't do much when there is nothing, or only one
-        if (ws.size() < 2)
-            continue;
+        watch_subarray ws = solver->watches[lit];
 
         if (ws.size() > 1) {
             timeAvailable -= ws.size()*std::ceil(std::log((double)ws.size())) + 20;

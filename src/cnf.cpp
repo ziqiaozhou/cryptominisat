@@ -141,19 +141,12 @@ void CNF::swapVars(const uint32_t which, const int off_by)
 {
     std::swap(assigns[nVars()-off_by-1], assigns[which]);
     std::swap(varData[nVars()-off_by-1], varData[which]);
-
-    #ifdef STATS_NEEDED
-    std::swap(varDataLT[nVars()-off_by-1], varDataLT[which]);
-    #endif
 }
 
 void CNF::enlarge_nonminimial_datastructs(size_t n)
 {
     assigns.resize(assigns.size() + n, l_Undef);
     varData.resize(varData.size() + n, VarData());
-    #ifdef STATS_NEEDED
-    varDataLT.resize(varDataLT.size() + n, VarData());
-    #endif
 }
 
 void CNF::enlarge_minimal_datastructs(size_t n)
@@ -170,7 +163,7 @@ void CNF::save_on_var_memory()
     //never resize interToOuterMain, outerToInterMain
 
     watches.resize(nVars()*2);
-    watches.consolidate();
+    watches.consolidate(); //not using the one with SQL because it's already saved
     implCache.save_on_var_memorys(nVars());
     stamp.save_on_var_memory(nVars());
     longRedCls.shrink_to_fit();
@@ -346,9 +339,9 @@ void CNF::remove_tri_but_lit1(
     lits[1] = lit2;
     lits[2] = lit3;
     std::sort(lits, lits+3);
-    timeAvailable -= watches[lits[0].toInt()].size();
-    timeAvailable -= watches[lits[1].toInt()].size();
-    timeAvailable -= watches[lits[2].toInt()].size();
+    timeAvailable -= watches[lits[0]].size();
+    timeAvailable -= watches[lits[1]].size();
+    timeAvailable -= watches[lits[2]].size();
     removeTriAllButOne(watches, lit1, lits, red);
 
     //Update stats for tri
@@ -466,8 +459,8 @@ bool CNF::normClauseIsAttached(const ClOffset offset) const
     const Clause& cl = *cl_alloc.ptr(offset);
     assert(cl.size() > 3);
 
-    attached &= findWCl(watches[cl[0].toInt()], offset);
-    attached &= findWCl(watches[cl[1].toInt()], offset);
+    attached &= findWCl(watches[cl[0]], offset);
+    attached &= findWCl(watches[cl[1]], offset);
 
     return attached;
 }
@@ -477,8 +470,8 @@ void CNF::find_all_attach() const
 #ifdef SLOW_DEBUG
     for (size_t i = 0; i < watches.size(); i++) {
         const Lit lit = Lit::toLit(i);
-        for (uint32_t i2 = 0; i2 < watches[i].size(); i2++) {
-            const Watched& w = watches[i][i2];
+        for (uint32_t i2 = 0; i2 < watches[lit].size(); i2++) {
+            const Watched& w = watches[lit][i2];
             if (!w.isClause())
                 continue;
 
@@ -524,7 +517,7 @@ void CNF::find_all_attach(const vector<ClOffset>& cs) const
         ; ++it
     ) {
         Clause& cl = *cl_alloc.ptr(*it);
-        bool ret = findWCl(watches[cl[0].toInt()], *it);
+        bool ret = findWCl(watches[cl[0]], *it);
         if (!ret) {
             cout
             << "Clause " << cl
@@ -536,7 +529,7 @@ void CNF::find_all_attach(const vector<ClOffset>& cs) const
             std::exit(-1);
         }
 
-        ret = findWCl(watches[cl[1].toInt()], *it);
+        ret = findWCl(watches[cl[1]], *it);
         if (!ret) {
             cout
             << "Clause " << cl
@@ -584,7 +577,8 @@ void CNF::check_wrong_attach() const
 
 uint64_t CNF::count_lits(
     const vector<ClOffset>& clause_array
-    , bool allowFreed
+    , const bool red
+    , const bool allowFreed
 ) const {
     uint64_t lits = 0;
     for(vector<ClOffset>::const_iterator
@@ -596,7 +590,9 @@ uint64_t CNF::count_lits(
         if (cl.freed()) {
             assert(allowFreed);
         } else {
-            lits += cl.size();
+            if ((cl.red() ^ red) == false) {
+                lits += cl.size();
+            }
         }
     }
 

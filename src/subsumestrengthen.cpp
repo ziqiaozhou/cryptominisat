@@ -353,7 +353,7 @@ void inline SubsumeStrengthen::fillSubs(
     , const Lit lit
 ) {
     Lit litSub;
-    watch_subarray_const cs = solver->watches[lit.toInt()];
+    watch_subarray_const cs = solver->watches[lit];
     *simplifier->limit_to_decrease -= (long)cs.size()*2+ 40;
     for (watch_subarray_const::const_iterator
         it = cs.begin(), end = cs.end()
@@ -425,8 +425,8 @@ void SubsumeStrengthen::findStrengthened(
     uint32_t bestSize = std::numeric_limits<uint32_t>::max();
     for (uint32_t i = 0; i < cl.size(); i++){
         uint32_t newSize =
-            solver->watches[cl[i].toInt()].size()
-                + solver->watches[(~cl[i]).toInt()].size();
+            solver->watches[cl[i]].size()
+                + solver->watches[~cl[i]].size();
 
         if (newSize < bestSize) {
             minVar = cl[i].var();
@@ -511,13 +511,13 @@ void SubsumeStrengthen::remove_literal(ClOffset offset, const Lit toRemoveLit)
 
     *simplifier->limit_to_decrease -= 5;
 
-    (*solver->drup) << deldelay << cl << fin;
+    (*solver->drat) << deldelay << cl << fin;
     cl.strengthen(toRemoveLit);
     cl.recalc_abst_if_needed();
-    (*solver->drup) << cl << fin << findelay;
+    (*solver->drat) << cl << fin << findelay;
 
     runStats.litsRemStrengthen++;
-    removeWCl(solver->watches[toRemoveLit.toInt()], offset);
+    removeWCl(solver->watches[toRemoveLit], offset);
     simplifier->touched.touch(toRemoveLit);
     if (cl.red())
         solver->litStats.redLits--;
@@ -641,9 +641,9 @@ template<class T>
 size_t SubsumeStrengthen::find_smallest_watchlist_for_clause(const T& ps) const
 {
     size_t min_i = 0;
-    size_t min_num = solver->watches[ps[min_i].toInt()].size();
+    size_t min_num = solver->watches[ps[min_i]].size();
     for (uint32_t i = 1; i < ps.size(); i++){
-        const size_t this_num = solver->watches[ps[i].toInt()].size();
+        const size_t this_num = solver->watches[ps[i]].size();
         if (this_num < min_num) {
             min_i = i;
             min_num = this_num;
@@ -678,7 +678,7 @@ template<class T> void SubsumeStrengthen::find_subsumed(
     const size_t smallest = find_smallest_watchlist_for_clause(ps);
 
     //Go through the occur list of the literal that has the smallest occur list
-    watch_subarray occ = solver->watches[ps[smallest].toInt()];
+    watch_subarray occ = solver->watches[ps[smallest]];
     *simplifier->limit_to_decrease -= (long)occ.size()*8 + 40;
 
     watch_subarray::iterator it = occ.begin();
@@ -884,7 +884,7 @@ bool SubsumeStrengthen::backw_sub_str_with_bin_tris_watch(
     const Lit lit
     , const bool redundant_too
 ) {
-    watch_subarray ws = solver->watches[lit.toInt()];
+    watch_subarray ws = solver->watches[lit];
 
     //Must re-order so that TRI-s are first
     //Otherwise we might re-order list while looking through.. very messy
@@ -995,10 +995,10 @@ bool SubsumeStrengthen::backward_sub_str_with_bins_tris()
         }
     }
 
+    const double time_used = cpuTime() - myTime;
+    const bool time_out = *simplifier->limit_to_decrease <= 0;
+    const double time_remain = float_div(*simplifier->limit_to_decrease, orig_time_limit);
     if (solver->conf.verbosity >= 2) {
-        const double time_used = cpuTime() - myTime;
-        const bool time_out = *simplifier->limit_to_decrease <= 0;
-        const double time_remain = float_div(*simplifier->limit_to_decrease, orig_time_limit);
         cout
         << "c [sub] tri"
         << " upI: " << upI
@@ -1008,10 +1008,20 @@ bool SubsumeStrengthen::backward_sub_str_with_bins_tris()
         << " str w tri: " << strTri
         << " tried: " << tried_bin_tri
         << " str: " << strSucceed
-        << " toDecrease: " << *simplifier->limit_to_decrease
+        //<< " toDecrease: " << *simplifier->limit_to_decrease
         << " 0-depth ass: " << solver->trail_size() - origTrailSize
         << solver->conf.print_times(time_used, time_out, time_remain)
         << endl;
+    }
+
+    if (solver->sqlStats) {
+        solver->sqlStats->time_passed(
+            solver
+            , "occ-bckw-sub-str-w-bin-tri"
+            , time_used
+            , time_out
+            , time_remain
+        );
     }
 
     //runStats.zeroDepthAssigns = solver->trail_size() - origTrailSize;

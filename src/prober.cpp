@@ -54,7 +54,10 @@ Prober::Prober(Solver* _solver):
 
 uint64_t Prober::limit_used() const
 {
-    return solver->propStats.bogoProps + solver->propStats.otfHyperTime + extraTime + extraTimeCache;
+    return solver->propStats.bogoProps
+        + solver->propStats.otfHyperTime
+        + extraTime
+        + extraTimeCache;
 }
 
 void Prober::checkOTFRatio()
@@ -83,7 +86,7 @@ void Prober::checkOTFRatio()
             > time_limit
         && ratio < solver->conf.otf_hyper_ratio_limit
         && solver->conf.otfHyperbin
-        && !solver->drup->enabled()
+        && !solver->drat->enabled()
     ) {
         solver->conf.otfHyperbin = false;
         if (solver->conf.verbosity >= 2) {
@@ -234,10 +237,10 @@ void Prober::clean_clauses_after_probe()
     if (solver->conf.verbosity  >= 1 &&
         (runStats.zeroDepthAssigns > 100 || advancedCleanup)
     ) {
+        double time_used = cpuTime() - time;
         cout
-        << "c [probe] cleaning up after T: "
-        << std::setw(8) << std::fixed << std::setprecision(2)
-        << cpuTime() - time << " s "
+        << "c [probe] cleaning up after"
+        << solver->conf.print_times(time_used)
         << endl;
     }
 }
@@ -312,30 +315,30 @@ Lit Prober::update_lit_for_dominator(
 
 vector<uint32_t> Prober::randomize_possible_choices()
 {
-    vector<uint32_t> poss_choice;
+    vars_to_probe.clear();
     for(size_t i = 0; i < solver->nVars(); i++) {
         if (solver->value(i) == l_Undef
             && solver->varData[i].removed == Removed::none
         ) {
-            poss_choice.push_back(i);
+            vars_to_probe.push_back(i);
         }
     }
 
     //Random swap
     for (size_t i = 0
-        ; i + 1< poss_choice.size()
+        ; i + 1< vars_to_probe.size()
         ; i++
     ) {
         std::swap(
-            poss_choice[i]
-            , poss_choice[i+solver->mtrand.randInt(poss_choice.size()-1-i)]
+            vars_to_probe[i]
+            , vars_to_probe[i+solver->mtrand.randInt(vars_to_probe.size()-1-i)]
         );
     }
 
-    return poss_choice;
+    return vars_to_probe;
 }
 
-bool Prober::probe()
+bool Prober::probe(vector<uint32_t>* probe_order)
 {
     assert(solver->decisionLevel() == 0);
     assert(solver->nVars() > 0);
@@ -349,24 +352,38 @@ bool Prober::probe()
     const size_t origTrailSize = solver->trail_size();
     numPropsTodo = update_numpropstodo_based_on_prev_performance(numPropsTodo);
 
-    vector<uint32_t> poss_choice = randomize_possible_choices();
+    if (probe_order == NULL) {
+        randomize_possible_choices();
+    } else {
+        vars_to_probe = *probe_order;
+    }
+
+    if (solver->conf.verbosity >= 10) {
+        cout << "Order of probe:";
+        for(auto x: vars_to_probe) {
+            cout << x+1 << ", ";
+        }
+        cout << endl;
+    }
 
     assert(solver->propStats.bogoProps == 0);
     assert(solver->propStats.otfHyperTime == 0);
+    single_prop_tout = (double)numPropsTodo *solver->conf.single_probe_time_limit_perc;
+
     for(size_t i = 0
-        ; i < poss_choice.size()
+        ; i < vars_to_probe.size()
         && limit_used() < numPropsTodo
-        && cpuTime() <= solver->conf.maxTime
         && !solver->must_interrupt_asap()
         ; i++
     ) {
+        if ((i & 0xff) == 0xff
+            && cpuTime() >= solver->conf.maxTime
+        ) {
+            break;
+        }
         extraTime += 20;
         runStats.numLoopIters++;
-        const uint32_t var = poss_choice[i];
-
-        //Check if already blacklisted
-        if (var == std::numeric_limits<uint32_t>::max())
-            continue;
+        const uint32_t var = vars_to_probe[i];
 
         //Probe 'false' first --> this is not critical
         Lit lit = Lit(var, false);
@@ -383,17 +400,25 @@ bool Prober::probe()
         runStats.numVarProbed++;
         extraTime += 20;
 
-        if (!try_this(lit, true, numPropsTodo))
+        if (!try_this(lit, true))
             goto end;
 
         if (solver->value(lit) == l_Undef
-            && !try_this((~lit), false, numPropsTodo)
+            && !try_this(~lit, false)
         ) {
             goto end;
         }
     }
 
 end:
+
+    if (solver->conf.verbosity >= 10) {
+        cout << "c main loop for " << __PRETTY_FUNCTION__
+        << " finished: "
+        << " must_interrupt? " << solver->must_interrupt_asap()
+        << " limit_used? " << (limit_used() >= numPropsTodo)
+        << endl;
+    }
 
     //Delete any remaining binaries to add or remove
     //next time, variables will be renumbered/etc. so it will be wrong
@@ -468,15 +493,15 @@ void Prober::update_cache(Lit thisLit, Lit lit, size_t numElemsSet)
         //Update stats/markings
         //cacheUpdated[(~ancestor).toInt()]++;
         extraTime += 1;
-        extraTimeCache += solver->implCache[(~ancestor).toInt()].lits.size()/30;
-        extraTimeCache += solver->implCache[(~thisLit).toInt()].lits.size()/30;
+        extraTimeCache += solver->implCache[~ancestor].lits.size()/30;
+        extraTimeCache += solver->implCache[~thisLit].lits.size()/30;
 
         const bool redStep = solver->varData[thisLit.var()].reason.isRedStep();
 
         //Update the cache now
         assert(ancestor != lit_Undef);
-        bool taut = solver->implCache[(~ancestor).toInt()].merge(
-            solver->implCache[(~thisLit).toInt()].lits
+        bool taut = solver->implCache[~ancestor].merge(
+            solver->implCache[~thisLit].lits
             , thisLit
             , redStep
             , ancestor.var()
@@ -522,7 +547,7 @@ void Prober::check_and_set_both_prop(uint32_t var, bool first)
             //they both imply the same
             const Lit litToEnq = Lit(var, !propValue[var]);
             toEnqueue.push_back(litToEnq);
-            (*solver->drup) << litToEnq << fin;
+            (*solver->drat) << litToEnq << fin;
 
             if (solver->conf.verbosity >= 10)
                 cout << "c Bothprop indicated to enqueue " << litToEnq << endl;
@@ -542,7 +567,7 @@ void Prober::add_rest_of_lits_to_cache(Lit lit)
         tmp_lits.push_back(thisLit);
     }
 
-    bool taut = solver->implCache[(~lit).toInt()].merge(
+    bool taut = solver->implCache[~lit].merge(
         tmp_lits
         , lit_Undef
         , true //Red step -- we don't know, so we assume
@@ -555,30 +580,8 @@ void Prober::add_rest_of_lits_to_cache(Lit lit)
     //~lit V OTHER, and ~lit V ~OTHER are technically in
     if (taut) {
         toEnqueue.push_back(~lit);
-        (*solver->drup) << ~lit << fin;
+        (*solver->drat) << ~lit << fin;
     }
-}
-
-void Prober::handle_failed_lit(Lit lit, Lit failed)
-{
-    if (solver->conf.verbosity >= 6) {
-        cout << "c Failed on lit " << lit << endl;
-    }
-    solver->cancelUntil<false>(0);
-
-    //Update conflict stats
-    runStats.numFailed++;
-    runStats.conflStats.update(solver->lastConflictCausedBy);
-    runStats.conflStats.numConflicts++;
-    runStats.addedBin += solver->hyper_bin_res_all();
-    std::pair<size_t, size_t> tmp = solver->remove_useless_bins();
-    runStats.removedIrredBin += tmp.first;
-    runStats.removedRedBin += tmp.second;
-
-    vector<Lit> lits;
-    lits.push_back(~failed);
-    solver->add_clause_int(lits, true);
-    clear_up_before_first_set();
 }
 
 bool Prober::check_timeout_due_to_hyperbin()
@@ -586,7 +589,7 @@ bool Prober::check_timeout_due_to_hyperbin()
     //If we timed out on ONE call, turn otf hyper-bin off
     //and return --> the "visitedAlready" will be wrong
     if (solver->timedOutPropagateFull
-        && !solver->drup->enabled()
+        && !solver->drat->enabled()
     ) {
         if (solver->conf.verbosity >= 2) {
             cout
@@ -618,7 +621,7 @@ bool Prober::check_timeout_due_to_hyperbin()
     return false;
 }
 
-bool Prober::try_this(const Lit lit, const bool first, const uint64_t orig_num_props_to_do)
+bool Prober::try_this(const Lit lit, const bool first)
 {
     //Clean state if this is the 1st of two
     if (first) {
@@ -636,31 +639,102 @@ bool Prober::try_this(const Lit lit, const bool first, const uint64_t orig_num_p
     }
 
     Lit failed = lit_Undef;
+    if (!propagate(failed)) {
+        return solver->okay();
+    }
+
+    if (failed == lit_Undef) {
+        if (solver->conf.verbosity >= 6)
+            cout << "c Did not fail on lit " << lit << endl;
+
+        //Fill bothprop, cache
+        assert(solver->decisionLevel() > 0);
+        size_t numElemsSet = solver->trail_size() - solver->trail_lim[0];
+        for (int64_t c = solver->trail_size()-1
+            ; c != (int64_t)solver->trail_lim[0] - 1
+            ; c--
+        ) {
+            extraTime += 2;
+            const Lit thisLit = solver->trail[c];
+            const uint32_t var = thisLit.var();
+
+            if (solver->conf.doBothProp) {
+                check_and_set_both_prop(var, first);
+            }
+            visitedAlready[thisLit.toInt()] = 1;
+            if (solver->conf.otfHyperbin) {
+                update_cache(thisLit, lit, numElemsSet);
+            }
+        }
+
+        if (!solver->conf.otfHyperbin
+            && solver->conf.doCache
+        ) {
+            add_rest_of_lits_to_cache(lit);
+        }
+    }
+
+    solver->cancelUntil<false>(0);
+    solver->add_otf_subsume_long_clauses();
+    solver->add_otf_subsume_implicit_clause();
+    runStats.addedBin += solver->hyper_bin_res_all();
+    std::pair<size_t, size_t> tmp = solver->remove_useless_bins();
+    runStats.removedIrredBin += tmp.first;
+    runStats.removedRedBin += tmp.second;
+
+    if (failed != lit_Undef) {
+        if (solver->conf.verbosity >= 6) {
+            cout << "c Failed while enq + prop " << lit
+            << " Lit that got propagated to both values: " << failed << endl;
+        }
+        runStats.numFailed++;
+        runStats.conflStats.update(solver->lastConflictCausedBy);
+        runStats.conflStats.numConflicts++;
+
+        vector<Lit> lits;
+        lits.push_back(~failed);
+        solver->add_clause_int(lits, true);
+        clear_up_before_first_set();
+        return solver->ok;
+    } else {
+        assert(solver->ok);
+        runStats.bothSameAdded += toEnqueue.size();
+        extraTime += 3*toEnqueue.size();
+        return solver->fully_enqueue_these(toEnqueue);
+    }
+}
+
+bool Prober::propagate(Lit& failed)
+{
     if (solver->conf.otfHyperbin) {
         //Set timeout for ONE enqueue. This used so that in case ONE enqueue
         //takes too long (usually because of hyper-bin), we exit early
         uint64_t timeout = std::numeric_limits<uint64_t>::max();
-        if (!solver->drup->enabled()) {
+        if (!solver->drat->enabled()) {
             timeout = solver->propStats.otfHyperTime
             + solver->propStats.bogoProps
-            + (double)orig_num_props_to_do*solver->conf.single_probe_time_limit_perc;
+            + single_prop_tout;
         }
 
         //DFS is expensive, actually. So do BFS 50% of the time
-        if (solver->conf.doStamp && solver->mtrand.randInt(1) == 0) {
-            const StampType stampType = solver->mtrand.randInt(1) ? StampType::STAMP_IRRED : StampType::STAMP_RED;
-            failed = solver->propagate_dfs(
-                stampType
-                , timeout //early-abort timeout
-            );
+        if (solver->conf.doStamp &&
+            (force_stamp >= 1 || (solver->mtrand.randInt(1) == 0 && force_stamp == -1))
+        ) {
+            StampType stampType;
+            if (force_stamp == 2) {
+                stampType = StampType::STAMP_IRRED;
+            } else if (force_stamp == 1) {
+                stampType = StampType::STAMP_RED;
+            } else {
+                stampType = solver->mtrand.randInt(1) ? StampType::STAMP_IRRED : StampType::STAMP_RED;
+            }
+            failed = solver->propagate_dfs(stampType, timeout);
         } else {
-            failed = solver->propagate_bfs(
-                timeout //early-abort timeout
-            );
+            failed = solver->propagate_bfs(timeout);
         }
 
         if (check_timeout_due_to_hyperbin()) {
-            return solver->okay();
+            return false;
         }
     } else {
         //No hyper-bin so we use regular propagate and regular analyze
@@ -683,49 +757,7 @@ bool Prober::try_this(const Lit lit, const bool first, const uint64_t orig_num_p
         }
     }
 
-    if (failed != lit_Undef) {
-        handle_failed_lit(lit, failed);
-        return solver->ok;
-    } else {
-        if (solver->conf.verbosity >= 6)
-            cout << "c Did not fail on lit " << lit << endl;
-    }
-
-    //Fill bothprop, cache
-    assert(solver->decisionLevel() > 0);
-    size_t numElemsSet = solver->trail_size() - solver->trail_lim[0];
-    for (int64_t c = solver->trail_size()-1
-        ; c != (int64_t)solver->trail_lim[0] - 1
-        ; c--
-    ) {
-        extraTime += 2;
-        const Lit thisLit = solver->trail[c];
-        const uint32_t var = thisLit.var();
-
-        check_and_set_both_prop(var, first);
-        visitedAlready[thisLit.toInt()] = 1;
-        if (!solver->conf.otfHyperbin)
-            continue;
-        update_cache(thisLit, lit, numElemsSet);
-    }
-
-    if (!solver->conf.otfHyperbin
-        && solver->conf.doCache
-    ) {
-        add_rest_of_lits_to_cache(lit);
-    }
-
-    solver->cancelUntil<false>(0);
-    runStats.addedBin += solver->hyper_bin_res_all();
-    std::pair<size_t, size_t> tmp = solver->remove_useless_bins();
-    runStats.removedIrredBin += tmp.first;
-    runStats.removedRedBin += tmp.second;
-
-    //Add toEnqueue
-    assert(solver->ok);
-    runStats.bothSameAdded += toEnqueue.size();
-    extraTime += 3*toEnqueue.size();
-    return solver->fully_enqueue_these(toEnqueue);
+    return true;
 }
 
 size_t Prober::mem_used() const

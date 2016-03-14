@@ -68,8 +68,8 @@ class SharedData
         };
         vector<lbool> value;
         vector<Spec> bins;
-        mutex unit_mutex;
-        mutex bin_mutex;
+        std::mutex unit_mutex;
+        std::mutex bin_mutex;
 
         uint32_t num_threads;
 

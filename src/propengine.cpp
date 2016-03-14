@@ -47,9 +47,9 @@ using std::endl;
 @brief Sets a sane default config and allocates handler classes
 */
 PropEngine::PropEngine(
-    const SolverConf* _conf, bool* _needToInterrupt
+    const SolverConf* _conf, std::atomic<bool>* _must_interrupt_inter
 ) :
-        CNF(_conf, _needToInterrupt)
+        CNF(_conf, _must_interrupt_inter)
         , qhead(0)
 {
 }
@@ -97,9 +97,9 @@ void PropEngine::attach_tri_clause(
     orderLits(lit1, lit2, lit3);
 
     //And now they are attached, ordered
-    watches[lit1.toInt()].push(Watched(lit2, lit3, red));
-    watches[lit2.toInt()].push(Watched(lit1, lit3, red));
-    watches[lit3.toInt()].push(Watched(lit1, lit2, red));
+    watches[lit1].push(Watched(lit2, lit3, red));
+    watches[lit2].push(Watched(lit1, lit3, red));
+    watches[lit3].push(Watched(lit1, lit2, red));
 }
 
 void PropEngine::detach_tri_clause(
@@ -114,13 +114,13 @@ void PropEngine::detach_tri_clause(
     lits[1] = lit2;
     lits[2] = lit3;
     orderLits(lits[0], lits[1], lits[2]);
-    if (!(allow_empty_watch && watches[lits[0].toInt()].empty())) {
+    if (!(allow_empty_watch && watches[lits[0]].empty())) {
         removeWTri(watches, lits[0], lits[1], lits[2], red);
     }
-    if (!(allow_empty_watch && watches[lits[1].toInt()].empty())) {
+    if (!(allow_empty_watch && watches[lits[1]].empty())) {
         removeWTri(watches, lits[1], lits[0], lits[2], red);
     }
-    if (!(allow_empty_watch && watches[lits[2].toInt()].empty())) {
+    if (!(allow_empty_watch && watches[lits[2]].empty())) {
         removeWTri(watches, lits[2], lits[0], lits[1], red);
     }
 }
@@ -131,10 +131,10 @@ void PropEngine::detach_bin_clause(
     , const bool red
     , const bool allow_empty_watch
 ) {
-    if (!(allow_empty_watch && watches[lit1.toInt()].empty())) {
+    if (!(allow_empty_watch && watches[lit1].empty())) {
         removeWBin(watches, lit1, lit2, red);
     }
-    if (!(allow_empty_watch && watches[lit2.toInt()].empty())) {
+    if (!(allow_empty_watch && watches[lit2].empty())) {
         removeWBin(watches, lit2, lit1, red);
     }
 }
@@ -156,8 +156,8 @@ void PropEngine::attach_bin_clause(
     assert(varData[lit2.var()].removed == Removed::none);
     #endif //DEBUG_ATTACH
 
-    watches[lit1.toInt()].push(Watched(lit2, red));
-    watches[lit2.toInt()].push(Watched(lit1, red));
+    watches[lit1].push(Watched(lit2, red));
+    watches[lit2].push(Watched(lit1, red));
 }
 
 /**
@@ -170,6 +170,8 @@ void PropEngine::attachClause(
     const Clause& c
     , const bool checkAttach
 ) {
+    const ClOffset offset = cl_alloc.get_offset(&c);
+
     assert(c.size() > 3);
     if (checkAttach) {
         assert(value(c[0]) == l_Undef);
@@ -186,11 +188,9 @@ void PropEngine::attachClause(
     }
     #endif //DEBUG_ATTACH
 
-    const ClOffset offset = cl_alloc.get_offset(&c);
-
-    const Lit blocked_lit = find_good_blocked_lit(c);
-    watches[c[0].toInt()].push(Watched(offset, blocked_lit));
-    watches[c[1].toInt()].push(Watched(offset, blocked_lit));
+    const Lit blocked_lit = c[2];
+    watches[c[0]].push(Watched(offset, blocked_lit));
+    watches[c[1]].push(Watched(offset, blocked_lit));
 }
 
 /**
@@ -212,8 +212,8 @@ void PropEngine::detach_modified_clause(
     }
 
     ClOffset offset = cl_alloc.get_offset(address);
-    removeWCl(watches[lit1.toInt()], offset);
-    removeWCl(watches[lit2.toInt()], offset);
+    removeWCl(watches[lit1], offset);
+    removeWCl(watches[lit2], offset);
 }
 
 /**
@@ -260,6 +260,7 @@ void PropEngine::update_glue(Clause& c)
     if (c.red()
         && c.stats.glue > 2
         && conf.update_glues_on_prop
+        && c.size() < 40 //NOTE MAGIC CONSTANT
     ) {
         const uint32_t new_glue = calc_glue_using_seen2(c);
         if (new_glue < c.stats.glue
@@ -307,7 +308,7 @@ PropResult PropEngine::prop_normal_helper(
         if (value(*k) != l_False) {
             c[1] = *k;
             *k = ~p;
-            watches[c[1].toInt()].push(Watched(offset, c[0]));
+            watches[c[1]].push(Watched(offset, c[0]));
             return PROP_NOTHING;
         }
     }
@@ -350,7 +351,8 @@ inline PropResult PropEngine::prop_long_cl_strict_order(
     , PropBy& confl
 ) {
     //Blocked literal is satisfied, so clause is satisfied
-    if (value(i->getBlockedLit()) == l_True) {
+    const Lit blocked = i->getBlockedLit();
+    if (value(blocked) == l_True) {
         *j++ = *i;
         return PROP_NOTHING;
     }
@@ -385,7 +387,6 @@ inline PropResult PropEngine::prop_long_cl_strict_order(
     return PROP_SOMETHING;
 }
 
-
 template<bool update_bogoprops>
 inline
 bool PropEngine::prop_long_cl_any_order(
@@ -394,9 +395,10 @@ bool PropEngine::prop_long_cl_any_order(
     , const Lit p
     , PropBy& confl
 ) {
+    const Lit blocked = i->getBlockedLit();
+
     //Blocked literal is satisfied, so clause is satisfied
-    const Lit blocker = i->getBlockedLit();
-    if (value(blocker) == l_True) {
+    if (value(blocked) == l_True) {
         *j++ = *i;
         return true;
     }
@@ -411,66 +413,16 @@ bool PropEngine::prop_long_cl_any_order(
     assert(!c.freed());
     #endif
 
-    #ifdef STATS_NEEDED
-    c.stats.clause_looked_at++;
-    #endif
-
-    // Make sure the false literal is data[1]:
-    if (c[0] == ~p) {
-        std::swap(c[0], c[1]);
-    }
-
-    assert(c[1] == ~p);
-
-    // If 0th watch is true, then clause is already satisfied.
-    const Lit first = c[0];
-    if (first != blocker && value(first) == l_True) {
-        *j = Watched(offset, first);
-        j++;
+    if (prop_normal_helper(c, offset, j, p) == PROP_NOTHING) {
         return true;
-    }
-
-    // Look for new watch:
-    for (Lit *k = c.begin() + 2, *end2 = c.end()
-        ; k != end2
-        ; k++
-    ) {
-        //Literal is either unset or satisfied, attach to other watchlist
-        if (value(*k) != l_False) {
-            c[1] = *k;
-            *k = ~p;
-            watches[c[1].toInt()].push(Watched(offset, c[0]));
-            return true;
-        }
     }
 
     // Did not find watch -- clause is unit under assignment:
     *j++ = *i;
-    if (value(first) == l_False) {
-        confl = PropBy(offset);
-        #ifdef VERBOSE_DEBUG_FULLPROP
-        cout << "Conflict from ";
-        for(size_t i = 0; i < c.size(); i++) {
-            cout  << c[i] << " , ";
-        }
-        cout << endl;
-        #endif //VERBOSE_DEBUG_FULLPROP
-
-        //Update stats
-        #ifdef STATS_NEEDED
-        c.stats.conflicts_made++;
-        c.stats.sum_of_branch_depth_conflict += decisionLevel() + 1;
-        #endif
-        if (c.red())
-            lastConflictCausedBy = ConflCausedBy::longred;
-        else
-            lastConflictCausedBy = ConflCausedBy::longirred;
-
-        qhead = trail.size();
+    if (value(c[0]) == l_False) {
+        handle_normal_prop_fail(c, offset, confl);
         return false;
     } else {
-
-        //Update stats
         #ifdef STATS_NEEDED
         c.stats.propagations_made++;
         if (c.red())
@@ -478,6 +430,7 @@ bool PropEngine::prop_long_cl_any_order(
         else
             propStats.propsLongIrred++;
         #endif
+
         enqueue<update_bogoprops>(c[0], PropBy(offset));
         if (!update_bogoprops) {
             update_glue(c);
@@ -653,7 +606,7 @@ PropBy PropEngine::propagate_any_order()
 
     while (qhead < trail.size() && confl.isNULL()) {
         const Lit p = trail[qhead];     // 'p' is enqueued fact to propagate.
-        watch_subarray ws = watches[(~p).toInt()];
+        watch_subarray ws = watches[~p];
         watch_subarray::iterator i = ws.begin();
         watch_subarray::iterator j = i;
         watch_subarray_const::const_iterator end = ws.end();
@@ -754,7 +707,7 @@ void PropEngine::sortWatched()
 
 void PropEngine::printWatchList(const Lit lit) const
 {
-    watch_subarray_const ws = watches[lit.toInt()];
+    watch_subarray_const ws = watches[lit];
     for (watch_subarray_const::const_iterator
         it2 = ws.begin(), end2 = ws.end()
         ; it2 != end2
@@ -778,9 +731,6 @@ void PropEngine::updateVars(
     , const vector<uint32_t>& interToOuter2
 ) {
     updateArray(varData, interToOuter);
-    #ifdef STATS_NEEDED
-    updateArray(varDataLT, interToOuter);
-    #endif
     updateArray(assigns, interToOuter);
     assert(decisionLevel() == 0);
 
@@ -790,15 +740,9 @@ void PropEngine::updateVars(
     }
     updateBySwap(watches, seen, interToOuter2);
 
-    for(size_t i = 0; i < watches.size(); i++) {
-        /*
-        //TODO
-        if (i+10 < watches.size())
-            __builtin_prefetch(watches[i+10].begin());
-        */
-
-        if (!watches[i].empty())
-            updateWatch(watches[i], outerToInter);
+    for(watch_subarray w: watches) {
+        if (!w.empty())
+            updateWatch(w, outerToInter);
     }
 }
 
@@ -841,11 +785,8 @@ inline void PropEngine::updateWatch(
     }
 }
 
-PropBy PropEngine::propagate_strict_order(
-    #ifdef STATS_NEEDED
-    AvgCalc<size_t>* watchListSizeTraversed
-    #endif
-) {
+PropBy PropEngine::propagate_strict_order()
+{
     PropBy confl;
 
     #ifdef VERBOSE_DEBUG_PROP
@@ -858,12 +799,7 @@ PropBy PropEngine::propagate_strict_order(
     //Propagate binary clauses first
     while (qhead < trail.size() && confl.isNULL()) {
         const Lit p = trail[qhead++];     // 'p' is enqueued fact to propagate.
-        watch_subarray_const ws = watches[(~p).toInt()];
-        #ifdef STATS_NEEDED
-        if (watchListSizeTraversed)
-            watchListSizeTraversed->push(ws.size());
-        #endif
-
+        watch_subarray_const ws = watches[~p];
         watch_subarray::const_iterator i = ws.begin();
         watch_subarray_const::const_iterator end = ws.end();
         propStats.bogoProps += ws.size()/10 + 1;
@@ -893,7 +829,7 @@ PropBy PropEngine::propagate_strict_order(
     PropResult ret = PROP_NOTHING;
     while (qheadlong < qhead && confl.isNULL()) {
         const Lit p = trail[qheadlong];     // 'p' is enqueued fact to propagate.
-        watch_subarray ws = watches[(~p).toInt()];
+        watch_subarray ws = watches[~p];
         watch_subarray::iterator i = ws.begin();
         watch_subarray::iterator j = ws.begin();
         watch_subarray_const::const_iterator end = ws.end();
@@ -958,7 +894,7 @@ PropBy PropEngine::propagateIrredBin()
     PropBy confl;
     while (qhead < trail.size()) {
         Lit p = trail[qhead++];
-        watch_subarray ws = watches[(~p).toInt()];
+        watch_subarray ws = watches[~p];
         for(watch_subarray::iterator k = ws.begin(), end = ws.end(); k != end; k++) {
 
             //If not binary, or is redundant, skip
@@ -992,10 +928,12 @@ bool PropEngine::propagate_occur()
     if (!ok)
         return false;
 
+    assert(decisionLevel() == 0);
+
     while (qhead < trail_size()) {
         const Lit p = trail[qhead];
         qhead++;
-        watch_subarray ws = watches[(~p).toInt()];
+        watch_subarray ws = watches[~p];
 
         //Go through each occur
         for (watch_subarray::const_iterator
@@ -1149,13 +1087,13 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
     #endif //DEBUG_ENQUEUE_LEVEL0
 
     #ifdef ENQUEUE_DEBUG
-    //assert(trail.size() <= nVarsOuter());
-    //assert(decisionLevel() == 0 || varData[p.var()].removed == Removed::none);
+    assert(trail.size() <= nVarsOuter());
+    assert(varData[p.var()].removed == Removed::none);
     #endif
 
     const uint32_t v = p.var();
     assert(value(v) == l_Undef);
-    if (!watches[(~p).toInt()].empty()) {
+    if (!watches[~p].empty()) {
         watches.prefetch((~p).toInt());
     }
 

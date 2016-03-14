@@ -167,7 +167,7 @@ bool DataSync::syncBinFromOthers()
         }
 
         vector<Lit>& bins = *sharedData->bins[wsLit].data;
-        watch_subarray ws = solver->watches[lit1.toInt()];
+        watch_subarray ws = solver->watches[lit1];
 
         assert(syncFinish.size() > wsLit);
         if (bins.size() > syncFinish[wsLit]
@@ -215,7 +215,7 @@ bool DataSync::syncBinFromOthers(
             lits[0] = lit;
             lits[1] = otherLit;
 
-            //Don't add DRUP: it would add to the thread data, too
+            //Don't add DRAT: it would add to the thread data, too
             solver->add_clause_int(lits, true, ClauseStats(), true, NULL, false);
             if (!solver->ok) {
                 goto end;

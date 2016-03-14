@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include <vector>
 #include <iostream>
 #include <utility>
+#include <atomic>
 #include "cryptominisat4/solvertypesmini.h"
 
 namespace CMSat {
@@ -37,7 +38,9 @@ namespace CMSat {
     class SATSolver
     {
     public:
-        SATSolver(void* config = NULL, bool* interrupt_asap = NULL);
+        SATSolver(void* config = NULL
+        , std::atomic<bool>* interrupt_asap = NULL
+        );
         ~SATSolver();
         void set_num_threads(unsigned n);
         unsigned nVars() const;
@@ -52,6 +55,13 @@ namespace CMSat {
         void log_to_file(std::string filename);
 
         //SQL
+        void set_sqlite(std::string filename);
+        void set_mysql(
+            std::string sqlServer
+            , std::string sqlUser
+            , std::string sqlPass
+            , std::string sqlDatabase);
+
         void add_sql_tag(const std::string& tagname, const std::string& tag);
         unsigned long get_sql_id() const;
 
@@ -62,6 +72,7 @@ namespace CMSat {
         void set_no_simplify();
         void set_no_simplify_at_startup();
         void set_no_equivalent_lit_replacement();
+        void set_no_bva();
 
         //Get info
         static const char* get_version();
@@ -69,7 +80,7 @@ namespace CMSat {
         static const char* get_compilation_env();
 
         void print_stats() const;
-        void set_drup(std::ostream* os);
+        void set_drat(std::ostream* os, bool set_ID);
         void interrupt_asap();
         void open_file_and_dump_irred_clauses(std::string fname) const;
         void open_file_and_dump_red_clauses(std::string fname) const;

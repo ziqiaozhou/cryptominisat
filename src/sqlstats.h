@@ -73,12 +73,26 @@ public:
         , const Solver* solver
     ) = 0;
 
+    virtual void dump_clause_stats(
+        const Solver* solver
+        , uint64_t clauseID
+        , uint32_t glue
+        , uint32_t backtrack_level
+        , uint32_t size
+        , AtecedentData<uint16_t> resoltypes
+        , size_t decision_level
+        , size_t trail_depth
+        , uint64_t conflicts_this_restart
+        , const SearchHist& hist
+    ) = 0;
+
     virtual bool setup(const Solver* solver) = 0;
     virtual void finishup(lbool status) = 0;
     uint64_t get_runID() const
     {
         return runID;
     }
+    virtual void add_tag(const std::pair<std::string, std::string>& tag) = 0;
 
 protected:
 

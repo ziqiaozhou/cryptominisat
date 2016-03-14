@@ -58,6 +58,7 @@ class SQLStats;
 
 class Solver;
 class ClauseAllocator;
+class Gaussian;
 
 enum PropResult {
     PROP_FAIL = 0
@@ -79,7 +80,7 @@ public:
     //
     PropEngine(
         const SolverConf* _conf
-        , bool* _needToInterrupt
+        , std::atomic<bool>* _must_interrupt_inter
     );
     ~PropEngine();
 
@@ -102,7 +103,6 @@ public:
     bool update_polarity_and_activity = true;
 
 protected:
-    virtual Lit find_good_blocked_lit(const Clause& c) const  = 0;
     void new_var(const bool bva, const uint32_t orig_outer) override;
     void new_vars(const size_t n) override;
     void save_on_var_memory();
@@ -123,13 +123,18 @@ protected:
     uint32_t            qhead;            ///< Head of queue (as index into the trail)
     Lit                 failBinLit;       ///< Used to store which watches[lit] we were looking through when conflict occured
 
+    friend class Gaussian;
+
     template<bool update_bogoprops>
     PropBy propagate_any_order();
-    PropBy propagate_strict_order(
-        #ifdef STATS_NEEDED
-        AvgCalc<size_t>* watchListSizeTraversed = NULL
-        #endif
-    );
+    PropBy propagate_strict_order();
+    /*template<bool update_bogoprops>
+    bool handle_xor_cl(
+        watch_subarray_const::const_iterator i
+        , watch_subarray::iterator &j
+        , const Lit p
+        , PropBy& confl
+    );*/
     PropBy propagateIrredBin();  ///<For debug purposes, to test binary clause removal
     PropResult prop_normal_helper(
         Clause& c

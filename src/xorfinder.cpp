@@ -22,34 +22,31 @@
 #include "xorfinder.h"
 #include "time_mem.h"
 #include "solver.h"
-#include "varreplacer.h"
 #include "occsimplifier.h"
 #include "clauseallocator.h"
-#include <m4ri/m4ri.h>
-#include <limits>
 #include "sqlstats.h"
+
+#include <limits>
 
 using namespace CMSat;
 using std::cout;
 using std::endl;
 
-XorFinder::XorFinder(OccSimplifier* _subsumer, Solver* _solver) :
-    subsumer(_subsumer)
+XorFinder::XorFinder(OccSimplifier* _occsimplifier, Solver* _solver) :
+    occsimplifier(_occsimplifier)
     , solver(_solver)
-    , numCalls(0)
     , seen(_solver->seen)
     , seen2(_solver->seen2)
+    , toClear(_solver->toClear)
 {
-    //NOT THREAD SAFE BUG
-    m4ri_build_all_codes();
 }
 
 void XorFinder::find_xors_based_on_long_clauses()
 {
     vector<Lit> lits;
     for (vector<ClOffset>::iterator
-        it = solver->longIrredCls.begin()
-        , end = solver->longIrredCls.end()
+        it = occsimplifier->clauses.begin()
+        , end = occsimplifier->clauses.end()
         ; it != end && xor_find_time_limit > 0
         ; ++it
     ) {
@@ -58,12 +55,14 @@ void XorFinder::find_xors_based_on_long_clauses()
         xor_find_time_limit -= 3;
 
         //Already freed
-        if (cl->freed())
+        if (cl->freed() || cl->getRemoved()) {
             continue;
+        }
 
         //Too large -> too expensive
-        if ((long)cl->size() > solver->conf.maxXorToFind)
+        if (cl->size() > solver->conf.maxXorToFind) {
             continue;
+        }
 
         //If not tried already, find an XOR with it
         if (!cl->stats.marked_clause) {
@@ -71,7 +70,7 @@ void XorFinder::find_xors_based_on_long_clauses()
 
             lits.resize(cl->size());
             std::copy(cl->begin(), cl->end(), lits.begin());
-            findXor(lits, cl->abst);
+            findXor(lits, offset, cl->abst);
         }
     }
 }
@@ -81,16 +80,19 @@ void XorFinder::find_xors_based_on_short_clauses()
     assert(solver->ok);
 
     vector<Lit> lits;
-    for (size_t wsLit = 0, end = 2*solver->nVars(); wsLit < end; wsLit++) {
+    for (size_t wsLit = 0, end = 2*solver->nVars()
+        ; wsLit < end && xor_find_time_limit > 0
+        ; wsLit++
+    ) {
         const Lit lit = Lit::toLit(wsLit);
         assert(solver->watches.size() > wsLit);
-        watch_subarray_const ws = solver->watches[lit.toInt()];
+        watch_subarray_const ws = solver->watches[lit];
 
-        xor_find_time_limit -= (int64_t)ws.size()*3;
+        xor_find_time_limit -= (int64_t)ws.size()*4;
 
         //cannot use iterators because findXor may update the watchlist
-        for (size_t i = 0, size = solver->watches[lit.toInt()].size()
-            ; i < size
+        for (size_t i = 0, size = solver->watches[lit].size()
+            ; i < size && xor_find_time_limit > 0
             ; i++
         ) {
             const Watched& w = ws[i];
@@ -111,13 +113,18 @@ void XorFinder::find_xors_based_on_short_clauses()
             lits[1] = w.lit2();
             lits[2] = w.lit3();
 
-            findXor(lits, calcAbstraction(lits));
+            findXor(lits, CL_OFFSET_MAX, calcAbstraction(lits));
         }
     }
 }
 
 void XorFinder::find_xors()
 {
+    runStats.clear();
+    runStats.numCalls = 1;
+
+    cls_of_xors.clear();
+    xors.clear();
     assert(solver->watches.get_smudged_list().empty());
     double myTime = cpuTime();
     const int64_t orig_xor_find_time_limit =
@@ -130,32 +137,43 @@ void XorFinder::find_xors()
     assert(solver->no_marked_clauses());
     #endif
 
-    find_xors_based_on_long_clauses();
     find_xors_based_on_short_clauses();
+    find_xors_based_on_long_clauses();
 
     //Cleanup
-    solver->unmark_all_irred_clauses();
-    solver->unmark_all_red_clauses();
+    for(ClOffset offset: occsimplifier->clauses) {
+        Clause* cl = solver->cl_alloc.ptr(offset);
+        cl->stats.marked_clause = false;
+    }
     solver->clean_occur_from_idx_types_only_smudged();
 
+    //Print stats
     const bool time_out = (xor_find_time_limit < 0);
     const double time_remain = float_div(xor_find_time_limit, orig_xor_find_time_limit);
     runStats.findTime = cpuTime() - myTime;
     runStats.time_outs += time_out;
     assert(runStats.foundXors == xors.size());
-    solver->sumStats.num_xors_found_last = xors.size();
+    solver->sumSearchStats.num_xors_found_last = xors.size();
+    print_found_xors();
 
+    if (solver->conf.verbosity >= 1) {
+        runStats.print_short(solver);
+    }
+    globalStats += runStats;
 
     if (solver->sqlStats) {
         solver->sqlStats->time_passed(
             solver
-            , "xorfind"
+            , "xor-find"
             , cpuTime() - myTime
             , time_out
             , time_remain
         );
     }
+}
 
+void XorFinder::print_found_xors()
+{
     if (solver->conf.verbosity >= 5) {
         cout << "c Found XORs: " << endl;
         for(vector<Xor>::const_iterator
@@ -168,395 +186,62 @@ void XorFinder::find_xors()
     }
 }
 
-bool XorFinder::do_all_with_xors()
+void XorFinder::add_xors_to_gauss()
 {
-    numCalls++;
-    runStats.clear();
-    xors.clear();
-
-    find_xors();
-    if (solver->conf.doEchelonizeXOR && xors.size() > 0) {
-        extractInfo();
+    solver->xorclauses = xors;
+    for(ClOffset offs: cls_of_xors) {
+        Clause* cl = solver->cl_alloc.ptr(offs);
+        cl->set_used_in_xor(true);
     }
-
-    if (solver->conf.verbosity >= 1) {
-        runStats.print_short(solver);
-    }
-    globalStats += runStats;
-
-    return solver->ok;
 }
 
-bool XorFinder::extractInfo()
+bool XorFinder::xor_clause_already_inside(const Xor& xor_c)
 {
-    double myTime = cpuTime();
-    size_t origTrailSize = solver->trail_size();
-
-    vector<uint32_t> varsIn(solver->nVars(), 0);
-    for(const Xor& x: xors) {
-        for(const uint32_t v: x.vars) {
-            varsIn[v]++;
-        }
-    }
-
-    //Pre-filter XORs -- don't use any XOR which is not connected to ANY
-    //other XOR. These cannot be XOR-ed with anything anyway
-    size_t i = 0;
-    vector<size_t> xorsToUse;
-    for(vector<Xor>::const_iterator
-        it = xors.begin(), end = xors.end()
-        ; it != end
-        ; ++it, i++
-    ) {
-        const Xor& thisXor = *it;
-        bool makeItIn = false;
-        for(uint32_t v: thisXor.vars) {
-            if (varsIn[v] > 1) {
-                makeItIn = true;
-                break;
-            }
-        }
-        //If this clause is not connected to ANY other, skip
-        if (!makeItIn)
-            continue;
-
-        xorsToUse.push_back(i);
-    }
-
-    //Cut above-filtered XORs into blocks
-    cutIntoBlocks(xorsToUse);
-    runStats.blockCutTime += myTime - cpuTime();
-    myTime = cpuTime();
-
-    //These mappings will be needed for the matrixes, which will have far less
-    //variables than solver->nVars()
-    outerToInterVarMap.clear();
-    outerToInterVarMap.resize(solver->nVars(), std::numeric_limits<uint32_t>::max());
-    interToOUterVarMap.clear();
-    interToOUterVarMap.resize(solver->nVars(), std::numeric_limits<uint32_t>::max());
-
-    //Go through all blocks, and extract info
-    i = 0;
-    for(vector<vector<uint32_t> >::const_iterator
-        it = blocks.begin(), end = blocks.end()
-        ; it != end
-        ; ++it, i++
-    ) {
-        //If block is already merged, skip
-        if (it->empty())
-            continue;
-
-        //const uint64_t oldNewUnits = newUnits;
-        //const uint64_t oldNewBins = newBins;
-        if (!extractInfoFromBlock(*it, i))
-            goto end;
-
-        //cout << "New units this round: " << (newUnits - oldNewUnits) << endl;
-        //cout << "New bins this round: " << (newBins - oldNewBins) << endl;
-    }
-
-end:
-
-    const double time_used = cpuTime() - myTime;
-    runStats.zeroDepthAssigns = solver->trail_size() - origTrailSize;
-    runStats.extractTime += time_used;
-    if (solver->sqlStats) {
-        solver->sqlStats->time_passed_min(
-            solver
-            , "xorextract"
-            , time_used
-        );
-    }
-
-    return solver->ok;
-}
-
-bool XorFinder::extractInfoFromBlock(
-    const vector<uint32_t>& block
-    , const size_t blockNum
-) {
-    assert(solver->okay());
-    if (block.empty()) {
-        return solver->okay();
-    }
-
-    //Outer-inner var mapping is needed because not all vars are in the matrix
-    size_t num = 0;
-    for(vector<uint32_t>::const_iterator
-        it2 = block.begin(), end2 = block.end()
-        ; it2 != end2
-        ; it2++, num++
-    ) {
-        //Used to put XOR into matrix
-        outerToInterVarMap[*it2] = num;
-
-        //Used to transform new data in matrix to solver
-        interToOUterVarMap[num] = *it2;
-    }
-
-    //Get corresponding XORs
-    const vector<uint32_t> thisXors = getXorsForBlock(blockNum);
-    assert(thisXors.size() > 1 && "We pre-filter the set such that *every* block contains at least 2 xors");
-
-    //Set up matrix
-    size_t numCols = block.size()+1; //we need augmented column
-    size_t matSize = numCols*thisXors.size();
-    if (matSize > solver->conf.maxXORMatrix) {
-        //this matrix is way too large, skip :(
-        return solver->okay();
-    }
-    mzd_t *mat = mzd_init(thisXors.size(), numCols);
-    assert(mzd_is_zero(mat));
-
-    //Fill row-by-row
-    size_t row = 0;
-    for(vector<uint32_t>::const_iterator
-        it = thisXors.begin(), end2 = thisXors.end()
-        ; it != end2
-        ; ++it, row++
-    ) {
-        const Xor& thisXor = xors[*it];
-        assert(thisXor.vars.size() > 2 && "All XORs must be larger than 2-long");
-        //Put XOR into the matrix
-        for(vector<uint32_t>::const_iterator
-            it2 = thisXor.vars.begin(), end3 = thisXor.vars.end()
-            ; it2 != end3
-            ; it2++
+    xor_find_time_limit -= 30;
+    for (const Watched ws: solver->watches.at(xor_c[0])) {
+        if (ws.isIdx()
+            && xors[ws.get_idx()] == xor_c
         ) {
-            const uint32_t var = outerToInterVarMap[*it2];
-            assert(var < numCols-1);
-            mzd_write_bit(mat, row, var, 1);
-        }
-
-        //Add RHS to the augmented columns
-        if (thisXor.rhs)
-            mzd_write_bit(mat, row, numCols-1, 1);
-    }
-
-    //Fully echelonize
-    mzd_echelonize(mat, true);
-
-    //Examine every row if it gives some new short truth
-    vector<Lit> lits;
-    for(size_t i = 0; i < row; i++) {
-        //Extract places where it's '1'
-        lits.clear();
-        for(size_t c = 0; c < numCols-1; c++) {
-            if (mzd_read_bit(mat, i, c))
-                lits.push_back(Lit(interToOUterVarMap[c], false));
-
-            //No point in going on, we cannot do anything with >2-long XORs
-            if (lits.size() > 2)
-                break;
-        }
-
-        //Extract RHS
-        const bool rhs = mzd_read_bit(mat, i, numCols-1);
-
-        switch(lits.size()) {
-            case 0:
-                //0-long XOR clause is equal to 1? If so, it's UNSAT
-                if (rhs) {
-                    solver->add_xor_clause_inter(lits, 1, false);
-                    assert(!solver->okay());
-                    goto end;
-                }
-                break;
-
-            case 1: {
-                runStats.newUnits++;
-                solver->add_xor_clause_inter(lits, rhs, false);
-                if (!solver->okay())
-                    goto end;
-                break;
-            }
-
-            case 2: {
-                runStats.newBins++;
-                solver->add_xor_clause_inter(lits, rhs, false);
-                if (!solver->okay())
-                    goto end;
-                break;
-            }
-
-            default:
-                //if resulting xor is larger than 2-long, we cannot extract anything.
-                break;
+            return true;
         }
     }
-
-    //Free mat, and return what need to be returned
-    end:
-    mzd_free(mat);
-
-    return solver->okay();
+    return false;
 }
 
-vector<uint32_t> XorFinder::getXorsForBlock(const size_t blockNum)
+void XorFinder::findXor(vector<Lit>& lits, const ClOffset offset, cl_abst_type abst)
 {
-    vector<uint32_t> xorsInThisBlock;
+    //Set this clause as the base for the XOR, fill 'seen'
+    xor_find_time_limit -= 50;
+    poss_xor.setup(lits, offset, abst, seen);
 
-    for(size_t i = 0; i < xors.size(); i++) {
-        const Xor& thisXor = xors[i];
-        assert(thisXor.vars.size() > 2 && "XORs are always at least 3-long!");
-
-        if (varToBlock[thisXor.vars[0]] == blockNum) {
-            xorsInThisBlock.push_back(i);
-
-            for(vector<uint32_t>::const_iterator it = thisXor.vars.begin(), end = thisXor.vars.end(); it != end; ++it) {
-                assert(varToBlock[*it] == blockNum && "if any vars are in this block, ALL block are in this block");
-            }
-        }
-    }
-
-    return xorsInThisBlock;
-}
-
-void XorFinder::cutIntoBlocks(const vector<size_t>& xorsToUse)
-{
-    //Clearing data we will fill below
-    varToBlock.clear();
-    varToBlock.resize(solver->nVars(), std::numeric_limits<uint32_t>::max());
-    blocks.clear();
-
-    //Go through each XOR, and either make a new block for it
-    //or merge it into an existing block
-    //or merge it into an existing block AND merge blocks it joins together
-    for(vector<size_t>::const_iterator it = xorsToUse.begin(), end = xorsToUse.end(); it != end; ++it) {
-        const Xor& thisXor = xors[*it];
-
-        //Calc blocks for this XOR
-        set<size_t> blocksBelongTo;
-        for(vector<uint32_t>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
-            if (varToBlock[*it2] != std::numeric_limits<uint32_t>::max())
-                blocksBelongTo.insert(varToBlock[*it2]);
-        }
-
-        switch(blocksBelongTo.size()) {
-            case 0: {
-                //Create new block
-                vector<uint32_t> block;
-                for(vector<uint32_t>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
-                    varToBlock[*it2] = blocks.size();
-                    block.push_back(*it2);
-                }
-                blocks.push_back(block);
-                runStats.numBlocks++;
-
-                continue;
-            }
-
-            case 1: {
-                //Add to existing block
-                const size_t blockNum = *blocksBelongTo.begin();
-                vector<uint32_t>& block = blocks[blockNum];
-                for(vector<uint32_t>::const_iterator it2 = thisXor.vars.begin(), end2 = thisXor.vars.end(); it2 != end2; it2++) {
-                    if (varToBlock[*it2] == std::numeric_limits<uint32_t>::max()) {
-                        block.push_back(*it2);
-                        varToBlock[*it2] = blockNum;
-                    }
-                }
-                continue;
-            }
-
-            default: {
-                //Merge blocks into first block
-                const size_t blockNum = *blocksBelongTo.begin();
-                set<size_t>::const_iterator it2 = blocksBelongTo.begin();
-                vector<uint32_t>& finalBlock = blocks[blockNum];
-                it2++; //don't merge the first into the first
-                for(set<size_t>::const_iterator end2 = blocksBelongTo.end(); it2 != end2; it2++) {
-                    for(vector<uint32_t>::const_iterator
-                        it3 = blocks[*it2].begin(), end3 = blocks[*it2].end()
-                        ; it3 != end3
-                        ; it3++
-                    ) {
-                        finalBlock.push_back(*it3);
-                        varToBlock[*it3] = blockNum;
-                    }
-                    blocks[*it2].clear();
-                    runStats.numBlocks--;
-                }
-
-                //add remaining vars
-                for(vector<uint32_t>::const_iterator
-                    it3 = thisXor.vars.begin(), end3 = thisXor.vars.end()
-                    ; it3 != end3
-                    ; it3++
-                ) {
-                    if (varToBlock[*it3] == std::numeric_limits<uint32_t>::max()) {
-                        finalBlock.push_back(*it3);
-                        varToBlock[*it3] = blockNum;
-                    }
-                }
-            }
-        }
-    }
-
-    //caclulate stats
-    for(vector<vector<uint32_t> >::const_iterator
-        it = blocks.begin(), end = blocks.end()
-        ; it != end
-        ; ++it
-    ) {
-        //this set has been merged into another set. Skip
-        if (it->empty())
-            continue;
-
-        //cout << "Block vars: " << it->size() << endl;
-        runStats.numVarsInBlocks += it->size();
-    }
-
-    if (solver->conf.verbosity >= 2) {
-        cout << "c Sum vars in blocks: " << runStats.numVarsInBlocks << endl;
-    }
-}
-
-void XorFinder::findXor(vector<Lit>& lits, cl_abst_type abst)
-{
-    //Set this clause as the base for the FoundXors
-    //fill 'seen' with variables
-    FoundXors foundCls(lits, abst, seen);
-
-    //Try to match on all literals
-    for (const Lit lit: lits) {
-        findXorMatch(solver->watches[(lit).toInt()], lit, foundCls);
-        findXorMatch(solver->watches[(~lit).toInt()], ~lit, foundCls);
+    bool found_all = false;
+    //To be honest, -1 would do the trick fully. Or even just "i < 1", but
+    //that might not find all possibilities when shorter ones are allowed for
+    for (size_t i = 0; i < lits.size()-2; i++) {
+        const Lit lit = lits[i];
+        findXorMatch(solver->watches[lit], lit);
+        findXorMatch(solver->watches[~lit], ~lit);
 
         //More expensive
-        //findXorMatchExt(solver->watches[(*l).toInt()], *l, foundCls);
-        //findXorMatchExt(solver->watches[(~(*l)).toInt()], ~(*l), foundCls);
+        //findXorMatchExt(solver->watches[lit], lit);
+        //findXorMatchExt(solver->watches[~lit], ~lit);
 
-        //TODO stamping
-        /*if (solver->conf.useCacheWhenFindingXors) {
-            findXorMatch(solver->implCache[(*l).toInt()].lits, *l, foundCls);
-            findXorMatch(solver->implCache[(~*l).toInt()].lits, ~(*l), foundCls);
-        }*/
-
-        xor_find_time_limit -= 5;
-        if (foundCls.foundAll())
+        xor_find_time_limit -= 20;
+        if (poss_xor.foundAll()) {
+            found_all = true;
             break;
+        }
     }
 
-    xor_find_time_limit -= 5;
-    if (foundCls.foundAll()) {
+    if (found_all) {
         std::sort(lits.begin(), lits.end());
-        Xor found_xor(lits, foundCls.getRHS());
+        Xor found_xor(lits, poss_xor.getRHS());
 
-        //Have we found this XOR clause already?
-        bool already_inside = false;
-        for (const Watched ws: solver->watches[lits[0].unsign().toInt()]) {
-            if (ws.isIdx()
-                && xors[ws.get_idx()] == found_xor
-            ) {
-                already_inside = true;
-                break;
-            }
-        }
-
-        //If XOR clause is new, add it
-        if (!already_inside) {
+        if (!xor_clause_already_inside(found_xor)) {
             add_found_xor(found_xor);
+        }
+        for(ClOffset off: poss_xor.get_offsets()) {
+            cls_of_xors.push_back(off);
         }
     }
 
@@ -571,35 +256,16 @@ void XorFinder::add_found_xor(const Xor& found_xor)
     xor_find_time_limit -= 20;
     xors.push_back(found_xor);
     runStats.foundXors++;
-    runStats.sumSizeXors += found_xor.vars.size();
+    runStats.sumSizeXors += found_xor.size();
     uint32_t thisXorIndex = xors.size()-1;
-    Lit attach_point = Lit(found_xor.vars[0], false);
-    solver->watches[attach_point.toInt()].push(Watched(thisXorIndex));
+    Lit attach_point = Lit(found_xor[0], false);
+    solver->watches[attach_point].push(Watched(thisXorIndex));
     solver->watches.smudge(attach_point);
 }
-
-//TODO stamping
-/*void XorFinder::findXorMatch(
-    const vector<LitExtra>& lits
-    , const Lit lit
-    , FoundXors& foundCls
-) const {
-
-    for (vector<LitExtra>::const_iterator
-        it = lits.begin(), end = lits.end()
-        ; it != end
-        ; ++it
-    )  {
-        if (seen[it->getLit().var()]) {
-            foundCls.add(lit, it->getLit());
-        }
-    }
-}*/
 
 void XorFinder::findXorMatchExt(
     watch_subarray_const occ
     , Lit lit
-    , FoundXors& foundCls
 ) {
     //seen2 is clear
 
@@ -608,18 +274,8 @@ void XorFinder::findXorMatchExt(
         ; it != end
         ; ++it
     ) {
-        //Deal with binary
-        if (it->isBin()) {
-            if (seen[it->lit2().var()]) {
-                tmpClause.clear();
-                tmpClause.push_back(lit);
-                tmpClause.push_back(it->lit2());
-                if (tmpClause[0] > tmpClause[1])
-                    std::swap(tmpClause[0], tmpClause[1]);
-
-                foundCls.add(tmpClause, varsMissing);
-            }
-
+        //TODO we should do the same as below for teritary
+        if (!it->isClause()) {
             continue;
         }
 
@@ -628,15 +284,15 @@ void XorFinder::findXorMatchExt(
         //Deal with clause
         const ClOffset offset = it->get_offset();
         Clause& cl = *solver->cl_alloc.ptr(offset);
-        if (cl.freed())
+        if (cl.freed() || cl.getRemoved())
             continue;
 
         //Must not be larger than the original clauses
-        if (cl.size() > foundCls.getSize())
+        if (cl.size() > poss_xor.getSize())
             continue;
 
         tmpClause.clear();
-        //cout << "Orig clause: " << foundCls.getOrigCl() << endl;
+        //cout << "Orig clause: " << poss_xor.getOrigCl() << endl;
 
         bool rhs = true;
         uint32_t i = 0;
@@ -647,16 +303,19 @@ void XorFinder::findXorMatchExt(
             if (!seen[l->var()]) {
                 bool found = false;
                 //TODO stamping
-                /*const vector<LitExtra>& cache = solver->implCache[Lit(l->var(), true).toInt()].lits;
-                for(vector<LitExtra>::const_iterator it2 = cache.begin(), end2 = cache.end(); it2 != end2 && !found; it2++) {
+                const vector<LitExtra>& cache = solver->implCache[~lit].lits;
+                for(vector<LitExtra>::const_iterator it2 = cache.begin(), end2 = cache.end()
+                    ; it2 != end2 && !found
+                    ; it2++
+                ) {
                     if (seen[l->var()] && !seen2[l->var()]) {
                         found = true;
                         seen2[l->var()] = true;
-                        rhs ^= it2->getLit().sign();
+                        rhs ^= l->sign();
                         tmpClause.push_back(it2->getLit());
                         //cout << "Added trans lit: " << tmpClause.back() << endl;
                     }
-                }*/
+                }
 
                 //Didn't find replacement
                 if (!found)
@@ -677,18 +336,19 @@ void XorFinder::findXorMatchExt(
         }
 
         //either the invertedness has to match, or the size must be smaller
-        if (rhs != foundCls.getRHS() && cl.size() == foundCls.getSize())
+        if (rhs != poss_xor.getRHS() && cl.size() == poss_xor.getSize())
             goto end;
 
         //If the size of this clause is the same of the base clause, then
         //there is no point in using this clause as a base for another XOR
         //because exactly the same things will be found.
-        if (cl.size() == foundCls.getSize()) {
+        if (cl.size() == poss_xor.getSize()) {
             cl.stats.marked_clause = true;
         }
 
         std::sort(tmpClause.begin(), tmpClause.end());
-        foundCls.add(tmpClause, varsMissing);
+        //Note: cannot add this offset, because XOR won't cover all of the clause
+        poss_xor.add(tmpClause, CL_OFFSET_MAX, varsMissing);
 
         end:;
         //cout << "Not OK" << endl;
@@ -703,7 +363,6 @@ void XorFinder::findXorMatchExt(
 void XorFinder::findXorMatch(
     watch_subarray_const occ
     , const Lit lit
-    , FoundXors& foundCls
 ) {
     xor_find_time_limit -= (int64_t)occ.size();
     for (watch_subarray::const_iterator
@@ -711,27 +370,7 @@ void XorFinder::findXorMatch(
         ; it != end
         ; ++it
     ) {
-        if (it->isIdx()) {
-            continue;
-        }
-
-        //Deal with binary
-        if (it->isBin()) {
-            if (//Only once per binary
-                lit < it->lit2()
-                //only for correct binary
-                && seen[it->lit2().var()]
-            ) {
-                tmpClause.clear();
-                tmpClause.push_back(lit);
-                tmpClause.push_back(it->lit2());
-
-                foundCls.add(tmpClause, varsMissing);
-                xor_find_time_limit-=5;
-                if (foundCls.foundAll())
-                    break;
-            }
-
+        if (it->isIdx() || it->isBin()) {
             continue;
         }
 
@@ -748,15 +387,15 @@ void XorFinder::findXorMatch(
                 rhs ^= it->lit2().sign();
                 rhs ^= it->lit3().sign();
 
-                if (rhs == foundCls.getRHS() || foundCls.getSize() > 3) {
+                if (rhs == poss_xor.getRHS() || poss_xor.getSize() > 3) {
                     tmpClause.clear();
                     tmpClause.push_back(lit);
                     tmpClause.push_back(it->lit2());
                     tmpClause.push_back(it->lit3());
 
-                    foundCls.add(tmpClause, varsMissing);
-                    xor_find_time_limit-=5;
-                    if (foundCls.foundAll())
+                    xor_find_time_limit-=20;
+                    poss_xor.add(tmpClause, CL_OFFSET_MAX, varsMissing);
+                    if (poss_xor.foundAll())
                         break;
                 }
 
@@ -765,20 +404,27 @@ void XorFinder::findXorMatch(
         }
 
         //Deal with clause
+
+        //Clause will be at least 4 long
+        if (poss_xor.getSize() <= 3) {
+            continue;
+        }
+
         const ClOffset offset = it->get_offset();
         Clause& cl = *solver->cl_alloc.ptr(offset);
-        if (cl.freed())
+        xor_find_time_limit -= 20; //deref penalty
+        if (cl.freed() || cl.getRemoved())
             continue;
 
         //Must not be larger than the original clause
-        if (cl.size() > foundCls.getSize())
+        if (cl.size() > poss_xor.getSize())
             continue;
 
-        //Doesn't contain literals not in the original clause
-        if ((cl.abst | foundCls.getAbst()) != foundCls.getAbst())
+        //Doesn't contain variables not in the original clause
+        if ((cl.abst | poss_xor.getAbst()) != poss_xor.getAbst())
             continue;
 
-        //Check RHS
+        //Check RHS, vars inside
         bool rhs = true;
         for (const Lit cl_lit :cl) {
             //early-abort, contains literals not in original clause
@@ -788,42 +434,332 @@ void XorFinder::findXorMatch(
             rhs ^= cl_lit.sign();
         }
         //either the invertedness has to match, or the size must be smaller
-        if (rhs != foundCls.getRHS() && cl.size() == foundCls.getSize())
+        if (rhs != poss_xor.getRHS() && cl.size() == poss_xor.getSize())
             continue;
 
         //If the size of this clause is the same of the base clause, then
         //there is no point in using this clause as a base for another XOR
         //because exactly the same things will be found.
-        if (cl.size() == foundCls.getSize()) {
+        if (cl.size() == poss_xor.getSize()) {
             cl.stats.marked_clause = true;;
         }
 
-        foundCls.add(cl, varsMissing);
-        xor_find_time_limit-=5;
-        if (foundCls.foundAll())
+        xor_find_time_limit-=50;
+        poss_xor.add(cl, offset, varsMissing);
+        if (poss_xor.foundAll())
             break;
 
         end:;
     }
 }
 
+void XorFinder::clean_up_xors()
+{
+    assert(toClear.empty());
+
+    //Fill seen with vars used
+    for(const Xor& x: xors) {
+        for(uint32_t v: x) {
+            if (seen[v] == 0) {
+                toClear.push_back(Lit(v, false));
+            }
+
+            if (seen[v] < 2) {
+                seen[v]++;
+            }
+        }
+    }
+
+    vector<Xor>::iterator it = xors.begin();
+    vector<Xor>::iterator it2 = xors.begin();
+    size_t num = 0;
+    for(vector<Xor>::iterator end = xors.end()
+        ; it != end
+        ; it++
+    ) {
+        if (xor_has_interesting_var(*it)) {
+            *it2 = *it;
+            it2++;
+            num++;
+        }
+    }
+    xors.resize(num);
+
+    for(Lit l: toClear) {
+        seen[l.var()] = 0;
+    }
+    toClear.clear();
+}
+
+void XorFinder::xor_together_xors()
+{
+    uint32_t xored = 0;
+    const double myTime = cpuTime();
+    assert(toClear.empty());
+    //count how many times a var is used
+    for(const Xor& x: xors) {
+        for(uint32_t v: x) {
+            if (seen[v] == 0) {
+                toClear.push_back(Lit(v, false));
+            }
+
+            if (seen[v] < 3) {
+                seen[v]++;
+            }
+        }
+    }
+
+    //Link in xors into watchlist
+    for(size_t i = 0; i < xors.size(); i++) {
+        const Xor& x = xors[i];
+        for(uint32_t v: x) {
+            Lit var(v, false);
+            assert(solver->watches.size() > var.toInt());
+            solver->watches[var].push(Watched(i));
+            solver->watches.smudge(var);
+        }
+    }
+
+    //Only when a var is used exactly twice it's interesting
+    vector<uint32_t> interesting;
+    for(const Lit l: toClear) {
+        if (seen[l.var()] == 2) {
+            interesting.push_back(l.var());
+        }
+    }
+
+    while(!interesting.empty()) {
+        const uint32_t v = interesting.back();
+        interesting.resize(interesting.size()-1);
+
+        Xor x[2];
+        size_t idxes[2];
+        unsigned at = 0;
+        size_t i2 = 0;
+        assert(solver->watches.size() > Lit(v, false).toInt());
+        watch_subarray ws = solver->watches[Lit(v, false)];
+        for(size_t i = 0; i < ws.size(); i++) {
+            const Watched& w = ws[i];
+            if (!w.isIdx()) {
+                ws[i2] = ws[i];
+                i2++;
+            } else if (xors[w.get_idx()] != Xor()) {
+                assert(at < 2);
+                x[at] = xors[w.get_idx()];
+                idxes[at] = w.get_idx();
+                at++;
+            }
+        }
+        ws.resize(i2);
+        if (at < 2) {
+            //Has been removed thanks to some XOR-ing together, skip
+            continue;
+        }
+
+        vector<uint32_t> vars = xor_two(x[0], x[1], idxes[0], idxes[1], v);
+        Xor x_new(vars, x[0].rhs ^ x[1].rhs);
+        xors.push_back(x_new);
+        for(uint32_t v: x_new) {
+            Lit var(v, false);
+            solver->watches[var].push(Watched(xors.size()-1));
+            solver->watches.smudge(var);
+        }
+        xors[idxes[0]] = Xor();
+        xors[idxes[1]] = Xor();
+        xored++;
+    }
+
+    for(const Lit l: toClear) {
+        seen[l.var()] = 0;
+    }
+    toClear.clear();
+
+    solver->clean_occur_from_idx_types_only_smudged();
+    clean_xors_from_empty();
+    double recur_time = cpuTime() - myTime;
+        if (solver->conf.verbosity >= 2) {
+        cout
+        << "c [occ-xor] xored together " << xored*2
+        << " clauses "
+        << solver->conf.print_times(recur_time)
+        << endl;
+    }
+
+
+    if (solver->sqlStats) {
+        solver->sqlStats->time_passed_min(
+            solver
+            , "xor-xor-together"
+            , recur_time
+        );
+    }
+}
+
+void XorFinder::clean_xors_from_empty()
+{
+    size_t i2 = 0;
+    for(size_t i = 0;i < xors.size(); i++) {
+        Xor& x = xors[i];
+        if (x.size() == 0
+            && x.rhs == false
+        ) {
+            //nothing, skip
+        } else {
+            xors[i2] = xors[i];
+            i2++;
+        }
+    }
+    xors.resize(i2);
+}
+
+bool XorFinder::add_new_truths_from_xors()
+{
+    size_t origTrailSize  = solver->trail_size();
+    size_t origBins = solver->binTri.redBins;
+    double myTime = cpuTime();
+
+    assert(solver->ok);
+    size_t i2 = 0;
+    for(size_t i = 0;i < xors.size(); i++) {
+        Xor& x = xors[i];
+        if (x.size() > 2) {
+            xors[i2] = xors[i];
+            i2++;
+            continue;
+        }
+
+        switch(x.size() ) {
+            case 0: {
+                if (x.rhs == true) {
+                    solver->ok = false;
+                    return false;
+                }
+                break;
+            }
+
+            case 1: {
+                vector<Lit> lits;
+                lits.push_back(Lit(x[0], !x.rhs));
+                solver->add_clause_int(lits);
+                if (!solver->ok) {
+                    return false;
+                }
+                break;
+            }
+
+            case 2: {
+                vector<Lit> lits{Lit(x[0], false), Lit(x[1], false)};
+                solver->add_xor_clause_inter(lits, x.rhs, true);
+                if (!solver->ok) {
+                    return false;
+                }
+                break;
+            }
+
+            default: {
+                assert(false && "Not possible");
+            }
+        }
+    }
+    xors.resize(i2);
+
+    double add_time = cpuTime() - myTime;
+    uint32_t num_bins_added = solver->binTri.redBins - origBins;
+    uint32_t num_units_added = solver->trail_size() - origTrailSize;
+
+    if (solver->conf.verbosity >= 2) {
+        cout
+        << "c [occ-xor] added unit " << num_units_added
+        << " bin " << num_bins_added
+        << solver->conf.print_times(add_time)
+        << endl;
+    }
+
+
+    if (solver->sqlStats) {
+        solver->sqlStats->time_passed_min(
+            solver
+            , "xor-add-new-bin-unit"
+            , add_time
+        );
+    }
+
+    return true;
+}
+
+vector<uint32_t> XorFinder::xor_two(
+    Xor& x1, Xor& x2
+    , const size_t idx1, const size_t idx2
+    , const uint32_t v)
+{
+    x1.sort();
+    x2.sort();
+    vector<uint32_t> ret;
+    size_t x1_at = 0;
+    size_t x2_at = 0;
+    while(x1_at < x1.size() || x2_at < x2.size()) {
+        if (x1_at == x1.size()) {
+            ret.push_back(x2[x2_at]);
+            x2_at++;
+            continue;
+        }
+
+        if (x2_at == x2.size()) {
+            ret.push_back(x1[x1_at]);
+            x1_at++;
+            continue;
+        }
+
+        const uint32_t a = x1[x1_at];
+        const uint32_t b = x2[x2_at];
+        if (a == v) {
+            x1_at++;
+            x2_at++;
+            continue;
+        }
+
+        if (a == b) {
+            x1_at++;
+            x2_at++;
+            //we could/should update seen[] but in case there are too many XORs
+            //we could not store the value in seen[] when counting and then
+            //everything would go haywire. So this algorithm is not perfect
+            //but is good enough
+            continue;
+        }
+
+        if (a < b) {
+            ret.push_back(a);
+            x1_at++;
+            continue;
+        } else {
+            ret.push_back(b);
+            x2_at++;
+            continue;
+        }
+    }
+
+    return ret;
+}
+
+bool XorFinder::xor_has_interesting_var(const Xor& x)
+{
+    for(uint32_t v: x) {
+        if (seen[v] > 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
 size_t XorFinder::mem_used() const
 {
     size_t mem = 0;
     mem += xors.capacity()*sizeof(Xor);
-    mem += blocks.capacity()*sizeof(vector<uint32_t>);
-    for(size_t i = 0; i< blocks.size(); i++) {
-        mem += blocks[i].capacity()*sizeof(uint32_t);
-    }
-    mem += varToBlock.capacity()*sizeof(size_t);
 
     //Temporary
     mem += tmpClause.capacity()*sizeof(Lit);
     mem += varsMissing.capacity()*sizeof(uint32_t);
-
-    //Temporaries for putting xors into matrix, and extracting info from matrix
-    mem += outerToInterVarMap.capacity()*sizeof(size_t);
-    mem += interToOUterVarMap.capacity()*sizeof(size_t);
 
     return mem;
 }
@@ -836,23 +772,9 @@ void XorFinder::Stats::print_short(const Solver* solver) const
     << float_div(sumSizeXors, foundXors)
     << solver->conf.print_times(findTime, time_outs)
     << endl;
-
-    cout
-    << "c [occ-xor] cut into blocks " << numBlocks
-    << " vars in blcks " << numVarsInBlocks
-    << solver->conf.print_times(blockCutTime)
-    << endl;
-
-    cout
-    << "c [occ-xor] extr info "
-    << " unit " << newUnits
-    << " bin " << newBins
-    << " 0-depth-ass: " << zeroDepthAssigns
-    << solver->conf.print_times(extractTime)
-    << endl;
 }
 
-void XorFinder::Stats::print(const size_t numCalls) const
+void XorFinder::Stats::print() const
 {
     cout << "c --------- XOR STATS ----------" << endl;
     print_stats_line("c num XOR found on avg"
@@ -862,18 +784,6 @@ void XorFinder::Stats::print(const size_t numCalls) const
 
     print_stats_line("c XOR avg size"
         , float_div(sumSizeXors, foundXors)
-    );
-
-    print_stats_line("c XOR 0-depth assings"
-        , zeroDepthAssigns
-    );
-
-    print_stats_line("c XOR unit found"
-        , newUnits
-    );
-
-    print_stats_line("c XOR bin found"
-        , newBins
     );
 
     print_stats_line("c XOR finding time"
@@ -888,20 +798,13 @@ XorFinder::Stats& XorFinder::Stats::operator+=(const XorFinder::Stats& other)
 {
     //Time
     findTime += other.findTime;
-    extractTime += other.extractTime;
-    blockCutTime += other.blockCutTime;
 
     //XOR
     foundXors += other.foundXors;
     sumSizeXors += other.sumSizeXors;
-    numVarsInBlocks += other.numVarsInBlocks;
-    numBlocks += other.numBlocks;
 
     //Usefulness
     time_outs += other.time_outs;
-    newUnits += other.newUnits;
-    newBins += other.newBins;
-    zeroDepthAssigns += other.zeroDepthAssigns;
 
     return *this;
 }

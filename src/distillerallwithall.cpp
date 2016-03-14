@@ -19,7 +19,7 @@
  * MA 02110-1301  USA
 */
 
-#include "distiller.h"
+#include "distillerallwithall.h"
 #include "clausecleaner.h"
 #include "time_mem.h"
 #include "solver.h"
@@ -40,26 +40,22 @@ using std::endl;
 
 //#define VERBOSE_SUBSUME_NONEXIST
 
-Distiller::Distiller(Solver* _solver) :
+DistillerAllWithAll::DistillerAllWithAll(Solver* _solver) :
     solver(_solver)
 {}
 
-bool Distiller::distill(const bool alsoStrengthen)
+bool DistillerAllWithAll::distill(uint32_t queueByBy)
 {
     assert(solver->ok);
     numCalls++;
 
     solver->clauseCleaner->clean_clauses(solver->longIrredCls);
 
-    if (alsoStrengthen
-        && !distill_long_irred_cls()
-    ) {
+    if (!distill_long_irred_cls(queueByBy)) {
         goto end;
     }
 
-    if (alsoStrengthen
-        && !distill_tri_irred_cls()
-    ) {
+    if (!distill_tri_irred_cls()) {
         goto end;
     }
 
@@ -76,7 +72,7 @@ end:
     return solver->ok;
 }
 
-bool Distiller::distill_tri_irred_cls()
+bool DistillerAllWithAll::distill_tri_irred_cls()
 {
     if (solver->conf.verbosity >= 6) {
         cout
@@ -112,13 +108,13 @@ bool Distiller::distill_tri_irred_cls()
             break;
         }
 
-        Lit lit = Lit::toLit(upI);
-        for (size_t i = 0; i < solver->watches[upI].size(); i++) {
+        const Lit lit = Lit::toLit(upI);
+        for (size_t i = 0; i < solver->watches[lit].size(); i++) {
             if (solver->propStats.bogoProps-oldBogoProps + extraTime > maxNumProps) {
                 break;
             }
 
-            Watched ws = solver->watches[upI][i];
+            Watched ws = solver->watches[lit][i];
 
             //Only irred TRI and each TRI only once
             if (ws.isTri()
@@ -134,6 +130,7 @@ bool Distiller::distill_tri_irred_cls()
                 try_distill_clause_and_return_new(
                     CL_OFFSET_MAX
                     , ws.red()
+                    , NULL
                     , 2
                 );
 
@@ -197,7 +194,7 @@ struct ClauseSizeSorter
     }
 };
 
-bool Distiller::distill_long_irred_cls()
+bool DistillerAllWithAll::distill_long_irred_cls(uint32_t queueByBy)
 {
     assert(solver->ok);
     if (solver->conf.verbosity >= 6) {
@@ -222,11 +219,14 @@ bool Distiller::distill_long_irred_cls()
     runStats.potentialClauses = solver->longIrredCls.size();
     runStats.numCalled = 1;
 
-    std::sort(solver->longIrredCls.begin(), solver->longIrredCls.end(), ClauseSizeSorter(solver->cl_alloc));
+    std::sort(solver->longIrredCls.begin()
+        , solver->longIrredCls.end()
+        , ClauseSizeSorter(solver->cl_alloc)
+    );
     uint64_t origLitRem = runStats.numLitsRem;
     uint64_t origClShorten = runStats.numClShorten;
 
-    uint32_t queueByBy = 2;
+    //Make queueByBy = 1 in case we are late in the search
     if (numCalls > 8
         && (solver->litStats.irredLits + solver->litStats.redLits < 4000000)
         && (solver->longIrredCls.size() < 50000)
@@ -290,6 +290,7 @@ bool Distiller::distill_long_irred_cls()
         ClOffset offset2 = try_distill_clause_and_return_new(
             offset
             , cl.red()
+            , &cl.stats
             , queueByBy
         );
 
@@ -338,19 +339,15 @@ bool Distiller::distill_long_irred_cls()
     return solver->ok;
 }
 
-ClOffset Distiller::try_distill_clause_and_return_new(
+ClOffset DistillerAllWithAll::try_distill_clause_and_return_new(
     ClOffset offset
     , const bool red
+    , const ClauseStats* stats
     , const uint32_t queueByBy
 ) {
-    #ifdef DRUP_DEBUG
+    #ifdef DRAT_DEBUG
     if (solver->conf.verbosity >= 6) {
-        cout
-        << "Trying to distill clause:";
-        for(size_t i = 0; i < lits.size(); i++) {
-            cout << lits[i] << " ";
-        }
-        cout << endl;
+        cout << "Trying to distill clause:" << lits << endl;
     }
     #endif
 
@@ -392,7 +389,12 @@ ClOffset Distiller::try_distill_clause_and_return_new(
         }
 
         //Make new clause
-        Clause *cl2 = solver->add_clause_int(lits, red);
+        Clause *cl2;
+        if (stats) {
+            cl2 = solver->add_clause_int(lits, red, *stats);
+        } else {
+            cl2 = solver->add_clause_int(lits, red);
+        }
 
         //Print results
         if (solver->conf.verbosity >= 5) {
@@ -435,7 +437,7 @@ ClOffset Distiller::try_distill_clause_and_return_new(
     }
 }
 
-Distiller::Stats& Distiller::Stats::operator+=(const Stats& other)
+DistillerAllWithAll::Stats& DistillerAllWithAll::Stats::operator+=(const Stats& other)
 {
     time_used += other.time_used;
     timeOut += other.timeOut;
@@ -449,7 +451,7 @@ Distiller::Stats& Distiller::Stats::operator+=(const Stats& other)
     return *this;
 }
 
-void Distiller::Stats::print_short(const Solver* solver) const
+void DistillerAllWithAll::Stats::print_short(const Solver* solver) const
 {
     cout
     << "c [distill] tri+long"
@@ -461,7 +463,7 @@ void Distiller::Stats::print_short(const Solver* solver) const
     << endl;
 }
 
-void Distiller::Stats::print(const size_t nVars) const
+void DistillerAllWithAll::Stats::print(const size_t nVars) const
 {
     cout << "c -------- DISTILL STATS --------" << endl;
     print_stats_line("c time"

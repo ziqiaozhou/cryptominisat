@@ -41,7 +41,7 @@ bool InTree::replace_until_fixedpoint(bool& aborted)
         solver->conf.intree_scc_varreplace_time_limitM*1000ULL*1000ULL
         *solver->conf.global_timeout_multiplier
         *0.5;
-    time_limit = (double)time_limit * std::pow((double)(numCalls+1), 0.3);
+    time_limit = (double)time_limit * std::min(std::pow((double)(numCalls+1), 0.2), 3.0);
 
     aborted = false;
     uint64_t bogoprops = 0;
@@ -67,7 +67,7 @@ bool InTree::replace_until_fixedpoint(bool& aborted)
 
 bool InTree::watches_only_contains_nonbin(const Lit lit) const
 {
-    watch_subarray_const ws = solver->watches[lit.toInt()];
+    watch_subarray_const ws = solver->watches[lit];
     for(const Watched w: ws) {
         if (w.isBin()) {
             return false;
@@ -79,10 +79,10 @@ bool InTree::watches_only_contains_nonbin(const Lit lit) const
 
 bool InTree::check_timeout_due_to_hyperbin()
 {
-    assert(!(solver->timedOutPropagateFull && solver->drup->enabled()));
+    assert(!(solver->timedOutPropagateFull && solver->drat->enabled()));
 
     if (solver->timedOutPropagateFull
-        && !solver->drup->enabled()
+        && !solver->drat->enabled()
     ) {
         if (solver->conf.verbosity >= 2) {
             cout
@@ -328,7 +328,7 @@ bool InTree::handle_lit_popped_from_queue(const Lit lit, const Lit other_lit, co
         bool ok;
         if (solver->conf.otfHyperbin) {
             uint64_t max_hyper_time = std::numeric_limits<uint64_t>::max();
-            if (!solver->drup->enabled()) {
+            if (!solver->drat->enabled()) {
                 max_hyper_time =
                 solver->propStats.otfHyperTime
                 + solver->propStats.bogoProps
@@ -373,14 +373,14 @@ bool InTree::empty_failed_list()
 
         if (solver->value(lit) == l_Undef) {
             solver->enqueue(lit);
-            *(solver->drup) << lit << fin;
+            *(solver->drat) << lit << fin;
             solver->ok = solver->propagate<true>().isNULL();
             if (!solver->ok) {
                 return false;
             }
         } else if (solver->value(lit) == l_False) {
-            *(solver->drup) << ~lit << fin;
-            *(solver->drup) << fin;
+            *(solver->drat) << ~lit << fin;
+            *(solver->drat) << fin;
             solver->ok = false;
             return false;
         }
@@ -402,7 +402,7 @@ void InTree::enqueue(const Lit lit, const Lit other_lit, bool red_cl)
     seen[lit.toInt()] = 1;
     assert(solver->value(lit) == l_Undef);
 
-    watch_subarray ws = solver->watches[lit.toInt()];
+    watch_subarray ws = solver->watches[lit];
     for(Watched& w: ws) {
         if (w.isBin()
             && seen[(~w.lit2()).toInt()] == 0

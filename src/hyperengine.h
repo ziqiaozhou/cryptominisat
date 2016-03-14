@@ -36,7 +36,7 @@ using namespace CMSat;
 
 class HyperEngine : public PropEngine {
 public:
-    HyperEngine(const SolverConf *_conf, bool* _needToInterrupt);
+    HyperEngine(const SolverConf *_conf, std::atomic<bool>* _must_interrupt_inter);
     size_t print_stamp_mem(size_t totalMem) const;
     size_t mem_used() const;
     size_t mem_used_stamp() const;
@@ -53,8 +53,6 @@ public:
     );
     set<BinaryClause> needToAddBinClause;       ///<We store here hyper-binary clauses to be added at the end of propagateFull()
     set<BinaryClause> uselessBin;
-
-    uint64_t stampingTime;
 
     ///Add hyper-binary clause given this bin clause
     void  add_hyper_bin(Lit p);

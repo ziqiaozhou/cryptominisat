@@ -21,6 +21,7 @@
 
 #include "clauseallocator.h"
 
+#include <algorithm>
 #include <string.h>
 #include <limits>
 #include "assert.h"
@@ -32,6 +33,9 @@
 #include "occsimplifier.h"
 #include "completedetachreattacher.h"
 #include "sqlstats.h"
+#ifdef USE_GAUSS
+#include "gaussian.h"
+#endif
 
 #ifdef USE_VALGRIND
 #include "valgrind/valgrind.h"
@@ -72,38 +76,6 @@ ClauseAllocator::ClauseAllocator() :
 ClauseAllocator::~ClauseAllocator()
 {
     free(dataStart);
-}
-
-/**
-@brief Allocates space&initializes a clause
-*/
-template<class T>
-Clause* ClauseAllocator::Clause_new(
-    const T& ps
-    , const uint32_t conflictNum
-)
-{
-    void* mem = allocEnough(ps.size());
-    Clause* real= new (mem) Clause(ps, conflictNum);
-
-    return real;
-}
-
-template Clause* ClauseAllocator::Clause_new(
-    const vector<Lit>& ps
-    , uint32_t conflictNum
-);
-
-/**
-@brief Allocates space for a new clause & copies a give clause to it
-*/
-Clause* ClauseAllocator::Clause_new(Clause& c)
-{
-    assert(c.size() > 3);
-    void* mem = allocEnough(c.size());
-    memcpy(mem, &c, sizeof(Clause)+sizeof(Lit)*c.size());
-
-    return (Clause*)mem;
 }
 
 void* ClauseAllocator::allocEnough(
@@ -189,6 +161,8 @@ void ClauseAllocator::clauseFree(Clause* cl)
     assert(!cl->freed());
 
     cl->setFreed();
+    size_t est_sz = cl->size();
+    est_sz = std::max(est_sz, (size_t)4); //we don't allow anything less than 4
     size_t bytes_freed = (sizeof(Clause) + cl->size()*sizeof(Lit));
     size_t elems_freed = bytes_freed/sizeof(BASE_DATA_TYPE) + (bool)(bytes_freed % sizeof(BASE_DATA_TYPE));
     currentlyUsedSize -= elems_freed;
@@ -305,13 +279,21 @@ void ClauseAllocator::updateAllOffsetsAndPointers(
     assert(solver->decisionLevel() == 0);
 
     //We are at decision level 0, so we can reset all PropBy-s
-    for (auto& vdata: solver->varData) {
+    for (VarData& vdata: solver->varData) {
         vdata.reason = PropBy();
+        //vdata.level = 0;
     }
 
     //Detach long clauses
     CompleteDetachReatacher detachReattach(solver);
     detachReattach.detach_nonbins_nontris();
+
+    #ifdef USE_GAUSS
+    for(size_t i = 0; i < solver->gauss_matrixes.size(); i++) {
+        Gaussian* g = solver->gauss_matrixes[i];
+        g->assert_clauses_toclear_is_empty();
+    }
+    #endif
 
     //Make sure all non-freed clauses were accessible from solver
     const size_t origNumClauses =
@@ -349,7 +331,7 @@ void ClauseAllocator::updateAllOffsetsAndPointers(
     }
 
     //Finally, reattach long clauses
-    detachReattach.reattachLongs();
+    detachReattach.reattachLongsNoClean();
 }
 
 size_t ClauseAllocator::mem_used() const

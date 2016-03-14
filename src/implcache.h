@@ -159,14 +159,14 @@ public:
         return implCache.end();
     }
 
-    const TransCache& operator[](const size_t at) const
+    const TransCache& operator[](const Lit at) const
     {
-        return implCache[at];
+        return implCache[at.toInt()];
     }
 
-    TransCache& operator[](const size_t at)
+    TransCache& operator[](const Lit at)
     {
-        return implCache[at];
+        return implCache[at.toInt()];
     }
 
     void new_var()

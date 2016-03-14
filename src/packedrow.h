@@ -67,7 +67,7 @@ public:
             *(mp + i) ^= *(b.mp + i);
         }
 
-        is_true_internal ^= b.is_true_internal;
+        rhs_internal ^= b.rhs_internal;
         return *this;
     }
 
@@ -83,7 +83,7 @@ public:
             *(mp + i) ^= *(b.mp + i);
         }
 
-        is_true_internal ^= b.is_true_internal;
+        rhs_internal ^= b.rhs_internal;
     }
 
 
@@ -126,9 +126,9 @@ public:
         return true;
     }
 
-    inline const uint64_t& is_true() const
+    inline const uint64_t& rhs() const
     {
-        return is_true_internal;
+        return rhs_internal;
     }
 
     bool isZero() const
@@ -151,7 +151,7 @@ public:
 
     void invert_is_true(const bool b = true)
     {
-        is_true_internal ^= (uint64_t)b;
+        rhs_internal ^= (uint64_t)b;
     }
 
     void setBit(const uint32_t i)
@@ -196,13 +196,13 @@ public:
         //mp = new uint64_t[size];
         setZero();
         for (uint32_t i = 0; i != v.size(); i++) {
-            const uint32_t toset_var = var_to_col[v[i].var()];
+            const uint32_t toset_var = var_to_col[v[i]];
             assert(toset_var != std::numeric_limits<uint32_t>::max());
 
             setBit(toset_var);
         }
 
-        is_true_internal = !v.xorEqualFalse();
+        rhs_internal = v.rhs;
     }
 
     bool fill(vector<Lit>& tmp_clause, const vector<lbool>& assigns, const vector<uint32_t>& col_to_var_original) const;
@@ -230,16 +230,113 @@ private:
     friend class PackedMatrix;
     PackedRow(const uint32_t _size, uint64_t*  const _mp) :
         mp(_mp+1)
-        , is_true_internal(*_mp)
+        , rhs_internal(*_mp)
         , size(_size)
     {}
 
     uint64_t* __restrict const mp;
-    uint64_t& is_true_internal;
+    uint64_t& rhs_internal;
     const uint32_t size;
 };
 
-std::ostream& operator << (std::ostream& os, const PackedRow& m);
+inline std::ostream& operator << (std::ostream& os, const CMSat::PackedRow& m)
+{
+    for(uint32_t i = 0; i < m.getSize()*64; i++) {
+        os << m[i];
+    }
+    os << " -- rhs: " << m.rhs();
+    return os;
+}
+
+
+inline bool PackedRow::operator ==(const PackedRow& b) const
+{
+    #ifdef DEBUG_ROW
+    assert(size > 0);
+    assert(b.size > 0);
+    assert(size == b.size);
+    #endif
+
+    return (std::equal(b.mp-1, b.mp+size, mp-1));
+}
+
+inline bool PackedRow::operator !=(const PackedRow& b) const
+{
+    #ifdef DEBUG_ROW
+    assert(size > 0);
+    assert(b.size > 0);
+    assert(size == b.size);
+    #endif
+
+    return (!std::equal(b.mp-1, b.mp+size, mp-1));
+}
+
+inline uint32_t PackedRow::popcnt() const
+{
+    uint32_t popcnt = 0;
+    for (uint32_t i = 0; i < size; i++) if (mp[i]) {
+        uint64_t tmp = mp[i];
+        for (uint32_t i2 = 0; i2 < 64; i2++) {
+            popcnt += (tmp & 1);
+            tmp >>= 1;
+        }
+    }
+    return popcnt;
+}
+
+inline uint32_t PackedRow::popcnt(const uint32_t from) const
+{
+    uint32_t popcnt = 0;
+    for (uint32_t i = from/64; i != size; i++) if (mp[i]) {
+        uint64_t tmp = mp[i];
+        uint32_t i2;
+        if (i == from/64) {
+            i2 = from%64;
+            tmp >>= i2;
+        } else
+            i2 = 0;
+        for (; i2 < 64; i2++) {
+            popcnt += (tmp & 1);
+            tmp >>= 1;
+        }
+    }
+    return popcnt;
+}
+
+inline bool PackedRow::fill(vector<Lit>& tmp_clause
+    , const vector<lbool>& assigns
+    , const vector<uint32_t>& col_to_var_original
+) const {
+    bool final = !rhs_internal;
+
+    tmp_clause.clear();
+    uint32_t col = 0;
+    bool wasundef = false;
+    for (uint32_t i = 0; i < size; i++) for (uint32_t i2 = 0; i2 < 64; i2++) {
+        if ((mp[i] >> i2) &1) {
+            const uint32_t var = col_to_var_original[col];
+            assert(var != std::numeric_limits<uint32_t>::max());
+
+            const lbool val = assigns[var];
+            const bool val_bool = val == l_True;
+            tmp_clause.push_back(Lit(var, val_bool));
+            final ^= val_bool;
+            if (val == l_Undef) {
+                assert(!wasundef);
+                std::swap(tmp_clause[0], tmp_clause.back());
+                wasundef = true;
+            }
+        }
+        col++;
+    }
+    if (wasundef) {
+        tmp_clause[0] ^= final;
+        //assert(ps != ps_first+1);
+    } else
+        assert(!final);
+
+    return wasundef;
+}
 
 } //end namespace
 

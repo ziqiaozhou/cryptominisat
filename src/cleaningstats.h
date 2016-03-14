@@ -33,9 +33,9 @@ struct CleaningStats
 {
     struct Data
     {
-        uint64_t sumResolutions() const
+        uint64_t numResolutions() const
         {
-            return resol.sum();
+            return antec_data.num();
         }
 
         Data& operator+=(const Data& other)
@@ -47,8 +47,7 @@ struct CleaningStats
             glue += other.glue;
             numConfl += other.numConfl;
             used_for_uip_creation += other.used_for_uip_creation;
-            resol += other.resol;
-            act += other.act;
+            antec_data += other.antec_data;
 
             #ifdef STATS_NEEDED
             numProp += other.numProp;
@@ -65,8 +64,8 @@ struct CleaningStats
         uint64_t glue = 0;
         uint64_t numConfl = 0;
         uint64_t used_for_uip_creation = 0;
-        ResolutionTypes<uint64_t> resol;
-        double   act = 0.0;
+        AtecedentData<uint64_t> antec_data;
+        //NOTE: cannot have activity, it overflows
 
         #ifdef STATS_NEEDED
         uint64_t numProp = 0;
@@ -83,14 +82,13 @@ struct CleaningStats
             glue += cl->stats.glue;
 
             #ifdef STATS_NEEDED
-            act += cl->stats.activity;
             numConfl += cl->stats.conflicts_made;
             numLookedAt += cl->stats.clause_looked_at;
             numProp += cl->stats.propagations_made;
             age += sumConfl - cl->stats.introduced_at_conflict;
             used_for_uip_creation += cl->stats.used_for_uip_creation;
             #endif
-            resol += cl->stats.resolutions;
+            antec_data += cl->stats.antec_data;
         }
 
 

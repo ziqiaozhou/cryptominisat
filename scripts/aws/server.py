@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import random
+from __future__ import print_function
 import os
 import socket
 import sys
-import optparse
 import struct
 import pickle
 import time
@@ -15,137 +14,13 @@ import subprocess
 import Queue
 import threading
 import logging
-import string
+import server_option_parser
 
-#for importing in systems where "." is not in the PATH
+# for importing in systems where "." is not in the PATH
 import glob
 sys.path.append(os.getcwd())
 from common_aws import *
 import RequestSpotClient
-
-
-last_termination_sent = None
-
-
-def set_up_logging():
-    form = '[ %(asctime)-15s  %(levelname)s  %(message)s ]'
-
-    logformatter = logging.Formatter(form)
-
-    try:
-        os.unlink(options.logfile_name)
-    except:
-        pass
-    fileHandler = logging.FileHandler(options.logfile_name)
-    fileHandler.setFormatter(logformatter)
-    logging.getLogger().addHandler(fileHandler)
-
-    logging.getLogger().setLevel(logging.INFO)
-
-
-class PlainHelpFormatter(optparse.IndentedHelpFormatter):
-
-    def format_description(self, description):
-        if description:
-            return description + "\n"
-        else:
-            return ""
-
-usage = "usage: %prog"
-parser = optparse.OptionParser(usage=usage, formatter=PlainHelpFormatter())
-parser.add_option("--verbose", "-v", action="store_true",
-                  default=False, dest="verbose", help="Be more verbose"
-                  )
-
-parser.add_option("--port", "-p", default=10000, dest="port",
-                  help="Port to listen on. [default: %default]", type="int"
-                  )
-
-parser.add_option("--tout", "-t", default=3600, dest="timeout_in_secs",
-                  help="Timeout for the file in seconds"
-                  "[default: %default]",
-                  type=int
-                  )
-
-parser.add_option("--extratime", default=7 * 60, dest="extra_time",
-                  help="Timeout for the server to send us the results"
-                  "[default: %default]",
-                  type=int
-                  )
-
-parser.add_option("--memlimit", "-m", default=1600, dest="mem_limit_in_mb",
-                  help="Memory limit in MB"
-                  "[default: %default]",
-                  type=int
-                  )
-
-parser.add_option("--cnfdir", default="satcomp14", dest="cnf_dir",
-                  type=str,
-                  help="The list of CNF files to solve, first line the dir"
-                  "[default: %default]",
-                  )
-
-parser.add_option("--dir", default="/home/ubuntu/", dest="base_dir", type=str,
-                  help="The home dir of cryptominisat"
-                  )
-
-parser.add_option("--solver",
-                  default="cryptominisat/build/cryptominisat4",
-                  dest="solver",
-                  help="Solver executable"
-                  "[default: %default]",
-                  type=str
-                  )
-# other possibilities:
-#
-# SWDiA5BY.alt.vd.res.va2.15000.looseres.3tierC5/binary/SWDiA5BY_static
-
-# NOTE: it's a ubuntu 14.04 on AWS, with sqlite3 fully installed
-
-
-parser.add_option("--s3bucket", default="msoos-solve-results",
-                  dest="s3_bucket", help="S3 Bucket to upload finished data"
-                  "[default: %default]",
-                  type=str
-                  )
-
-parser.add_option("--s3folder", default="results", dest="s3_folder",
-                  help="S3 folder name to upload data"
-                  "[default: %default]",
-                  type=str
-                  )
-
-parser.add_option("--git", dest="git_rev", type=str,
-                  help="The GIT revision to use. Default: HEAD"
-                  )
-
-parser.add_option("--opt", dest="extra_opts", type=str, default="",
-                  help="Extra options to give to solver"
-                  "[default: %default]",
-                  )
-
-parser.add_option("--noshutdown", "-n", default=False, dest="noshutdown",
-                  action="store_true", help="Do not shut down clients"
-                  )
-
-parser.add_option("--noaws", default=False, dest="noaws",
-                  action="store_true", help="Use AWS"
-                  )
-
-parser.add_option("--logfile", dest="logfile_name", type=str,
-                  default="python_server_log.txt", help="Name of LOG file")
-
-
-# parse options
-(options, args) = parser.parse_args()
-
-
-def rnd_id():
-    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
-
-options.logfile_name = options.base_dir + options.logfile_name
-options.s3_folder += "-" + time.strftime("%d-%B-%Y")
-options.s3_folder += "-mark-%s" % rnd_id()
 
 
 def get_revision():
@@ -173,6 +48,13 @@ def get_n_bytes_from_connection(sock, MSGLEN):
     return ''.join(chunks)
 
 
+def send_command(sock, command, tosend={}):
+    tosend["command"] = command
+    tosend = pickle.dumps(tosend)
+    tosend = struct.pack('!q', len(tosend)) + tosend
+    sock.sendall(tosend)
+
+
 class ToSolve:
 
     def __init__(self, num, name):
@@ -182,12 +64,8 @@ class ToSolve:
     def __str__(self):
         return "%s (num: %d)" % (self.name, self.num)
 
-global acc_queue
-acc_queue = Queue.Queue()
-
 
 class Server (threading.Thread):
-
     def __init__(self):
         threading.Thread.__init__(self)
         self.files_available = []
@@ -220,24 +98,35 @@ class Server (threading.Thread):
     def handle_done(self, connection, cli_addr, indata):
         file_num = indata["file_num"]
 
-        logging.info("Finished with file %s (num %d)",
-                     self.files[indata["file_num"]], indata["file_num"])
+        logging.info("Finished with file %s (num %d), got files %s",
+                     self.files[indata["file_num"]], indata["file_num"],
+                     indata["files"])
         self.files_finished.append(indata["file_num"])
         if file_num in self.files_running:
             del self.files_running[file_num]
 
         logging.info("Num files_available: %d Num files_finished %d",
                      len(self.files_available), len(self.files_finished))
+
+        self.rename_files_to_final(indata["files"])
         sys.stdout.flush()
+
+    def rename_files_to_final(self, files):
+        for fnames in files:
+            logging.info("Renaming file %s to %s",
+                         fnames[0], fnames[1])
+            ret = os.system("aws s3 mv s3://%s/%s s3://%s/%s --region us-west-2" %
+                            (options.s3_bucket, fnames[0], options.s3_bucket,
+                             fnames[1]))
 
     def check_for_dead_files(self):
         this_time = time.time()
         files_to_remove_from_files_running = []
         for file_num, starttime in self.files_running.iteritems():
             duration = this_time - starttime
-            # print "* death check. running:" , file_num, " duration: ",
-            # duration
-            if duration > options.timeout_in_secs + options.extra_time:
+            # print("* death check. running:" , file_num, " duration: ",
+            # duration)
+            if duration > options.timeout_in_secs*options.tout_mult:
                 logging.warn("* dead file %s duration: %d re-inserting",
                              file_num, duration)
                 files_to_remove_from_files_running.append(file_num)
@@ -263,66 +152,67 @@ class Server (threading.Thread):
         return file_num
 
     def handle_build(self, connection, cli_addr, indata):
+        tosend = self.default_tosend()
+        logging.info("Sending git revision %s to %s", options.git_rev,
+                     cli_addr)
+        send_command(connection, "build_data", tosend)
+
+    def send_termination(self, connection, cli_addr):
         tosend = {}
-        tosend["solver"] = options.base_dir + options.solver
+        tosend["noshutdown"] = options.noshutdown
+        send_command(connection, "finish", tosend)
+
+        logging.info("No more to solve, terminating %s", cli_addr)
+        global last_termination_sent
+        last_termination_sent = time.time()
+
+    def send_wait(self, connection, cli_addr):
+        tosend = {}
+        tosend["noshutdown"] = options.noshutdown
+        logging.info("Everything is in sent queue, sending wait to %s", cli_addr)
+        send_command(connection, "wait", tosend)
+
+    def default_tosend(self):
+        tosend = {}
+        tosend["solver"] = options.solver
         tosend["git_rev"] = options.git_rev
         tosend["s3_bucket"] = options.s3_bucket
         tosend["s3_folder"] = options.s3_folder
         tosend["timeout_in_secs"] = options.timeout_in_secs
         tosend["mem_limit_in_mb"] = options.mem_limit_in_mb
         tosend["noshutdown"] = options.noshutdown
-        tosend = pickle.dumps(tosend)
-        tosend = struct.pack('!q', len(tosend)) + tosend
+        tosend["cnf_dir"] = options.cnf_dir
+        tosend["extra_opts"] = options.extra_opts
+        tosend["drat"] = options.drat
 
-        logging.info("Sending git revision %s to %s", options.git_rev,
-                     cli_addr)
-        connection.sendall(tosend)
+        return tosend
+
+    def send_one_to_solve(self, connection, cli_addr, file_num):
+        # set timer that we have sent this to be solved
+        self.files_running[file_num] = time.time()
+        filename = self.files[file_num].name
+
+        tosend = self.default_tosend()
+        tosend["file_num"] = file_num
+        tosend["cnf_filename"] = filename
+        tosend["uniq_cnt"] = str(self.uniq_cnt)
+        logging.info("Sending file %s (num %d) to %s",
+                     filename, file_num, cli_addr)
+        send_command(connection, "solve", tosend)
+        self.uniq_cnt += 1
 
     def handle_need(self, connection, cli_addr, indata):
         # TODO don't ignore 'indata' for solving CNF instances, use it to
         # opitimize for uptime
         file_num = self.find_something_to_solve()
 
-        # yay, everything finished!
         if file_num is None:
-            tosend = {}
-            tosend["noshutdown"] = options.noshutdown
-            tosend["command"] = "finish"
-            tosend = pickle.dumps(tosend)
-            tosend = struct.pack('!q', len(tosend)) + tosend
-
-            logging.info("No more to solve, sending termination to %s",
-                         cli_addr)
-            connection.sendall(tosend)
-            global last_termination_sent
-            last_termination_sent = time.time()
+            if len(self.files_running) == 0:
+                self.send_termination(connection, cli_addr)
+            else:
+                self.send_wait(connection, cli_addr)
         else:
-            # set timer that we have sent this to be solved
-            self.files_running[file_num] = time.time()
-            filename = self.files[file_num].name
-
-            tosend = {}
-            tosend["file_num"] = file_num
-            tosend["git_rev"] = options.git_rev
-            tosend["cnf_filename"] = filename
-            tosend["solver"] = options.base_dir + options.solver
-            tosend["timeout_in_secs"] = options.timeout_in_secs
-            tosend["mem_limit_in_mb"] = options.mem_limit_in_mb
-            tosend["s3_bucket"] = options.s3_bucket
-            tosend["s3_folder"] = options.s3_folder
-            tosend["cnf_dir"] = options.cnf_dir
-            tosend["noshutdown"] = options.noshutdown
-            tosend["extra_opts"] = options.extra_opts
-            tosend["uniq_cnt"] = str(self.uniq_cnt)
-            tosend["command"] = "solve"
-            tosend = pickle.dumps(tosend)
-            tosend = struct.pack('!q', len(tosend)) + tosend
-
-            logging.info("Sending file %s (num %d) to %s",
-                         filename, file_num, cli_addr)
-            sys.stdout.flush()
-            connection.sendall(tosend)
-            self.uniq_cnt += 1
+            self.send_one_to_solve(connection, cli_addr, file_num)
 
     def handle_one_client(self, conn, cli_addr):
         try:
@@ -335,6 +225,10 @@ class Server (threading.Thread):
 
             if data["command"] == "done":
                 self.handle_done(conn, cli_addr, data)
+
+            if data["command"] == "error":
+                shutdown(-1)
+                raise
 
             elif data["command"] == "need":
                 self.handle_need(conn, cli_addr, data)
@@ -396,8 +290,7 @@ class Listener (threading.Thread):
             exc_type, exc_value, exc_traceback = sys.exc_info()
             the_trace = traceback.format_exc().rstrip().replace("\n", " || ")
             logging.error("Cannot listen on stocket! Traceback: %s", the_trace)
-            failed = True
-            exit(1)
+            shutdown(-1)
             raise
         while True:
             self.handle_one_connection()
@@ -405,14 +298,15 @@ class Listener (threading.Thread):
 
 class SpotManager (threading.Thread):
 
-    def __init__(self):
+    def __init__(self, noshutdown):
         threading.Thread.__init__(self)
-        self.spot_creator = RequestSpotClient.RequestSpotClient()
+        self.spot_creator = RequestSpotClient.RequestSpotClient(
+            options.cnf_dir == "test", noshutdown=noshutdown)
 
     def run(self):
         while True:
             try:
-                if (not failed) and (not server.ready_to_shutdown()):
+                if not server.ready_to_shutdown():
                     self.spot_creator.create_spots_if_needed()
             except:
                 exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -424,17 +318,44 @@ class SpotManager (threading.Thread):
 
 def shutdown(exitval=0):
     toexec = "sudo shutdown -h now"
-    logging.info("SHUTTING DOWN", extra={"threadid": -1})
-    if not options.noaws:
-        s3_folder = get_s3_folder(options.s3_folder,
-                                  options.git_rev,
-                                  options.timeout_in_secs,
-                                  options.mem_limit_in_mb
-                                  )
-        upload_log(options.s3_bucket,
-                   s3_folder,
-                   options.logfile_name,
-                   "server-%s" % get_ip_address("eth0"))
+    logging.info("SHUTTING DOWN")
+
+    #send email
+    try:
+        email_subject = "Server shutting down "
+        if exitval == 0:
+            email_subject += "OK"
+        else:
+            email_subject += "FAIL"
+
+        full_s3_folder = get_s3_folder(options.s3_folder,
+                                       options.git_rev,
+                                       options.timeout_in_secs,
+                                       options.mem_limit_in_mb)
+        text = """Server finished. Please download the final data:
+
+mkdir {0}
+cd {0}
+aws s3 cp --recursive s3://{1}/{0}/ .
+
+Don't forget to:
+
+* check volume
+* check EC2 still running
+
+So long and thanks for all the fish!
+""".format(full_s3_folder, options.s3_bucket)
+        send_email(email_subject, text, options.logfile_name)
+    except:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        the_trace = traceback.format_exc().rstrip().replace("\n", " || ")
+        logging.error("Cannot send email! Traceback: %s", the_trace)
+
+    #upload log
+    upload_log(options.s3_bucket,
+               full_s3_folder,
+               options.logfile_name,
+               "server-%s" % get_ip_address("eth0"))
 
     if not options.noshutdown:
         os.system(toexec)
@@ -442,33 +363,57 @@ def shutdown(exitval=0):
 
     exit(exitval)
 
-set_up_logging()
-logging.info("Server called with parameters: %s",
-             pprint.pformat(options, indent=4).replace("\n", " || "))
 
-failed = False
-if not options.git_rev:
-    options.git_rev = get_revision()
-    logging.info("Revision not given, taking HEAD: %s", options.git_rev)
+def set_up_logging():
+    form = '[ %(asctime)-15s  %(levelname)s  %(message)s ]'
+    logformatter = logging.Formatter(form)
 
-server = Server()
-listener = Listener()
-spotmanager = SpotManager()
-listener.setDaemon(True)
-server.setDaemon(True)
-spotmanager.setDaemon(True)
+    try:
+        os.unlink(options.logfile_name)
+    except:
+        pass
+    fileHandler = logging.FileHandler(options.logfile_name)
+    fileHandler.setFormatter(logformatter)
+    logging.getLogger().addHandler(fileHandler)
+    logging.getLogger().setLevel(logging.INFO)
 
-listener.start()
-server.start()
-time.sleep(20)
-spotmanager.start()
+if __name__ == "__main__":
+    global options
+    global args
+    options, args = server_option_parser.parse_arguments()
+    if options.drat:
+        assert "cryptominisat" in options.solver
 
-while threading.active_count() > 0 and not failed:
-    time.sleep(0.5)
-    if last_termination_sent is not None and server.ready_to_shutdown():
-        diff = time.time() - last_termination_sent
-        limit = 2*(options.timeout_in_secs + options.extra_time)
-        if diff > limit:
-            break
+    global acc_queue
+    acc_queue = Queue.Queue()
+    last_termination_sent = None
 
-shutdown()
+    set_up_logging()
+    logging.info("Server called with parameters: %s",
+                 pprint.pformat(options, indent=4).replace("\n", " || "))
+
+    if not options.git_rev:
+        options.git_rev = get_revision()
+        logging.info("Revision not given, taking HEAD: %s", options.git_rev)
+
+    server = Server()
+    listener = Listener()
+    spotmanager = SpotManager(options.noshutdown)
+    listener.setDaemon(True)
+    server.setDaemon(True)
+    spotmanager.setDaemon(True)
+
+    listener.start()
+    server.start()
+    time.sleep(20)
+    spotmanager.start()
+
+    while threading.active_count() > 0:
+        time.sleep(0.5)
+        if last_termination_sent is not None and server.ready_to_shutdown():
+            diff = time.time() - last_termination_sent
+            limit = 100
+            if diff > limit:
+                break
+
+    shutdown()

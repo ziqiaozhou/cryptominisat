@@ -26,7 +26,6 @@
 #include "solvertypes.h"
 
 #include "time_mem.h"
-#include "avgcalc.h"
 #include "hyperengine.h"
 #include "minisat_rnd.h"
 #include "simplefile.h"
@@ -60,114 +59,8 @@ struct VariableVariance
 class Searcher : public HyperEngine
 {
     public:
-        Searcher(const SolverConf* _conf, Solver* solver, bool* _needToInterrupt);
+        Searcher(const SolverConf* _conf, Solver* solver, std::atomic<bool>* _must_interrupt_inter);
         virtual ~Searcher();
-
-        //History
-        struct Hist {
-            //About the search
-            AvgCalc<uint32_t>   branchDepthHist;     ///< Avg branch depth in current restart
-            AvgCalc<uint32_t>   branchDepthDeltaHist;
-            bqueue<uint32_t>   trailDepthHistLonger;
-            AvgCalc<uint32_t>   trailDepthDeltaHist;
-
-            //About the confl generated
-            bqueue<uint32_t>    glueHist;            ///< Set of last decision levels in (glue of) conflict clauses
-            AvgCalc<uint32_t>   glueHistLT;
-
-            AvgCalc<uint32_t>   conflSizeHist;       ///< Conflict size history
-            AvgCalc<uint32_t>   conflSizeHistLT;
-
-            AvgCalc<uint32_t>   numResolutionsHist;  ///< Number of resolutions during conflict analysis
-            AvgCalc<uint32_t>   numResolutionsHistLT;
-
-            #ifdef STATS_NEEDED
-            bqueue<uint32_t>   trailDepthHist;
-            AvgCalc<bool>       conflictAfterConflict;
-            AvgCalc<size_t>     watchListSizeTraversed;
-            #endif
-
-            size_t mem_used() const
-            {
-                uint64_t used = sizeof(Hist);
-                used += sizeof(AvgCalc<uint32_t>)*16;
-                used += sizeof(AvgCalc<bool>)*4;
-                used += sizeof(AvgCalc<size_t>)*2;
-                used += sizeof(AvgCalc<double, double>)*2;
-                used += glueHist.usedMem();
-
-                return used;
-            }
-
-            void clear()
-            {
-                //About the search
-                branchDepthHist.clear();
-                branchDepthDeltaHist.clear();
-                trailDepthDeltaHist.clear();
-
-                //conflict generated
-                glueHist.clear();
-                conflSizeHist.clear();
-                numResolutionsHist.clear();
-
-                #ifdef STATS_NEEDED
-                trailDepthHist.clear();
-                conflictAfterConflict.clear();
-                watchListSizeTraversed.clear();
-                #endif
-            }
-
-            void reset_glue_hist_size(size_t shortTermHistorySize)
-            {
-                glueHist.clearAndResize(shortTermHistorySize);
-                #ifdef STATS_NEEDED
-                trailDepthHist.clearAndResize(shortTermHistorySize);
-                #endif
-            }
-
-            void setSize(const size_t shortTermHistorySize, const size_t blocking_trail_hist_size)
-            {
-                glueHist.clearAndResize(shortTermHistorySize);
-                trailDepthHistLonger.clearAndResize(blocking_trail_hist_size);
-                #ifdef STATS_NEEDED
-                trailDepthHist.clearAndResize(shortTermHistorySize);
-                #endif
-            }
-
-            void print() const
-            {
-                cout
-                << " glue"
-                << " "
-                #ifdef STATS_NEEDED
-                << std::right << glueHist.getLongtTerm().avgPrint(1, 5)
-                #endif
-                << "/" << std::left << glueHistLT.avgPrint(1, 5)
-
-                << " confllen"
-                << " " << std::right << conflSizeHist.avgPrint(1, 5)
-                << "/" << std::left << conflSizeHistLT.avgPrint(1, 5)
-
-                << " branchd"
-                << " " << std::right << branchDepthHist.avgPrint(1, 5)
-                << " branchdd"
-
-                << " " << std::right << branchDepthDeltaHist.avgPrint(1, 4)
-
-                #ifdef STATS_NEEDED
-                << " traild"
-                << " " << std::right << trailDepthHist.getLongtTerm().avgPrint(0, 7)
-                #endif
-
-                << " traildd"
-                << " " << std::right << trailDepthDeltaHist.avgPrint(0, 5)
-                ;
-
-                cout << std::right;
-            }
-        };
-
         ///////////////////////////////
         // Solving
         //
@@ -176,11 +69,10 @@ class Searcher : public HyperEngine
             , const unsigned upper_level_iteration_num
         );
         void finish_up_solve(lbool status);
-        void setup_restart_print();
         void reduce_db_if_needed();
         void clean_clauses_if_needed();
         lbool perform_scc_and_varreplace_if_needed();
-        void save_search_loop_stats();
+        void dump_search_loop_stats();
         bool must_abort(lbool status);
         void print_search_loop_num();
         uint64_t loop_num;
@@ -190,17 +82,13 @@ class Searcher : public HyperEngine
         vector<lbool>  model;
         vector<Lit>   conflict;     ///<If problem is unsatisfiable (possibly under assumptions), this vector represent the final conflict clause expressed in the assumptions.
         template<bool update_bogoprops>
-        PropBy propagate(
-            #ifdef STATS_NEEDED
-            AvgCalc<size_t>* watchListSizeTraversed = NULL
-            #endif
-        );
+        PropBy propagate();
 
         ///////////////////////////////
         // Stats
         //Restart print status
-        uint64_t lastRestartPrint;
-        uint64_t lastRestartPrintHeader;
+        uint64_t lastRestartPrint = 0;
+        uint64_t lastRestartPrintHeader = 0;
         void     print_restart_stat();
         void     print_iteration_solving_stats();
         void     print_restart_header() const;
@@ -209,7 +97,7 @@ class Searcher : public HyperEngine
         void     print_clause_stats() const;
         uint64_t sumConflicts() const;
         uint64_t sumRestarts() const;
-        const Hist& getHistory() const;
+        const SearchHist& getHistory() const;
 
         size_t hyper_bin_res_all(const bool check_for_set_values = true);
         std::pair<size_t, size_t> remove_useless_bins(bool except_marked = false);
@@ -225,6 +113,9 @@ class Searcher : public HyperEngine
         void cancelUntil(uint32_t level); ///<Backtrack until a certain level.
         void move_activity_from_to(const uint32_t from, const uint32_t to);
         bool check_order_heap_sanity() const;
+        vector<Gaussian*> gauss_matrixes;
+        SQLStats* sqlStats = NULL;
+        void consolidate_watches();
 
     protected:
         void new_var(const bool bva, const uint32_t orig_outer) override;
@@ -262,7 +153,6 @@ class Searcher : public HyperEngine
             SimpleInFile& f
             , bool red
         );
-        vector<Gaussian*> gauss_matrix;
 
         struct AssumptionPair {
             AssumptionPair(const Lit _inter, const Lit _outer):
@@ -293,7 +183,7 @@ class Searcher : public HyperEngine
         //For connection with Solver
         void  resetStats();
 
-        Hist hist;
+        SearchHist hist;
 
         /////////////////
         //Settings
@@ -312,7 +202,11 @@ class Searcher : public HyperEngine
         void  print_learnt_clause() const;
         void  add_otf_subsume_long_clauses();
         void  add_otf_subsume_implicit_clause();
-        Clause* handle_last_confl_otf_subsumption(Clause* cl, const size_t glue);
+        Clause* handle_last_confl_otf_subsumption(
+            Clause* cl
+            , const uint32_t glue
+            , const uint32_t backtrack_level
+        );
         lbool new_decision();  // Handles the case when decision must be made
         void  check_need_restart();     // Helper function to decide if we need to restart during search
         Lit   pickBranchLit();
@@ -348,7 +242,7 @@ class Searcher : public HyperEngine
         );
         void update_clause_glue_from_analysis(Clause* cl);
         void minimize_learnt_clause();
-        void mimimize_learnt_clause_more_maybe();
+        void mimimize_learnt_clause_more_maybe(const uint32_t glue);
         void print_fully_minimized_learnt_clause() const;
         size_t find_backtrack_level_of_learnt();
         void bump_var_activities_based_on_implied_by_learnts(const uint32_t glue);
@@ -356,7 +250,14 @@ class Searcher : public HyperEngine
         void print_debug_resolution_data(const PropBy confl);
         Clause* create_learnt_clause(PropBy confl);
         int pathC;
-        ResolutionTypes<uint16_t> resolutions;
+        AtecedentData<uint16_t> antec_data;
+
+        //gauss
+        #ifdef USE_GAUSS
+        void clear_gauss();
+        #else
+        void clear_gauss() {}
+        #endif
 
         vector<std::pair<Lit, uint32_t> > implied_by_learnts; //for glue-based extra var activity bumping
 
@@ -398,7 +299,7 @@ class Searcher : public HyperEngine
         //OTF subsumption during learning
         vector<ClOffset> otf_subsuming_long_cls;
         vector<OTFClause> otf_subsuming_short_cls;
-        void check_otf_subsume(PropBy confl);
+        void check_otf_subsume(const ClOffset offset, Clause& cl);
         void create_otf_subsuming_implicit_clause(const Clause& cl);
         void create_otf_subsuming_long_clause(Clause& cl, ClOffset offset);
         Clause* add_literals_from_confl_to_learnt(const PropBy confl, const Lit p);
@@ -418,8 +319,6 @@ class Searcher : public HyperEngine
         bool must_consolidate_mem = false;
         void print_solution_varreplace_status() const;
         void dump_search_sql(const double myTime);
-        void rearrange_clauses_watches();
-        Lit find_good_blocked_lit(const Clause& c) const override;
 
         ////////////
         // Transitive on-the-fly self-subsuming resolution
@@ -440,6 +339,7 @@ class Searcher : public HyperEngine
             {}
             bool operator()(uint32_t var) const;
         };
+        friend class Gaussian;
 
         ///Decay all variables with the specified factor. Implemented by increasing the 'bump' value instead.
         void     varDecayActivity ();
@@ -475,11 +375,16 @@ class Searcher : public HyperEngine
         void dump_restart_sql();
         PropStats lastSQLPropStats;
         SearchStats lastSQLGlobalStats;
+        void dump_sql_clause_data(
+            const uint32_t glue
+            , const uint32_t backtrack_level
+        );
         #endif
 
 
         //Other
         void print_solution_type(const lbool status) const;
+        void clearGaussMatrixes();
 
         //Picking polarity when doing decision
         bool     pickPolarity(const uint32_t var);
@@ -506,7 +411,7 @@ inline const SearchStats& Searcher::get_stats() const
     return stats;
 }
 
-inline const Searcher::Hist& Searcher::getHistory() const
+inline const SearchHist& Searcher::getHistory() const
 {
     return hist;
 }
@@ -514,57 +419,6 @@ inline const Searcher::Hist& Searcher::getHistory() const
 inline void Searcher::add_in_partial_solving_stats()
 {
     stats.cpu_time = cpuTime() - startTime;
-}
-
-/**
-@brief Revert to the state at given level
-*/
-template<bool also_insert_varorder>
-inline void Searcher::cancelUntil(uint32_t level)
-{
-    #ifdef VERBOSE_DEBUG
-    cout << "Canceling until level " << level;
-    if (level > 0) cout << " sublevel: " << trail_lim[level];
-    cout << endl;
-    #endif
-
-    if (decisionLevel() > level) {
-
-        //Go through in reverse order, unassign & insert then
-        //back to the vars to be branched upon
-        for (int sublevel = trail.size()-1
-            ; sublevel >= (int)trail_lim[level]
-            ; sublevel--
-        ) {
-            #ifdef VERBOSE_DEBUG
-            cout
-            << "Canceling lit " << trail[sublevel]
-            << " sublevel: " << sublevel
-            << endl;
-            #endif
-
-            #ifdef ANIMATE3D
-            std:cerr << "u " << var << endl;
-            #endif
-
-            const uint32_t var = trail[sublevel].var();
-            assert(value(var) != l_Undef);
-            assigns[var] = l_Undef;
-            if (also_insert_varorder) {
-                insertVarOrder(var);
-            }
-        }
-        qhead = trail_lim[level];
-        trail.resize(trail_lim[level]);
-        trail_lim.resize(level);
-    }
-
-    #ifdef VERBOSE_DEBUG
-    cout
-    << "Canceling finished. Now at level: " << decisionLevel()
-    << " sublevel: " << trail.size()-1
-    << endl;
-    #endif
 }
 
 inline void Searcher::insertVarOrder(const uint32_t x)

@@ -121,7 +121,7 @@ void SolveFeaturesCalc::for_all_clauses(Function func_each_cl, Function2 func_ea
 {
     for (size_t i = 0; i < solver->nVars() * 2; i++) {
         Lit lit = Lit::toLit(i);
-        for (const Watched & w : solver->watches[lit.toInt()]) {
+        for (const Watched & w : solver->watches[lit]) {
             for_one_clause(w, lit, func_each_cl, func_each_lit);
         }
     }
@@ -242,12 +242,12 @@ void SolveFeaturesCalc::calculate_extra_clause_stats()
     for_all_clauses(each_clause, empty_func);
 
     if ( feat.vcg_cls_std > feat.eps && feat.vcg_cls_mean > feat.eps ) {
-        feat.vcg_cls_std = sqrt(feat.vcg_cls_std / (double)feat.numClauses) / feat.vcg_cls_mean;
+        feat.vcg_cls_std = std::sqrt(feat.vcg_cls_std / (double)feat.numClauses) / feat.vcg_cls_mean;
     } else {
         feat.vcg_cls_std = 0;
     }
     if ( feat.pnr_cls_std > feat.eps && feat.pnr_cls_mean > feat.eps ) {
-        feat.pnr_cls_std = sqrt(feat.pnr_cls_std / (double)feat.numClauses) / feat.pnr_cls_mean;
+        feat.pnr_cls_std = std::sqrt(feat.pnr_cls_std / (double)feat.numClauses) / feat.pnr_cls_mean;
     } else {
         feat.pnr_cls_std = 0;
     }
@@ -273,7 +273,7 @@ void SolveFeaturesCalc::calculate_extra_var_stats()
         feat.horn_std += (feat.horn_mean - _horn) * (feat.horn_mean - _horn);
     }
     if ( feat.vcg_var_std > feat.eps && feat.vcg_var_mean > feat.eps ) {
-        feat.vcg_var_std = sqrt(feat.vcg_var_std / (double)feat.numVars) / feat.vcg_var_mean;
+        feat.vcg_var_std = std::sqrt(feat.vcg_var_std / (double)feat.numVars) / feat.vcg_var_mean;
     } else {
         feat.vcg_var_std = 0;
     }
@@ -281,7 +281,7 @@ void SolveFeaturesCalc::calculate_extra_var_stats()
     if ( feat.pnr_var_std > feat.eps && feat.pnr_var_mean > feat.eps
         && feat.pnr_var_mean != 0
     ) {
-        feat.pnr_var_std = sqrt(feat.pnr_var_std / (double)feat.numVars) / feat.pnr_var_mean;
+        feat.pnr_var_std = std::sqrt(feat.pnr_var_std / (double)feat.numVars) / feat.pnr_var_mean;
     } else {
         feat.pnr_var_std = 0;
     }
@@ -289,7 +289,7 @@ void SolveFeaturesCalc::calculate_extra_var_stats()
     if ( feat.horn_std / (double)feat.numVars > feat.eps && feat.horn_mean > feat.eps
         && feat.horn_mean != 0
     ) {
-        feat.horn_std = sqrt(feat.horn_std / (double)feat.numVars) / feat.horn_mean;
+        feat.horn_std = std::sqrt(feat.horn_std / (double)feat.numVars) / feat.horn_mean;
     } else {
         feat.horn_std = 0;
     }
@@ -309,9 +309,6 @@ void SolveFeaturesCalc::calculate_cl_distributions(
     double size_mean = 0;
     double size_var = 0;
 
-    double uip_use_mean = 0;
-    double uip_use_var = 0;
-
     double activity_mean = 0;
     double activity_var = 0;
 
@@ -322,16 +319,10 @@ void SolveFeaturesCalc::calculate_cl_distributions(
         size_mean += cl.size();
         glue_mean += cl.stats.glue;
         activity_mean += cl.stats.activity;
-        #ifdef STATS_NEEDED
-        uip_use_mean += cl.stats.used_for_uip_creation;
-        #endif
     }
     size_mean /= clauses.size();
     glue_mean /= clauses.size();
     activity_mean /= clauses.size();
-    #ifdef STATS_NEEDED
-    uip_use_mean /= clauses.size();
-    #endif
 
     //Calculate variances
     for(ClOffset off: clauses)
@@ -340,24 +331,16 @@ void SolveFeaturesCalc::calculate_cl_distributions(
         size_var += std::pow(size_mean-cl.size(), 2);
         glue_var += std::pow(glue_mean-cl.stats.glue, 2);
         activity_var += std::pow(activity_mean-cl.stats.activity, 2);
-        #ifdef STATS_NEEDED
-        uip_use_var += std::pow(uip_use_mean-cl.stats.used_for_uip_creation, 2);
-        #endif
     }
     size_var /= clauses.size();
     glue_var /= clauses.size();
     activity_var /= clauses.size();
-    #ifdef STATS_NEEDED
-    uip_use_var /= clauses.size();
-    #endif
 
     //Assign calculated values
     distrib_data.glue_distr_mean = glue_mean;
     distrib_data.glue_distr_var = glue_var;
     distrib_data.size_distr_mean = size_mean;
     distrib_data.size_distr_var = size_var;
-    distrib_data.uip_use_distr_mean = uip_use_mean;
-    distrib_data.uip_use_distr_var = uip_use_var;
     distrib_data.activity_distr_mean = activity_mean;
     distrib_data.activity_distr_var = activity_var;
 }

@@ -92,9 +92,11 @@ public:
     //SolveFeatures
     uint64_t num_xors_found_last = 0;
     uint64_t num_gates_found_last = 0;
+    uint64_t clauseID_at_start_inclusive = 0;
+    uint64_t clauseID_at_end_exclusive = 0;
 
     //Resolution Stats
-    ResolutionTypes<uint64_t> resolvs;
+    AtecedentData<uint64_t> resolvs;
 
     //Stat structs
     ConflStats conflStats;

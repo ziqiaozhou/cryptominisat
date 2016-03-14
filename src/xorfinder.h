@@ -27,88 +27,50 @@
 #include <iostream>
 #include <algorithm>
 #include <set>
+#include "xor.h"
 #include "cset.h"
-#include "xorfinderabst.h"
 #include "watcharray.h"
-
-namespace CMSat {
 
 using std::vector;
 using std::set;
+
+namespace CMSat {
 
 //#define VERBOSE_DEBUG_XOR_FINDER
 
 class Solver;
 class OccSimplifier;
 
-class Xor
+class PossibleXor
 {
     public:
-        Xor(const vector<Lit>& cl, const bool _rhs) :
-            rhs(_rhs)
+        PossibleXor()
         {
-            for (uint32_t i = 0; i < cl.size(); i++) {
-                vars.push_back(cl[i].var());
-            }
         }
 
-        bool operator==(const Xor& other) const
-        {
-            return (rhs == other.rhs && vars == other.vars);
-        }
-
-        vector<uint32_t> vars;
-        size_t size() const
-        {
-            return vars.size();
-        }
-        bool rhs;
-        bool getRemoved() const
-        {
-            return removed;
-        }
-
-
-    private:
-        bool removed;
-};
-
-inline std::ostream& operator<<(std::ostream& os, const Xor& thisXor)
-{
-    for (uint32_t i = 0; i < thisXor.vars.size(); i++) {
-        os << Lit(thisXor.vars[i], false);
-
-        if (i+1 < thisXor.vars.size())
-            os << " + ";
-    }
-    os << " =  " << std::boolalpha << thisXor.rhs << std::noboolalpha;
-
-    return os;
-}
-
-class FoundXors
-{
-    public:
-        FoundXors(
+        void setup(
             const vector<Lit>& cl
+            , const ClOffset offset
             , cl_abst_type _abst
             , vector<uint16_t>& seen
-        ) :
-            abst(_abst)
-            , size(cl.size())
-        {
+        ) {
+            abst = _abst;
+            size = cl.size();
+            offsets.clear();
             #ifdef VERBOSE_DEBUG_XOR_FINDER
             cout << "Trying to create XOR from clause: " << cl << endl;
             #endif
 
-            assert(cl.size() < sizeof(origCl)/sizeof(Lit));
+            assert(cl.size() <= sizeof(origCl)/sizeof(Lit));
             for(size_t i = 0; i < size; i++) {
                 origCl[i] = cl[i];
                 if (i > 0)
                     assert(cl[i-1] < cl[i]);
             }
-
-            calcClauseData(seen);
+            setup_seen_rhs_foundcomb(seen);
+            if (offset != std::numeric_limits<ClOffset>::max()) {
+                offsets.push_back(offset);
+            }
         }
 
         //GET-type functions
@@ -118,10 +80,16 @@ class FoundXors
         bool              foundAll() const;
 
         //Add
-        template<class T> void add(const T& cl, vector<uint32_t>& varsMissing);
+        template<class T>
+        void add(const T& cl, const ClOffset offset, vector<uint32_t>& varsMissing);
+
+        const vector<ClOffset>& get_offsets() const
+        {
+            return offsets;
+        }
 
     private:
-        void calcClauseData(vector<uint16_t>& seen)
+        void setup_seen_rhs_foundcomb(vector<uint16_t>& seen)
         {
             //Calculate parameters of base clause.
             //Also set 'seen' for easy check in 'findXorMatch()'
@@ -133,6 +101,7 @@ class FoundXors
                 seen[origCl[i].var()] = 1;
             }
 
+            foundComb.clear();
             foundComb.resize(1UL<<size, false);
             foundComb[whichOne] = true;
         }
@@ -151,18 +120,18 @@ class FoundXors
         // 0 1 0
         // 0 0 1
         vector<bool> foundComb;
-        Lit origCl[5];
-        const cl_abst_type abst;
+        Lit origCl[7];
+        cl_abst_type abst;
         uint32_t size;
         bool rhs;
+        vector<ClOffset> offsets;
 };
 
-class XorFinder: public XorFinderAbst
+class XorFinder
 {
 public:
-    XorFinder(OccSimplifier* subsumer, Solver* solver);
-    virtual ~XorFinder() {}
-    virtual bool do_all_with_xors();
+    XorFinder(OccSimplifier* occsimplifier, Solver* solver);
+    void find_xors();
 
     struct Stats
     {
@@ -172,121 +141,98 @@ public:
             *this = tmp;
         }
 
-        double total_time() const
-        {
-            return findTime + extractTime + blockCutTime;
-        }
-
         Stats& operator+=(const Stats& other);
         void print_short(const Solver* solver) const;
-        void print(const size_t numCalls) const;
+        void print() const;
 
         //Time
+        uint32_t numCalls = 0;
         double findTime = 0.0;
-        double extractTime = 0.0;
-        double blockCutTime = 0.0;
+        uint32_t time_outs = 0;
 
         //XOR stats
         uint64_t foundXors = 0;
         uint64_t sumSizeXors = 0;
-        uint64_t numVarsInBlocks = 0;
-        uint64_t numBlocks = 0;
-
-        //Usefulness stats
-        uint64_t time_outs = 0;
-        uint64_t newUnits = 0;
-        uint64_t newBins = 0;
-
-        size_t zeroDepthAssigns = 0;
     };
 
     const Stats& get_stats() const;
-    size_t getNumCalls() const;
     virtual size_t mem_used() const;
+    void add_xors_to_gauss();
+    void clean_up_xors();
+    void xor_together_xors();
+    bool add_new_truths_from_xors();
+
+    vector<Xor> xors;
+    vector<ClOffset> cls_of_xors;
 
 private:
+    PossibleXor poss_xor;
     void add_found_xor(const Xor& found_xor);
-    void find_xors();
     void find_xors_based_on_short_clauses();
     void find_xors_based_on_long_clauses();
+    void print_found_xors();
+    bool xor_clause_already_inside(const Xor& xor_c);
+    bool xor_has_interesting_var(const Xor& x);
+    vector<uint32_t> xor_two(Xor& x1, Xor& x2, const size_t idx1, const size_t idx2, const uint32_t v);
+    void clean_xors_from_empty();
 
     int64_t xor_find_time_limit;
 
     //Find XORs
-    void findXor(vector<Lit>& lits, cl_abst_type abst);
+    void findXor(vector<Lit>& lits, const ClOffset offset, cl_abst_type abst);
 
     ///Normal finding of matching clause for XOR
-    void findXorMatch(
-        watch_subarray_const occ
-        , FoundXors& foundCls
-    );
+    void findXorMatch(watch_subarray_const occ);
     void findXorMatch(
         watch_subarray_const occ
         , const Lit lit
-        , FoundXors& foundCls
     );
     void findXorMatchExt(
         watch_subarray_const occ
         , const Lit lit
-        , FoundXors& foundCls
     );
     //TODO stamping finXorMatch with stamp
     /*void findXorMatch(
         const vector<LitExtra>& lits
         , const Lit lit
-        , FoundXors& foundCls
     ) const;*/
 
-    //Information extraction
-    bool extractInfo();
-    void cutIntoBlocks(const vector<size_t>& xorsToUse);
-    bool extractInfoFromBlock(const vector<uint32_t>& block, const size_t blockNum);
-    vector<uint32_t> getXorsForBlock(const size_t blockNum);
-
-    //Major calculated data and indexes to this data
-    vector<Xor> xors; ///<Recovered XORs
-    vector<vector<uint32_t> > blocks; ///<Blocks of vars that are in groups of XORs
-    vector<uint32_t> varToBlock; ///<variable-> block index map
-
-    OccSimplifier* subsumer;
+    OccSimplifier* occsimplifier;
     Solver *solver;
 
     //Stats
     Stats runStats;
     Stats globalStats;
-    size_t numCalls;
 
     //Temporary
     vector<Lit> tmpClause;
     vector<uint32_t> varsMissing;
 
-    //Temporaries for putting xors into matrix, and extracting info from matrix
-    vector<uint32_t> outerToInterVarMap;
-    vector<uint32_t> interToOUterVarMap;
-
     //Other temporaries
     vector<uint16_t>& seen;
     vector<uint16_t>& seen2;
+    vector<Lit>& toClear;
 };
 
 
-inline cl_abst_type FoundXors::getAbst() const
+inline cl_abst_type PossibleXor::getAbst() const
 {
     return abst;
 }
 
-inline uint32_t FoundXors::getSize() const
+inline uint32_t PossibleXor::getSize() const
 {
     return size;
 }
 
-inline bool FoundXors::getRHS() const
+inline bool PossibleXor::getRHS() const
 {
     return rhs;
 }
 
-template<class T> void FoundXors::add(
+template<class T> void PossibleXor::add(
     const T& cl
+    , const ClOffset offset
     , vector<uint32_t>& varsMissing
 ) {
     #ifdef VERBOSE_DEBUG_XOR_FINDER
@@ -298,6 +244,10 @@ template<class T> void FoundXors::add(
     }
     cout << "----" << endl;
     #endif
+
+    //It's the base clause, skip.
+    if (!offsets.empty() && offset == offsets[0])
+        return;
 
     assert(cl.size() <= size);
 
@@ -348,6 +298,9 @@ template<class T> void FoundXors::add(
         }
         foundComb[thisWhichOne] = true;
     }
+    if (offset != std::numeric_limits<ClOffset>::max()) {
+        offsets.push_back(offset);
+    }
 
     #ifdef VERBOSE_DEBUG_XOR_FINDER
     cout << "whichOne was:" << whichOne << endl;
@@ -359,7 +312,7 @@ template<class T> void FoundXors::add(
     #endif
 }
 
-inline bool FoundXors::foundAll() const
+inline bool PossibleXor::foundAll() const
 {
     bool OK = true;
     for (uint32_t i = 0; i < foundComb.size(); i++) {
@@ -384,7 +337,7 @@ inline bool FoundXors::foundAll() const
     return OK;
 }
 
-inline uint32_t FoundXors::NumberOfSetBits(uint32_t i) const
+inline uint32_t PossibleXor::NumberOfSetBits(uint32_t i) const
 {
     //Magic is coming! (copied from some book.... never trust code like this!)
     i = i - ((i >> 1) & 0x55555555);
@@ -392,7 +345,7 @@ inline uint32_t FoundXors::NumberOfSetBits(uint32_t i) const
     return (((i + (i >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
 }
 
-inline bool FoundXors::bit(const uint32_t a, const uint32_t b) const
+inline bool PossibleXor::bit(const uint32_t a, const uint32_t b) const
 {
     return (((a)>>(b))&1);
 }
@@ -400,11 +353,6 @@ inline bool FoundXors::bit(const uint32_t a, const uint32_t b) const
 inline const XorFinder::Stats& XorFinder::get_stats() const
 {
     return globalStats;
-}
-
-inline size_t XorFinder::getNumCalls() const
-{
-    return numCalls;
 }
 
 } //end namespace

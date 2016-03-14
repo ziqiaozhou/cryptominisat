@@ -41,13 +41,14 @@ class CompFinder {
 
     public:
         CompFinder(Solver* solver);
-        bool find_components();
+        void find_components();
         bool getTimedOut() const;
 
         const map<uint32_t, vector<uint32_t> >& getReverseTable() const; // comp->var
         uint32_t getVarComp(const uint32_t var) const;
         const vector<uint32_t>& getTable() const; //var -> comp
         const vector<uint32_t>& getCompVars(const uint32_t comp);
+        uint32_t getNumComps() const;
 
     private:
         void addToCompImplicits();
@@ -60,7 +61,6 @@ class CompFinder {
         void fill_newset_and_tomerge(const T& cl);
         void merge_newset_into_single_component();
 
-        void time_out_print(const double myTime) const;
         void print_found_components() const;
         bool reverse_table_is_correct() const;
         void print_and_add_to_sql_result(const double myTime) const;
@@ -97,6 +97,11 @@ class CompFinder {
         vector<uint16_t>& seen;
         Solver* solver;
 };
+
+inline uint32_t CompFinder::getNumComps() const
+{
+    return reverseTable.size();
+}
 
 inline const map<uint32_t, vector<uint32_t> >& CompFinder::getReverseTable() const
 {

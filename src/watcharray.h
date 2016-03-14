@@ -94,6 +94,11 @@ struct watch_subarray
         shrink(num);
     }
 
+    void resize(const size_t num)
+    {
+        array.resize(num);
+    }
+
     void push(const Watched& watched)
     {
         array.push(watched);
@@ -175,9 +180,9 @@ public:
         smudged_list.clear();
     }
 
-    watch_subarray operator[](size_t pos)
+    watch_subarray operator[](Lit pos)
     {
-        return watch_subarray(watches[pos]);
+        return watch_subarray(watches[pos.toInt()]);
     }
 
     watch_subarray at(size_t pos)
@@ -185,9 +190,9 @@ public:
         return watch_subarray(watches.at(pos));
     }
 
-    watch_subarray_const operator[](size_t at) const
+    watch_subarray_const operator[](Lit at) const
     {
-        return watch_subarray_const(watches[at]);
+        return watch_subarray_const(watches[at.toInt()]);
     }
 
     watch_subarray_const at(size_t pos) const

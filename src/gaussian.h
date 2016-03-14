@@ -54,9 +54,9 @@ class llbool
 
 public:
     llbool(): value(0) {};
-    llbool(lbool v) :
+    explicit llbool(lbool v) :
             value(v.value) {};
-    llbool(char a) :
+    explicit llbool(char a) :
             value(a) {}
 
     inline bool operator!=(const llbool& v) const {
@@ -69,17 +69,29 @@ public:
 
     friend class lbool;
 };
-const llbool l_Nothing  = toLbool(2);
-const llbool l_Continue = toLbool(3);
+const llbool l_Nothing  = llbool(2);
+const llbool l_Continue = llbool(3);
+
+struct GaussClauseToClear
+{
+    GaussClauseToClear() {}
+    GaussClauseToClear(ClOffset _offs, uint32_t _sublevel) :
+        offs(_offs)
+        , sublevel(_sublevel)
+    {}
+
+    ClOffset offs;
+    uint32_t sublevel;
+};
 
 class Gaussian
 {
 public:
-    Gaussian(Solver* solver, const GaussConf& config, const uint32_t matrix_no, const vector<Xor*>& xorclauses);
+    Gaussian(Solver* solver, const vector<Xor>& xors, const uint32_t matrix_no);
     ~Gaussian();
 
     bool init_until_fixedpoint();
-    llbool find_truths(vector<Lit>& learnt_clause, uint64_t& conflictC);
+    llbool find_truths();
 
     //statistics
     void print_stats() const;
@@ -93,6 +105,12 @@ public:
 
     //functions used throughout the Solver
     void canceling(const uint32_t sublevel);
+    void assert_clauses_toclear_is_empty() {
+        for(GaussClauseToClear& c : clauses_toclear) {
+            cout << "Sublevel: " << c.sublevel << endl;
+        }
+        assert(clauses_toclear.empty());
+    }
 
 protected:
     Solver* solver;
@@ -100,11 +118,9 @@ protected:
     //Gauss high-level configuration
     const GaussConf& config;
     const uint32_t matrix_no;
-    vector<Xor> xorclauses;
-    vector<Xor> new_xorclauses;
 
     enum gaussian_ret {conflict, unit_conflict, propagation, unit_propagation, nothing};
-    gaussian_ret gaussian(PropBy& confl);
+    gaussian_ret perform_gauss(PropBy& confl);
 
     vector<uint32_t> col_to_var_original; //Matches columns to variables
     BitArray var_is_in; //variable is part of the the matrix. var_is_in's size is _minimal_ so you should check whether var_is_in.getSize() < var before issuing var_is_in[var]
@@ -131,17 +147,6 @@ protected:
     //Varibales to keep Gauss state
     bool messed_matrix_vars_since_reversal;
     int gauss_last_level;
-    struct ClauseToClear
-    {
-        ClauseToClear(Clause* _ptr, uint32_t _level) :
-            ptr(_ptr)
-            , level(_level)
-        {}
-
-        Clause* ptr;
-        uint32_t level;
-    };
-    vector<ClauseToClear> clauses_toclear;
     bool disabled = false; // Gauss is disabled
 
     //State of current elimnation
@@ -171,7 +176,7 @@ protected:
 
     //conflict&propagation handling
     gaussian_ret handle_matrix_prop_and_confl(matrixset& m, uint32_t row, PropBy& confl);
-    void analyse_confl(const matrixset& m, const uint32_t row, int32_t& maxlevel, uint32_t& size, uint32_t& best_row) const; // analyse conflcit to find the best conflict. Gets & returns the best one in 'maxlevel', 'size' and 'best row' (these are all std::numeric_limits<uint32_t>::max() when calling this function first, i.e. when there is no other possible conflict to compare to the new in 'row')
+    void analyse_confl(const matrixset& m, const uint32_t row, uint32_t& maxlevel, uint32_t& size, uint32_t& best_row) const; // analyse conflcit to find the best conflict. Gets & returns the best one in 'maxlevel', 'size' and 'best row' (these are all std::numeric_limits<uint32_t>::max() when calling this function first, i.e. when there is no other possible conflict to compare to the new in 'row')
     gaussian_ret handle_matrix_confl(PropBy& confl, const matrixset& m, const uint32_t maxlevel, const uint32_t best_row);
     gaussian_ret handle_matrix_prop(matrixset& m, const uint32_t row); // Handle matrix propagation at row 'row'
     vector<Lit> tmp_clause;
@@ -182,16 +187,12 @@ protected:
 
     //helper functions
     bool at_first_init() const;
-    bool should_init() const;
     bool should_check_gauss(const uint32_t decisionlevel) const;
     void disable_if_necessary();
     void reset_stats();
     void update_last_one_in_col(matrixset& m);
 
 private:
-    bool clean_xor_clauses();
-    bool clean_one_xor(Xor& x);
-
     //debug functions
     bool check_no_conflict(matrixset& m) const; // Are there any conflicts that the matrixset 'm' causes?
     bool nothing_to_propagate(matrixset& m) const; // Are there any conflicts of propagations that matrixset 'm' clauses?
@@ -204,43 +205,14 @@ private:
     void print_matrix(matrixset& m) const;
     void print_last_one_in_cols(matrixset& m) const;
     static string lbool_to_string(const lbool toprint);
+    vector<Xor> xors;
+    vector<GaussClauseToClear> clauses_toclear;
 };
-
-inline bool Gaussian::should_init() const
-{
-    return (config.decision_until > 0);
-}
 
 inline bool Gaussian::should_check_gauss(const uint32_t decisionlevel) const
 {
     return (!disabled
             && decisionlevel < config.decision_until);
-}
-
-inline void Gaussian::canceling(const uint32_t sublevel)
-{
-    if (disabled)
-        return;
-
-    uint32_t a = 0;
-    for (int i = clauses_toclear.size()-1; i >= 0 && clauses_toclear[i].second > sublevel; i--) {
-        solver.cl_alloc.clauseFree(clauses_toclear[i].first);
-        a++;
-    }
-    clauses_toclear.resize(clauses_toclear.size()-a);
-
-    if (messed_matrix_vars_since_reversal)
-        return;
-    int c = std::min((int)gauss_last_level, (int)(solver.trail.size())-1);
-    for (; c >= (int)sublevel; c--) {
-        uint32_t var  = solver.trail[c].var();
-        if (var < var_is_in.getSize()
-            && var_is_in[var]
-            && cur_matrixset.var_is_set[var]) {
-        messed_matrix_vars_since_reversal = true;
-        return;
-        }
-    }
 }
 
 inline uint32_t Gaussian::get_unit_truths() const
