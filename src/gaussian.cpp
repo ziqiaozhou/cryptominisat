@@ -30,8 +30,10 @@
 
 #include "clausecleaner.h"
 #include "solver.h"
+#include "constants.h"
 
 //#define VERBOSE_DEBUG
+//#define VERBOSE_DEBUG_MORE
 //#define DEBUG_GAUSS
 
 using namespace CMSat;
@@ -246,6 +248,10 @@ void Gaussian::fill_matrix(matrixset& origMat)
 
     uint32_t matrix_row = 0;
     for (const Xor& x: xors) {
+        #ifdef VEROBOSE_DEBUG
+        //Used with check_gauss.py
+        cout << "x " << x << endl;
+        #endif
         origMat.matrix.getVarsetAt(matrix_row).set(x, var_to_col, origMat.num_cols);
         origMat.matrix.getMatrixAt(matrix_row).set(x, var_to_col, origMat.num_cols);
         matrix_row++;
@@ -450,6 +456,7 @@ Gaussian::gaussian_ret Gaussian::perform_gauss(PropBy& confl)
         cout << "(" << matrix_no << ") Useful. ";
     cout << "(" << matrix_no << ") Useful prop in " << float_div(useful_prop, called)*100.0 << "%" << endl;
     cout << "(" << matrix_no << ") Useful confl in " << float_div(useful_confl, called)*100.0 << "%" << endl;
+    cout << "(" << matrix_no << ") ------------ Finished perform_gauss -----------------------------." << endl;
     #endif
 
     //cout << "<<----G" << endl;
@@ -496,8 +503,13 @@ uint32_t Gaussian::eliminate(matrixset& m)
         uint16_t until = std::min(m.last_one_in_col[m.least_column_changed] - 1, (int)m.num_rows);
         if (j-1 > m.first_one_in_row[m.num_rows-1])
             until = m.num_rows;
-        for (;i != until; i++, ++rowIt) if (changed_rows[i] && (*rowIt).popcnt_is_one(m.first_one_in_row[i]))
-            propagatable_rows.push_back(i);
+        for (;i != until; i++, ++rowIt) {
+            if (changed_rows[i]
+                && (*rowIt).popcnt_is_one(m.first_one_in_row[i]))
+            {
+                propagatable_rows.push_back(i);
+            }
+        }
     }
 
     #ifdef VERBOSE_DEBUG
@@ -519,6 +531,9 @@ uint32_t Gaussian::eliminate(matrixset& m)
     while (i < m.num_rows && j < m.num_cols) {
         //Find pivot in column j, starting in row i:
 
+        #ifdef VERBOSE_DEBUG_MORE
+        cout << "i: " << i << " j: " << j << endl;
+        #endif
         if (m.col_to_var[j] == unassigned_var) {
             j++;
             continue;
@@ -527,13 +542,13 @@ uint32_t Gaussian::eliminate(matrixset& m)
         PackedMatrix::iterator this_matrix_row = rowIt;
         PackedMatrix::iterator end = beginIt + m.last_one_in_col[j];
         for (; this_matrix_row != end; ++this_matrix_row) {
-            if ((*this_matrix_row)[j])
+            if ((*this_matrix_row)[j]) {
                 break;
+            }
         }
         //First row with non-zero value at j is this_matrix_row
 
         if (this_matrix_row != end) {
-
             //swap rows i and maxi, but do not change the value of i;
             if (this_matrix_row != rowIt) {
                 #ifdef VERBOSE_DEBUG
@@ -552,8 +567,9 @@ uint32_t Gaussian::eliminate(matrixset& m)
             assert(m.matrix.getMatrixAt(i)[j]);
             #endif
 
-            if ((*rowIt).popcnt_is_one(j))
+            if ((*rowIt).popcnt_is_one(j)) {
                 propagatable_rows.push_back(i);
+            }
 
             //Now A[i,j] will contain the old value of A[maxi,j];
             ++this_matrix_row;
@@ -587,7 +603,7 @@ uint32_t Gaussian::eliminate(matrixset& m)
     m.least_column_changed = std::numeric_limits<int>::max();
 
     #ifdef VERBOSE_DEBUG
-    cout << "Finished elimination" << endl;
+    cout << "Finished elimination. Num propagatable rows: " << propagatable_rows.size() << endl;
     cout << "Returning with i,j:" << i << ", " << j << "(" << m.num_rows << ", " << m.num_cols << ") " << endl;
     #ifdef VERBOSE_DEBUG_MORE
     print_matrix(m);
@@ -631,7 +647,8 @@ Gaussian::gaussian_ret Gaussian::handle_matrix_confl(
 
     #ifdef VERBOSE_DEBUG
     const bool rhs = m.matrix.getVarsetAt(best_row).rhs();
-    cout << "(" << matrix_no << ") matrix confl clause:"
+    //Used with check_gauss.py
+    cout << "(" << matrix_no << ") confl clause: "
     << tmp_clause << " , "
     << "rhs:" << rhs << endl;
     #endif
@@ -739,11 +756,14 @@ Gaussian::gaussian_ret Gaussian::handle_matrix_prop_and_confl(
     gaussian_ret ret = nothing;
 
     uint32_t num_props = 0;
+    uint32_t orig_dec_level = solver->decisionLevel();
     for (uint32_t prop_row : propagatable_rows) {
         //this is a "000..1..0000000X" row. I.e. it indicates a propagation
         ret = handle_matrix_prop(m, prop_row);
         num_props++;
-        if (ret == unit_propagation) {
+        if (ret == unit_propagation
+            && orig_dec_level != 0
+        ) {
             #ifdef VERBOSE_DEBUG
             cout << "(" << matrix_no << ") Unit prop! Breaking from prop examination" << endl;
             #endif
@@ -888,7 +908,10 @@ Gaussian::gaussian_ret Gaussian::handle_matrix_prop(matrixset& m, const uint32_t
     const bool rhs = m.matrix.getVarsetAt(row).rhs();
     m.matrix.getVarsetAt(row).fill(tmp_clause, solver->assigns, col_to_var_original);
     #ifdef VERBOSE_DEBUG
-    cout << "(" << matrix_no << ") prop clause: " << tmp_clause << endl;
+    //Used with check_gauss.py
+    cout << "(" << matrix_no << ") prop clause: "
+    << tmp_clause << " , "
+    << "rhs:" << rhs << endl;
     #endif
 
     switch(tmp_clause.size()) {
@@ -1025,16 +1048,14 @@ llbool Gaussian::find_truths()
             cout << "(" << matrix_no << ")one-length conflict" << endl;
             #endif
 
-            assert(solver->value(lit) == l_Undef);
-            //I don't think the below is possible!
-            /*if (solver->value(lit) != l_Undef) {
+            if (solver->value(lit) != l_Undef) {
                 assert(solver->value(lit) == l_False);
                 #ifdef VERBOSE_DEBUG
                 cout << "(" << matrix_no << ") -> UNSAT" << endl;
                 #endif
                 solver->ok = false;
                 return llbool(l_False);
-            }*/
+            }
 
             #ifdef VERBOSE_DEBUG
             cout << "(" << matrix_no << ") -> setting to correct value" << endl;

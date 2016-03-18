@@ -211,7 +211,6 @@ bool Solver::add_xor_clause_inter(
             assert(varData[p.var()].removed != Removed::elimed);
         } else {
             //modify rhs instead of adding
-            assert(value(ps[i]) != l_Undef);
             rhs ^= value(ps[i]) == l_True;
         }
     }
@@ -224,6 +223,9 @@ bool Solver::add_xor_clause_inter(
     //cout << "Cleaned ps is: " << ps << endl;
 
     if (!ps.empty()) {
+        if (ps.size() > 2) {
+            xorclauses.push_back(Xor(ps, rhs));
+        }
         ps[0] ^= rhs;
     } else {
         if (rhs) {
@@ -816,6 +818,16 @@ void Solver::renumber_clauses(const vector<uint32_t>& outerToInter)
     }
 }
 
+void Solver::renumber_xor_clauses(const vector<uint32_t>& outerToInter)
+{
+    //Clauses' abstractions have to be re-calculated
+    for(Xor& x: xorclauses) {
+        for(uint32_t& v: x) {
+            v = getUpdatedVar(v, outerToInter);
+        }
+    }
+}
+
 size_t Solver::calculate_interToOuter_and_outerToInter(
     vector<uint32_t>& outerToInter
     , vector<uint32_t>& interToOuter
@@ -887,6 +899,7 @@ void Solver::renumber_variables()
         stamp.updateVars(outerToInter, interToOuter2, seen);
     }
     renumber_clauses(outerToInter);
+    renumber_xor_clauses(outerToInter);
 
     //Update sub-elements' vars
     varReplacer->updateVars(outerToInter, interToOuter);
@@ -1248,7 +1261,7 @@ lbool Solver::solve()
     //Check if adding the clauses caused UNSAT
     lbool status = l_Undef;
     if (!ok) {
-        conflict.clear();
+        assert(conflict.empty());
         status = l_False;
         if (conf.verbosity >= 6) {
             cout << "c Solver status " << status << " on startup of solve()" << endl;
@@ -1281,6 +1294,15 @@ lbool Solver::solve()
     if (status == l_Undef
         && conf.preprocess == 0
     ) {
+        #ifdef USE_GAUSS
+        clear_gauss();
+        MatrixFinder finder(this);
+        ok = finder.findMatrixes();
+        if (!ok) {
+            status = l_False;
+            goto end;
+        }
+        #endif
         status = iterate_until_solved();
     }
 

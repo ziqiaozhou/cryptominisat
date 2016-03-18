@@ -88,6 +88,8 @@ public:
 
 
     uint32_t popcnt() const;
+
+    //Population count INCLUDING from
     uint32_t popcnt(uint32_t from) const;
 
     bool popcnt_is_one() const
@@ -113,12 +115,19 @@ public:
         #endif
     }
 
+    //popcnt is 1 given that there is a 1 at FROM
+    //and there are only zeroes before it
     bool popcnt_is_one(uint32_t from) const
     {
         from++;
 
+        //it's the last bit, there are none after, so it only has 1 bit set
+        if (from/64 == size) {
+            return true;
+        }
+
         uint64_t tmp = mp[from/64];
-        tmp >>= from%64;
+        tmp >>= (from%64);
         if (tmp) return false;
 
         for (uint32_t i = from/64+1; i != size; i++)
@@ -274,9 +283,9 @@ inline bool PackedRow::operator !=(const PackedRow& b) const
 inline uint32_t PackedRow::popcnt() const
 {
     uint32_t popcnt = 0;
-    for (uint32_t i = 0; i < size; i++) if (mp[i]) {
+    for (uint32_t i = 0; i < size; i++) {
         uint64_t tmp = mp[i];
-        for (uint32_t i2 = 0; i2 < 64; i2++) {
+        while(tmp) {
             popcnt += (tmp & 1);
             tmp >>= 1;
         }
@@ -287,15 +296,12 @@ inline uint32_t PackedRow::popcnt() const
 inline uint32_t PackedRow::popcnt(const uint32_t from) const
 {
     uint32_t popcnt = 0;
-    for (uint32_t i = from/64; i != size; i++) if (mp[i]) {
+    for (uint32_t i = from/64; i != size; i++) {
         uint64_t tmp = mp[i];
-        uint32_t i2;
         if (i == from/64) {
-            i2 = from%64;
-            tmp >>= i2;
-        } else
-            i2 = 0;
-        for (; i2 < 64; i2++) {
+            tmp >>= from%64;
+        }
+        while (tmp) {
             popcnt += (tmp & 1);
             tmp >>= 1;
         }

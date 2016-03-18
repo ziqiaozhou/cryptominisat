@@ -70,7 +70,6 @@ void start_timer(int num)
     struct sigevent sev;
     sev.sigev_signo = SIGUSR1;
     sev.sigev_notify = SIGEV_SIGNAL;
-    //cout << "start_timer;thread:" << threadNum << endl;
     struct itimerspec value;
     value.it_value.tv_sec = num; //waits for n seconds before sending timer signal
     value.it_value.tv_nsec = 0;
@@ -82,10 +81,6 @@ void start_timer(int num)
     }
     *timerSetFirstTime = false;
     timer_settime(*mytimer, 0, &value, NULL);
-}
-void SIGINT_handler_exit(int)
-{
-    _exit(1);
 }
 
 void SIGALARM_handler(int /*sig*/, siginfo_t* si, void* /*uc*/)
@@ -120,7 +115,7 @@ string binary(unsigned x, uint32_t length)
 
 }
 
-bool CUSP::GenerateRandomBits(string& randomBits, uint32_t size, std::mt19937& randomEngine)
+bool CUSP::GenerateRandomBits(string& randomBits, uint32_t size)
 {
     std::uniform_int_distribution<unsigned> uid {0, 2147483647};
     uint32_t i = 0;
@@ -159,7 +154,7 @@ void CUSP::add_supported_options()
     add_approxmc_options();
 }
 
-int CUSP::GenerateRandomNum(int maxRange, std::mt19937& randomEngine)
+int CUSP::GenerateRandomNum(int maxRange)
 {
     std::uniform_int_distribution<int> uid {0, maxRange};
     return uid(randomEngine);
@@ -176,19 +171,94 @@ uint32_t CUSP::SolutionsToReturn(
         return 1;
     }
 }
-bool CUSP::AddHash(uint32_t numClaus, SATSolver* solver, vector<Lit>& assumptions, std::mt19937& randomEngine)
+
+void print_xor(const vector<uint32_t>&vars, const uint32_t rhs)
+{
+    cout << "Added XOR ";
+    for(size_t i = 0; i < vars.size(); i++) {
+        cout << vars[i]+1;
+        if (i < vars.size()-1) {
+            cout << " + ";
+        }
+    }
+    cout << " = " << (rhs ? "True" : "False") << endl;
+}
+
+void CUSP::seed_random_engine()
+{
+    /* Initialize PRNG with seed from random_device */
+    std::random_device rd {};
+    std::array<int, 10> seedArray;
+    std::generate_n(seedArray.data(), seedArray.size(), std::ref(rd));
+    std::seed_seq seed(std::begin(seedArray), std::end(seedArray));
+    randomEngine.seed(seed);
+}
+
+bool CUSP::openLogFile()
+{
+    cusp_logf.open(cuspLogFile.c_str());
+    if (!cusp_logf.is_open()) {
+        cout << "Cannot open CUSP log file '" << cuspLogFile
+        << "' for writing." << endl;
+        exit(1);
+    }
+    return true;
+}
+
+void CUSP::set_up_timer()
+{
+    mytimer = new timer_t;
+    timerSetFirstTime = new bool;
+    struct sigaction sa;
+    sa.sa_flags = SA_SIGINFO;
+    sa.sa_sigaction = SIGALARM_handler;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGUSR1, &sa, NULL);
+    *timerSetFirstTime = true;
+    need_clean_exit = true;
+}
+
+template<class T>
+inline T findMedian(vector<T>& numList)
+{
+    std::sort(numList.begin(), numList.end());
+    size_t medIndex = (numList.size() + 1) / 2;
+    size_t at = 0;
+    if (medIndex >= numList.size()) {
+        at += numList.size() - 1;
+        return numList[at];
+    }
+    at += medIndex;
+    return numList[at];
+}
+
+template<class T>
+inline T findMin(vector<T>& numList)
+{
+    T min = std::numeric_limits<T>::max();
+    for (const auto a: numList) {
+        if (a < min) {
+            min = a;
+        }
+    }
+    return min;
+}
+
+bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumptions)
 {
     string randomBits;
-    GenerateRandomBits(randomBits, (independent_vars.size() + 1) * numClaus, randomEngine);
+    GenerateRandomBits(randomBits, (independent_vars.size() + 1) * num_xor_cls);
     bool rhs = true;
     uint32_t activationVar;
     vector<uint32_t> vars;
 
-    for (uint32_t i = 0; i < numClaus; i++) {
-        vars.clear();
+    for (uint32_t i = 0; i < num_xor_cls; i++) {
+        //new activation variable
         solver->new_var();
         activationVar = solver->nVars()-1;
         assumptions.push_back(Lit(activationVar, true));
+
+        vars.clear();
         vars.push_back(activationVar);
         rhs = (randomBits[(independent_vars.size() + 1) * i] == 1);
 
@@ -198,23 +268,28 @@ bool CUSP::AddHash(uint32_t numClaus, SATSolver* solver, vector<Lit>& assumption
             }
         }
         solver->add_xor_clause(vars, rhs);
+        if (conf.verbosity >= 3) {
+            print_xor(vars, rhs);
+        }
     }
     return true;
 }
 
-int32_t CUSP::BoundedSATCount(uint32_t maxSolutions, SATSolver* solver, vector<Lit>& assumptions)
+int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps)
 {
-    unsigned long current_nr_of_solutions = 0;
+    //Set up things for adding clauses that can later be removed
     lbool ret = l_True;
     solver->new_var();
     uint32_t activationVar = solver->nVars()-1;
-    vector<Lit> allSATAssumptions(assumptions);
-    allSATAssumptions.push_back(Lit(activationVar, true));
+    vector<Lit> new_assumps(assumps);
+    new_assumps.push_back(Lit(activationVar, true));
 
     //signal(SIGALRM, SIGALARM_handler);
     start_timer(loopTimeout);
+    cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
+    uint64_t current_nr_of_solutions = 0;
     while (current_nr_of_solutions < maxSolutions && ret == l_True) {
-        ret = solver->solve(&allSATAssumptions);
+        ret = solver->solve(&new_assumps);
         current_nr_of_solutions++;
         if (ret == l_True && current_nr_of_solutions < maxSolutions) {
             vector<Lit> lits;
@@ -228,9 +303,13 @@ int32_t CUSP::BoundedSATCount(uint32_t maxSolutions, SATSolver* solver, vector<L
             solver->add_clause(lits);
         }
     }
-    vector<Lit> cls_that_removes;
-    cls_that_removes.push_back(Lit(activationVar, false));
-    solver->add_clause(cls_that_removes);
+
+    //Remove clauses added
+    vector<Lit> cl_that_removes;
+    cl_that_removes.push_back(Lit(activationVar, false));
+    solver->add_clause(cl_that_removes);
+
+    //Timeout
     if (ret == l_Undef) {
         must_interrupt.store(false, std::memory_order_relaxed);
         return -1 * current_nr_of_solutions;
@@ -241,9 +320,7 @@ int32_t CUSP::BoundedSATCount(uint32_t maxSolutions, SATSolver* solver, vector<L
 lbool CUSP::BoundedSAT(
     uint32_t maxSolutions
     , uint32_t minSolutions
-    , SATSolver* solver
     , vector<Lit>& assumptions
-    , std::mt19937& randomEngine
     , std::map<string, uint32_t>& solutionMap
     , uint32_t* solutionCount
 )
@@ -260,6 +337,7 @@ lbool CUSP::BoundedSAT(
     //signal(SIGALRM, SIGALARM_handler);
     start_timer(loopTimeout);
     while (current_nr_of_solutions < maxSolutions && ret == l_True) {
+        cout << "BoundedSAT solve!" << endl;
         ret = solver->solve(&allSATAssumptions);
         current_nr_of_solutions++;
 
@@ -324,280 +402,91 @@ lbool CUSP::BoundedSAT(
     return l_False;
 }
 
-template<class T>
-inline double findMean(T numList)
+bool CUSP::ApproxMC(SATCount& count)
 {
-    assert(!numList.empty());
-
-    double sum = 0;
-    for (const auto a: numList) {
-        sum += a;
-    }
-    return (sum * 1.0 / (double)numList.size());
-}
-
-template<class T>
-inline double findMedian(T numList)
-{
-    std::sort(numList.begin(), numList.end());
-    size_t medIndex = (numList.size() + 1) / 2;
-    size_t at = 0;
-    if (medIndex >= numList.size()) {
-        at += numList.size() - 1;
-        return numList[at];
-    }
-    at += medIndex;
-    return numList[at];
-}
-
-template<class T>
-inline int findMin(T numList)
-{
-    int min = std::numeric_limits<int>::max();
-    for (const auto a: numList) {
-        if (a < min) {
-            min = a;
-        }
-    }
-    return min;
-}
-
-SATCount CUSP::ApproxMC(SATSolver* solver, FILE* resLog, std::mt19937& randomEngine)
-{
-    int32_t currentNumSolutions = 0;
-    vector<int> numHashList;
-    vector<int> numCountList;
+    count.clear();
+    int64_t currentNumSolutions = 0;
+    vector<uint64_t> numHashList;
+    vector<int64_t> numCountList;
     vector<Lit> assumptions;
-    double elapsedTime = 0;
-    int repeatTry = 0;
+    uint32_t repeatTry = 0;
     for (uint32_t j = 0; j < tApproxMC; j++) {
-        uint32_t  hashCount;
+        uint64_t hashCount;
         for (hashCount = 0; hashCount < solver->nVars(); hashCount++) {
-            elapsedTime = cpuTimeTotal() - startTime;
-            if (elapsedTime > totalTimeout - 3000) {
-                break;
+            if (cpuTimeTotal() - startTime > totalTimeout - 3000) {
+                cout << "Timeout in ApproxMC()" << endl;
+                return false;
             }
             double myTime = cpuTimeTotal();
-            currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, solver, assumptions);
+            currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumptions);
 
-            myTime = cpuTimeTotal() - myTime;
-            //cout << myTime << endl;
             //cout << currentNumSolutions << ", " << pivotApproxMC << endl;
-            if (conf.verbosity >= 2) {
-                fprintf(resLog, "ApproxMC:%d:%d:%f:%d:%d\n"
-                    , j, hashCount, myTime
-                    , (currentNumSolutions == (int32_t)(pivotApproxMC + 1))
-                    , currentNumSolutions
-                );
-                fflush(resLog);
-            }
-            if (currentNumSolutions <= 0) {
+            cusp_logf << "ApproxMC:"
+            << j << ":" << hashCount << ":"
+            << std::fixed << std::setprecision(2) << (cpuTimeTotal() - myTime) << ":"
+            << (int)(currentNumSolutions == (pivotApproxMC + 1)) << ":"
+            << currentNumSolutions << endl;
+
+            //Timeout!
+            if (currentNumSolutions < 0) {
+                //Remove all hashes
                 assumptions.clear();
+
                 if (repeatTry < 2) {    /* Retry up to twice more */
-                    AddHash(hashCount, solver, assumptions, randomEngine);
+                    AddHash(hashCount, assumptions); //add new set of hashes
+                    assert(hashCount > 0);
                     hashCount --;
                     repeatTry += 1;
+                    cout << "Timeout, try again -- " << repeatTry << endl;
                 } else {
-                    AddHash(hashCount + 1, solver, assumptions, randomEngine);
+                    //this set of hashes does not work, go up
+                    AddHash(hashCount + 1, assumptions);
                     repeatTry = 0;
+                    cout << "Timeout, moving up" << endl;
                 }
                 continue;
             }
+
             if (currentNumSolutions == pivotApproxMC + 1) {
-                AddHash(1, solver, assumptions, randomEngine);
+                //Found all solutions needed
+                AddHash(1, assumptions);
             } else {
+                //less than pivotApproxMC solutions
                 break;
             }
-
         }
         assumptions.clear();
-        if (elapsedTime > totalTimeout - 3000) {
-            break;
-        }
         numHashList.push_back(hashCount);
         numCountList.push_back(currentNumSolutions);
     }
     if (numHashList.size() == 0) {
-        return SATCount();
+        //UNSAT
+        return true;
     }
-    int minHash = findMin(numHashList);
-    for (auto it1 = numHashList.begin(), it2 = numCountList.begin()
-            ; it1 != numHashList.end() && it2 != numCountList.end()
-            ; it1++, it2++
-        ) {
-        (*it2) *= pow(2, (*it1) - minHash);
+
+    auto minHash = findMin(numHashList);
+    auto hash_it = numHashList.begin();
+    auto cnt_it = numCountList.begin();
+    for (; hash_it != numHashList.end() && cnt_it != numCountList.end()
+        ; hash_it++, cnt_it++
+    ) {
+        *cnt_it *= pow(2, (*hash_it) - minHash);
     }
     int medSolCount = findMedian(numCountList);
 
-    SATCount solCount;
-    solCount.cellSolCount = medSolCount;
-    solCount.hashCount = minHash;
-    return solCount;
-}
-
-uint32_t CUSP::UniGen(
-    uint32_t samples
-    , SATSolver* solver
-    , FILE* resLog
-    , uint32_t sampleCounter
-    , std::mt19937& randomEngine
-    , std::map<string, uint32_t>& solutionMap
-    , uint32_t* lastSuccessfulHashOffset
-    , double timeReference
-)
-{
-    lbool ret = l_False;
-    uint32_t i, solutionCount, currentHashCount, lastHashCount, currentHashOffset, hashOffsets[3];
-    int hashDelta;
-    vector<Lit> assumptions;
-    double elapsedTime = 0;
-    int repeatTry = 0;
-    for (i = 0; i < samples; i++) {
-        sampleCounter ++;
-        ret = l_False;
-
-        hashOffsets[0] = *lastSuccessfulHashOffset;   /* Start at last successful hash offset */
-        if (hashOffsets[0] == 0) { /* Starting at q-2; go to q-1 then q */
-            hashOffsets[1] = 1;
-            hashOffsets[2] = 2;
-        } else if (hashOffsets[0] == 2) { /* Starting at q; go to q-1 then q-2 */
-            hashOffsets[1] = 1;
-            hashOffsets[2] = 0;
-        }
-        repeatTry = 0;
-        lastHashCount = 0;
-        for (uint32_t j = 0; j < 3; j++) {
-            currentHashOffset = hashOffsets[j];
-            currentHashCount = currentHashOffset + startIteration;
-            hashDelta = currentHashCount - lastHashCount;
-
-            if (hashDelta > 0) { /* Add new hash functions */
-                AddHash(hashDelta, solver, assumptions, randomEngine);
-            } else if (hashDelta < 0) { /* Remove hash functions */
-                assumptions.clear();
-                AddHash(currentHashCount, solver, assumptions, randomEngine);
-            }
-            lastHashCount = currentHashCount;
-
-            double currentTime = cpuTimeTotal();
-            elapsedTime = currentTime - startTime;
-            if (elapsedTime > totalTimeout - 3000) {
-                break;
-            }
-            uint32_t maxSolutions = (uint32_t) (1.41 * (1 + kappa) * pivotUniGen + 2);
-            uint32_t minSolutions = (uint32_t) (pivotUniGen / (1.41 * (1 + kappa)));
-            ret = BoundedSAT(maxSolutions + 1, minSolutions, solver, assumptions, randomEngine, solutionMap, &solutionCount);
-            if (conf.verbosity >= 2) {
-                fprintf(resLog, "UniGen2:%d:%d:%f:%d:%d\n", sampleCounter, currentHashCount, cpuTimeTotal() - timeReference, (ret == l_False ? 1 : (ret == l_True ? 0 : 2)), solutionCount);
-                fflush(resLog);
-            }
-            if (ret == l_Undef) {   /* SATSolver timed out; retry current hash count at most twice more */
-                assumptions.clear();    /* Throw out old hash functions */
-                if (repeatTry < 2) {    /* Retry current hash count with new hash functions */
-                    AddHash(currentHashCount, solver, assumptions, randomEngine);
-                    j--;
-                    repeatTry += 1;
-                } else {     /* Go on to next hash count */
-                    lastHashCount = 0;
-                    if ((j == 0) && (currentHashOffset == 1)) { /* At q-1, and need to pick next hash count */
-                        /* Somewhat arbitrarily pick q-2 first; then q */
-                        hashOffsets[1] = 0;
-                        hashOffsets[2] = 2;
-                    }
-                    repeatTry = 0;
-                }
-                continue;
-            }
-            if (ret == l_True) {    /* Number of solutions in correct range */
-                *lastSuccessfulHashOffset = currentHashOffset;
-                break;
-            } else { /* Number of solutions too small or too large */
-                if ((j == 0) && (currentHashOffset == 1)) { /* At q-1, and need to pick next hash count */
-                    if (solutionCount < minSolutions) {
-                        /* Go to q-2; next will be q */
-                        hashOffsets[1] = 0;
-                        hashOffsets[2] = 2;
-                    } else {
-                        /* Go to q; next will be q-2 */
-                        hashOffsets[1] = 2;
-                        hashOffsets[2] = 0;
-                    }
-                }
-            }
-        }
-        if (ret != l_True) {
-            i --;
-        }
-        assumptions.clear();
-        if (elapsedTime > totalTimeout - 3000) {
-            break;
-        }
-    }
-    return sampleCounter;
-}
-
-int CUSP::uniGenCall(
-    uint32_t samples
-    , FILE* resLog
-    , uint32_t sampleCounter
-    , std::map<string, uint32_t>& solutionMap
-    , std::mt19937& randomEngine
-    , uint32_t* lastSuccessfulHashOffset
-    , double timeReference
-)
-{
-    SATSolver solver2(&conf);
-    solverToInterrupt = &solver2;
-
-    parseInAllFiles(&solver2);
-    sampleCounter = UniGen(
-                        samples
-                        , &solver2
-                        , resLog
-                        , sampleCounter
-                        , randomEngine
-                        , solutionMap
-                        , lastSuccessfulHashOffset
-                        , timeReference
-                    );
-    return sampleCounter;
-}
-
-void CUSP::SeedEngine(std::mt19937& randomEngine)
-{
-    /* Initialize PRNG with seed from random_device */
-    std::random_device rd {};
-    std::array<int, 10> seedArray;
-    std::generate_n(seedArray.data(), seedArray.size(), std::ref(rd));
-    std::seed_seq seed(std::begin(seedArray), std::end(seedArray));
-    randomEngine.seed(seed);
-}
-
-bool CUSP::openLogFile(FILE*& res)
-{
-    if (false) {
-        return false;
-    }
-
-    res = fopen(cuspLogFile.c_str(),"wb");
-    if (res == NULL) {
-        int backup_errno = errno;
-        cout << "Cannot open " << cuspLogFile << " for writing."
-        << " Problem: " << strerror(backup_errno) << endl;
-        exit(1);
-    }
+    count.cellSolCount = medSolCount;
+    count.hashCount = minHash;
     return true;
 }
 
-//My stuff from OneThreadSolve
 int CUSP::solve()
 {
+    seed_random_engine();
     conf.reconfigure_at = 0;
     conf.reconfigure_val = 15;
     conf.gaussconf.autodisable = false;
 
-    FILE* resLog;
-    openLogFile(resLog);
+    openLogFile();
     startTime = cpuTimeTotal();
 
     solver = new SATSolver((void*)&conf, &must_interrupt);
@@ -610,15 +499,7 @@ int CUSP::solve()
     printVersionInfo();
     parseInAllFiles(solver);
 
-    mytimer = new timer_t;
-    timerSetFirstTime = new bool;
-    struct sigaction sa;
-    sa.sa_flags = SA_SIGINFO;
-    sa.sa_sigaction = SIGALARM_handler;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGUSR1, &sa, NULL);
-    *timerSetFirstTime = true;
-    need_clean_exit = true;
+    set_up_timer();
 
     if (startIteration > independent_vars.size()) {
         cout << "ERROR: Manually-specified startIteration"
@@ -630,18 +511,17 @@ int CUSP::solve()
     if (startIteration == 0) {
         cout << "Computing startIteration using ApproxMC" << endl;
 
-        std::mt19937 randomEngine {};
-        SeedEngine(randomEngine);
-        solCount = ApproxMC(solver, resLog, randomEngine);
+        bool finished = ApproxMC(solCount);
         double elapsedTime = cpuTimeTotal() - startTime;
         cout << "Completed ApproxMC at " << elapsedTime << " s" <<endl;
-        if (elapsedTime > totalTimeout - 3000) {
+        if (!finished) {
             cout << " (TIMED OUT)" << endl;
             return 0;
         }
+
         if (solCount.hashCount == 0 && solCount.cellSolCount == 0) {
             cout << "The input formula is unsatisfiable." << endl;
-            return 0;
+            return correctReturnValue(l_False);
         }
         startIteration = round(solCount.hashCount + log2(solCount.cellSolCount) +
                                     log2(1.8) - log2(pivotUniGen)) - 2;
@@ -650,100 +530,19 @@ int CUSP::solve()
     }
 
     //Either onlycount or unigen
-    lbool ret = l_True;
     if (onlyCount) {
         cout << "Number of solutions is: " << solCount.cellSolCount
         << " x 2^" << solCount.hashCount << endl;
-
     } else {
-
-        uint32_t maxSolutions = (uint32_t) (1.41 * (1 + kappa) * pivotUniGen + 2);
-        uint32_t minSolutions = (uint32_t) (pivotUniGen / (1.41 * (1 + kappa)));
-        uint32_t samplesPerCall = SolutionsToReturn(minSolutions);
-        uint32_t callsNeeded = (samples + samplesPerCall - 1) / samplesPerCall;
-        cout << "loThresh " << minSolutions
-        << ", hiThresh " << maxSolutions
-        << ", startIteration " << startIteration << endl;;
-
-        printf("Outputting %d solutions from each UniGen2 call\n", samplesPerCall);
-        uint32_t numCallsInOneLoop = 0;
-        if (callsPerSolver == 0) {
-            numCallsInOneLoop = std::min(solver->nVars() / (startIteration * 14), callsNeeded);
-            if (numCallsInOneLoop == 0) {
-                numCallsInOneLoop = 1;
-            }
-        } else {
-            numCallsInOneLoop = callsPerSolver;
-            cout << "Using manually-specified callsPerSolver" << endl;
-        }
-
-        uint32_t numCallLoops = callsNeeded / numCallsInOneLoop;
-        uint32_t remainingCalls = callsNeeded % numCallsInOneLoop;
-
-        cout << "Making " << numCallLoops << " loops."
-             << " calls per loop: " << numCallsInOneLoop
-             << " remaining: " << remainingCalls << endl;
-        bool timedOut = false;
-        uint32_t sampleCounter = 0;
-        std::map<string, uint32_t> threadSolutionMap;
-        double allThreadsTime = 0;
-        uint32_t allThreadsSampleCount = 0;
-        double threadStartTime = cpuTimeTotal();
-
-        std::mt19937 randomEngine {};
-        SeedEngine(randomEngine);
-
-        uint32_t lastSuccessfulHashOffset = 0;
-        /* Perform extra UniGen calls that don't fit into the loops */
-        if (remainingCalls > 0) {
-            sampleCounter = uniGenCall(
-                                remainingCalls, resLog, sampleCounter
-                                , threadSolutionMap, randomEngine
-                                , &lastSuccessfulHashOffset, threadStartTime);
-        }
-
-        /* Perform main UniGen call loops */
-        for (uint32_t i = 0; i < numCallLoops; i++) {
-            if (!timedOut) {
-                sampleCounter = uniGenCall(
-                                    numCallsInOneLoop, resLog, sampleCounter, threadSolutionMap
-                                    , randomEngine, &lastSuccessfulHashOffset, threadStartTime
-                                );
-
-                if ((cpuTimeTotal() - threadStartTime) > totalTimeout - 3000) {
-                    timedOut = true;
-                }
-            }
-        }
-
-        for (map<string, uint32_t>::iterator itt = threadSolutionMap.begin()
-                ; itt != threadSolutionMap.end()
-                ; itt++
-            ) {
-            string solution = itt->first;
-            map<string, std::vector<uint32_t>>::iterator itg = globalSolutionMap.find(solution);
-            if (itg == globalSolutionMap.end()) {
-                globalSolutionMap[solution] = std::vector<uint32_t>(1, 0);
-            }
-            globalSolutionMap[solution][0] += itt->second;
-            allThreadsSampleCount += itt->second;
-        }
-
-        double timeTaken = cpuTimeTotal() - threadStartTime;
-        allThreadsTime += timeTaken;
-        cout
-        << "Total time for UniGen2: " << timeTaken << " s"
-        << (timedOut ? " (TIMED OUT)" : "")
-        << endl;
-
-        cout << "Total time for all UniGen2 calls: " << allThreadsTime << " s" << endl;
-        cout << "Samples generated: " << allThreadsSampleCount << endl;
+        assert(false);
+        generate_samples();
     }
+
     if (conf.verbosity >= 1) {
         solver->print_stats();
     }
 
-    return correctReturnValue(ret);
+    return correctReturnValue(l_True);
 }
 
 int main(int argc, char** argv)
@@ -765,7 +564,6 @@ int main(int argc, char** argv)
     CUSP main(argc, argv);
     main.parseCommandLine();
 
-    signal(SIGINT, SIGINT_handler_exit);
     return main.solve();
 }
 
@@ -777,4 +575,213 @@ void CUSP::call_after_parse(const vector<uint32_t>& _independent_vars)
             independent_vars.push_back(i);
         }
     }
+}
+
+
+
+////// UNIGEN
+void CUSP::generate_samples()
+{
+    uint32_t maxSolutions = (uint32_t) (1.41 * (1 + kappa) * pivotUniGen + 2);
+    uint32_t minSolutions = (uint32_t) (pivotUniGen / (1.41 * (1 + kappa)));
+    uint32_t samplesPerCall = SolutionsToReturn(minSolutions);
+    uint32_t callsNeeded = (samples + samplesPerCall - 1) / samplesPerCall;
+    cout << "loThresh " << minSolutions
+    << ", hiThresh " << maxSolutions
+    << ", startIteration " << startIteration << endl;;
+
+    printf("Outputting %d solutions from each UniGen2 call\n", samplesPerCall);
+    uint32_t numCallsInOneLoop = 0;
+    if (callsPerSolver == 0) {
+        numCallsInOneLoop = std::min(solver->nVars() / (startIteration * 14), callsNeeded);
+        if (numCallsInOneLoop == 0) {
+            numCallsInOneLoop = 1;
+        }
+    } else {
+        numCallsInOneLoop = callsPerSolver;
+        cout << "Using manually-specified callsPerSolver" << endl;
+    }
+
+    uint32_t numCallLoops = callsNeeded / numCallsInOneLoop;
+    uint32_t remainingCalls = callsNeeded % numCallsInOneLoop;
+
+    cout << "Making " << numCallLoops << " loops."
+         << " calls per loop: " << numCallsInOneLoop
+         << " remaining: " << remainingCalls << endl;
+    bool timedOut = false;
+    uint32_t sampleCounter = 0;
+    std::map<string, uint32_t> threadSolutionMap;
+    double allThreadsTime = 0;
+    uint32_t allThreadsSampleCount = 0;
+    double threadStartTime = cpuTimeTotal();
+    uint32_t lastSuccessfulHashOffset = 0;
+    ///Perform extra UniGen calls that don't fit into the loops
+    if (remainingCalls > 0) {
+        sampleCounter = uniGenCall(
+                            remainingCalls, sampleCounter
+                            , threadSolutionMap
+                            , &lastSuccessfulHashOffset, threadStartTime);
+    }
+
+    // Perform main UniGen call loops
+    for (uint32_t i = 0; i < numCallLoops; i++) {
+        if (!timedOut) {
+            sampleCounter = uniGenCall(
+                                numCallsInOneLoop, sampleCounter, threadSolutionMap
+                                , &lastSuccessfulHashOffset, threadStartTime
+                            );
+
+            if ((cpuTimeTotal() - threadStartTime) > totalTimeout - 3000) {
+                timedOut = true;
+            }
+        }
+    }
+
+    for (map<string, uint32_t>::iterator itt = threadSolutionMap.begin()
+            ; itt != threadSolutionMap.end()
+            ; itt++
+        ) {
+        string solution = itt->first;
+        map<string, std::vector<uint32_t>>::iterator itg = globalSolutionMap.find(solution);
+        if (itg == globalSolutionMap.end()) {
+            globalSolutionMap[solution] = std::vector<uint32_t>(1, 0);
+        }
+        globalSolutionMap[solution][0] += itt->second;
+        allThreadsSampleCount += itt->second;
+    }
+
+    double timeTaken = cpuTimeTotal() - threadStartTime;
+    allThreadsTime += timeTaken;
+    cout
+    << "Total time for UniGen2: " << timeTaken << " s"
+    << (timedOut ? " (TIMED OUT)" : "")
+    << endl;
+
+    cout << "Total time for all UniGen2 calls: " << allThreadsTime << " s" << endl;
+    cout << "Samples generated: " << allThreadsSampleCount << endl;
+}
+
+uint32_t CUSP::UniGen(
+    uint32_t samples
+    , uint32_t sampleCounter
+    , std::map<string, uint32_t>& solutionMap
+    , uint32_t* lastSuccessfulHashOffset
+    , double timeReference
+)
+{
+    lbool ret = l_False;
+    uint32_t i, solutionCount, currentHashCount, lastHashCount, currentHashOffset, hashOffsets[3];
+    int hashDelta;
+    vector<Lit> assumptions;
+    double elapsedTime = 0;
+    int repeatTry = 0;
+    for (i = 0; i < samples; i++) {
+        sampleCounter ++;
+        ret = l_False;
+
+        hashOffsets[0] = *lastSuccessfulHashOffset;   // Start at last successful hash offset
+        if (hashOffsets[0] == 0) { // Starting at q-2; go to q-1 then q
+            hashOffsets[1] = 1;
+            hashOffsets[2] = 2;
+        } else if (hashOffsets[0] == 2) { // Starting at q; go to q-1 then q-26
+            hashOffsets[1] = 1;
+            hashOffsets[2] = 0;
+        }
+        repeatTry = 0;
+        lastHashCount = 0;
+        for (uint32_t j = 0; j < 3; j++) {
+            currentHashOffset = hashOffsets[j];
+            currentHashCount = currentHashOffset + startIteration;
+            hashDelta = currentHashCount - lastHashCount;
+
+            if (hashDelta > 0) { // Add new hash functions
+                AddHash(hashDelta, assumptions);
+            } else if (hashDelta < 0) { // Remove hash functions
+                assumptions.clear();
+                AddHash(currentHashCount, assumptions);
+            }
+            lastHashCount = currentHashCount;
+
+            double currentTime = cpuTimeTotal();
+            elapsedTime = currentTime - startTime;
+            if (elapsedTime > totalTimeout - 3000) {
+                break;
+            }
+            uint32_t maxSolutions = (uint32_t) (1.41 * (1 + kappa) * pivotUniGen + 2);
+            uint32_t minSolutions = (uint32_t) (pivotUniGen / (1.41 * (1 + kappa)));
+            ret = BoundedSAT(maxSolutions + 1, minSolutions, assumptions, solutionMap, &solutionCount);
+
+
+            cusp_logf << "UniGen2:"
+            << sampleCounter << ":" << currentHashCount << ":"
+            << std::fixed << std::setprecision(2) << (cpuTimeTotal() - timeReference) << ":"
+            << (int)(ret == l_False ? 1 : (ret == l_True ? 0 : 2)) << ":"
+            << solutionCount << endl;
+
+            if (ret == l_Undef) {   // SATSolver timed out; retry current hash count at most twice more
+                assumptions.clear();    // Throw out old hash functions
+                if (repeatTry < 2) {    // Retry current hash count with new hash functions
+                    AddHash(currentHashCount, assumptions);
+                    j--;
+                    repeatTry += 1;
+                } else {     // Go on to next hash count
+                    lastHashCount = 0;
+                    if ((j == 0) && (currentHashOffset == 1)) { // At q-1, and need to pick next hash count
+                        // Somewhat arbitrarily pick q-2 first; then q
+                        hashOffsets[1] = 0;
+                        hashOffsets[2] = 2;
+                    }
+                    repeatTry = 0;
+                }
+                continue;
+            }
+            if (ret == l_True) {    // Number of solutions in correct range
+                *lastSuccessfulHashOffset = currentHashOffset;
+                break;
+            } else { // Number of solutions too small or too large
+                if ((j == 0) && (currentHashOffset == 1)) { // At q-1, and need to pick next hash count
+                    if (solutionCount < minSolutions) {
+                        // Go to q-2; next will be q
+                        hashOffsets[1] = 0;
+                        hashOffsets[2] = 2;
+                    } else {
+                        // Go to q; next will be q-2
+                        hashOffsets[1] = 2;
+                        hashOffsets[2] = 0;
+                    }
+                }
+            }
+        }
+        if (ret != l_True) {
+            i --;
+        }
+        assumptions.clear();
+        if (elapsedTime > totalTimeout - 3000) {
+            break;
+        }
+    }
+    return sampleCounter;
+}
+
+int CUSP::uniGenCall(
+    uint32_t samples
+    , uint32_t sampleCounter
+    , std::map<string, uint32_t>& solutionMap
+    , uint32_t* lastSuccessfulHashOffset
+    , double timeReference
+)
+{
+    delete solver;
+    solver = new SATSolver(&conf, &must_interrupt);
+    solverToInterrupt = solver;
+
+    parseInAllFiles(solver);
+    sampleCounter = UniGen(
+                        samples
+                        , sampleCounter
+                        , solutionMap
+                        , lastSuccessfulHashOffset
+                        , timeReference
+                    );
+    return sampleCounter;
 }

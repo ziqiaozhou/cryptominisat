@@ -70,7 +70,7 @@ TEST_F(xor_finder, find_tri_1)
     occsimp->setup();
     XorFinder finder(occsimp, s);
     finder.find_xors();
-    check_xors_eq(finder.xors, "1, 2, 3 = 1");
+    check_xors_contains(finder.xors, "1, 2, 3 = 1");
 }
 
 TEST_F(xor_finder, find_tri_2)
@@ -101,7 +101,8 @@ TEST_F(xor_finder, find_tri_3)
     occsimp->setup();
     XorFinder finder(occsimp, s);
     finder.find_xors();
-    check_xors_eq(finder.xors, "1, 2, 3 = 0; 1, 2, 3 = 1");
+    check_xors_contains(finder.xors, "1, 2, 3 = 0");
+    check_xors_contains(finder.xors, "1, 2, 3 = 1");
 }
 
 
@@ -396,7 +397,7 @@ TEST_F(xor_finder, xor_binx)
     bool ret = finder.add_new_truths_from_xors();
     EXPECT_TRUE(ret);
     EXPECT_EQ(finder.xors.size(), 0);
-    check_irred_cls_eq(s, "5, -3; -5, 3");
+    check_red_cls_eq(s, "5, -3; -5, 3");
 }
 
 TEST_F(xor_finder, xor_binx_inv)
@@ -407,7 +408,7 @@ TEST_F(xor_finder, xor_binx_inv)
     bool ret = finder.add_new_truths_from_xors();
     EXPECT_TRUE(ret);
     EXPECT_EQ(finder.xors.size(), 0);
-    check_irred_cls_eq(s, "-5, -3; 5, 3");
+    check_red_cls_eq(s, "-5, -3; 5, 3");
 }
 
 TEST_F(xor_finder, xor_binx_inv2)
@@ -418,7 +419,7 @@ TEST_F(xor_finder, xor_binx_inv2)
     bool ret = finder.add_new_truths_from_xors();
     EXPECT_TRUE(ret);
     EXPECT_EQ(finder.xors.size(), 0);
-    check_irred_cls_eq(s, "5, -3; -5, 3");
+    check_red_cls_eq(s, "5, -3; -5, 3");
 }
 
 TEST_F(xor_finder, xor_binx2_recur)
@@ -429,7 +430,7 @@ TEST_F(xor_finder, xor_binx2_recur)
     bool ret = finder.add_new_truths_from_xors();
     EXPECT_TRUE(ret);
     EXPECT_EQ(finder.xors.size(), 0);
-    check_irred_cls_eq(s, "5, -3; -5, 3");
+    check_red_cls_eq(s, "5, -3; -5, 3");
 }
 
 TEST_F(xor_finder, xor_binx3_recur)
@@ -443,7 +444,15 @@ TEST_F(xor_finder, xor_binx3_recur)
     ret = finder.add_new_truths_from_xors();
     EXPECT_TRUE(ret);
     EXPECT_EQ(finder.xors.size(), 0);
-    check_irred_cls_eq(s, "5, -3; -5, 3");
+    check_red_cls_eq(s, "5, -3; -5, 3");
+}
+
+TEST_F(xor_finder, xor_recur_bug)
+{
+    XorFinder finder(occsimp, s);
+    finder.xors = str_to_xors("3, 7, 9 = 0; 1, 3, 4, 5 = 1;");
+    finder.xor_together_xors();
+    check_xors_eq(finder.xors, "7, 9 , 1, 4, 5 = 1;");
 }
 
 

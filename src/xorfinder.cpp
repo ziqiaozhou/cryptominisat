@@ -70,6 +70,8 @@ void XorFinder::find_xors_based_on_long_clauses()
 
             lits.resize(cl->size());
             std::copy(cl->begin(), cl->end(), lits.begin());
+
+            //TODO check if already inside in some clever way
             findXor(lits, offset, cl->abst);
         }
     }
@@ -101,19 +103,24 @@ void XorFinder::find_xors_based_on_short_clauses()
             if (!w.isTri())
                 continue;
 
-            //Only bother about each tri-clause once
-            if (lit > w.lit2()
-                || w.lit2() > w.lit3()
+
+            if (//Only bother about each tri-clause once
+                lit < w.lit2()
+                && w.lit2() < w.lit3()
+                //If there is an tri XOR = 1 or XOR = 0, there is ALWAYS
+                //a 3-clause with -1 -2 X in there. Take that only
+                && lit.sign()
+                && w.lit2().sign()
             ) {
-                continue;
+
+                lits.resize(3);
+                lits[0] = lit;
+                lits[1] = w.lit2();
+                lits[2] = w.lit3();
+
+                //TODO check if already inside in some clever way
+                findXor(lits, CL_OFFSET_MAX, calcAbstraction(lits));
             }
-
-            lits.resize(3);
-            lits[0] = lit;
-            lits[1] = w.lit2();
-            lits[2] = w.lit3();
-
-            findXor(lits, CL_OFFSET_MAX, calcAbstraction(lits));
         }
     }
 }
@@ -125,7 +132,6 @@ void XorFinder::find_xors()
 
     cls_of_xors.clear();
     xors.clear();
-    assert(solver->watches.get_smudged_list().empty());
     double myTime = cpuTime();
     const int64_t orig_xor_find_time_limit =
         1000LL*1000LL*solver->conf.xor_finder_time_limitM
@@ -145,7 +151,6 @@ void XorFinder::find_xors()
         Clause* cl = solver->cl_alloc.ptr(offset);
         cl->stats.marked_clause = false;
     }
-    solver->clean_occur_from_idx_types_only_smudged();
 
     //Print stats
     const bool time_out = (xor_find_time_limit < 0);
@@ -195,19 +200,6 @@ void XorFinder::add_xors_to_gauss()
     }
 }
 
-bool XorFinder::xor_clause_already_inside(const Xor& xor_c)
-{
-    xor_find_time_limit -= 30;
-    for (const Watched ws: solver->watches.at(xor_c[0])) {
-        if (ws.isIdx()
-            && xors[ws.get_idx()] == xor_c
-        ) {
-            return true;
-        }
-    }
-    return false;
-}
-
 void XorFinder::findXor(vector<Lit>& lits, const ClOffset offset, cl_abst_type abst)
 {
     //Set this clause as the base for the XOR, fill 'seen'
@@ -237,9 +229,8 @@ void XorFinder::findXor(vector<Lit>& lits, const ClOffset offset, cl_abst_type a
         std::sort(lits.begin(), lits.end());
         Xor found_xor(lits, poss_xor.getRHS());
 
-        if (!xor_clause_already_inside(found_xor)) {
-            add_found_xor(found_xor);
-        }
+        //TODO check if already inside in some clever way
+        add_found_xor(found_xor);
         for(ClOffset off: poss_xor.get_offsets()) {
             cls_of_xors.push_back(off);
         }
@@ -253,14 +244,9 @@ void XorFinder::findXor(vector<Lit>& lits, const ClOffset offset, cl_abst_type a
 
 void XorFinder::add_found_xor(const Xor& found_xor)
 {
-    xor_find_time_limit -= 20;
     xors.push_back(found_xor);
     runStats.foundXors++;
     runStats.sumSizeXors += found_xor.size();
-    uint32_t thisXorIndex = xors.size()-1;
-    Lit attach_point = Lit(found_xor[0], false);
-    solver->watches[attach_point].push(Watched(thisXorIndex));
-    solver->watches.smudge(attach_point);
 }
 
 void XorFinder::findXorMatchExt(
@@ -493,6 +479,7 @@ void XorFinder::clean_up_xors()
 
 void XorFinder::xor_together_xors()
 {
+    assert(solver->watches.get_smudged_list().empty());
     uint32_t xored = 0;
     const double myTime = cpuTime();
     assert(toClear.empty());
@@ -556,7 +543,7 @@ void XorFinder::xor_together_xors()
             continue;
         }
 
-        vector<uint32_t> vars = xor_two(x[0], x[1], idxes[0], idxes[1], v);
+        vector<uint32_t> vars = xor_two(x[0], x[1], idxes[0], idxes[1]);
         Xor x_new(vars, x[0].rhs ^ x[1].rhs);
         xors.push_back(x_new);
         for(uint32_t v: x_new) {
@@ -638,9 +625,8 @@ bool XorFinder::add_new_truths_from_xors()
             }
 
             case 1: {
-                vector<Lit> lits;
-                lits.push_back(Lit(x[0], !x.rhs));
-                solver->add_clause_int(lits);
+                vector<Lit> lits = {Lit(x[0], !x.rhs)};
+                solver->add_clause_int(lits, true, ClauseStats(), false);
                 if (!solver->ok) {
                     return false;
                 }
@@ -648,8 +634,14 @@ bool XorFinder::add_new_truths_from_xors()
             }
 
             case 2: {
-                vector<Lit> lits{Lit(x[0], false), Lit(x[1], false)};
-                solver->add_xor_clause_inter(lits, x.rhs, true);
+                //RHS == 1 means both same is not allowed
+                vector<Lit> lits{Lit(x[0], false), Lit(x[1], true^x.rhs)};
+                solver->add_clause_int(lits, true, ClauseStats(), false);
+                if (!solver->ok) {
+                    return false;
+                }
+                lits = {Lit(x[0], true), Lit(x[1], false^x.rhs)};
+                solver->add_clause_int(lits, true, ClauseStats(), false);
                 if (!solver->ok) {
                     return false;
                 }
@@ -689,8 +681,7 @@ bool XorFinder::add_new_truths_from_xors()
 
 vector<uint32_t> XorFinder::xor_two(
     Xor& x1, Xor& x2
-    , const size_t idx1, const size_t idx2
-    , const uint32_t v)
+    , const size_t idx1, const size_t idx2)
 {
     x1.sort();
     x2.sort();
@@ -712,19 +703,9 @@ vector<uint32_t> XorFinder::xor_two(
 
         const uint32_t a = x1[x1_at];
         const uint32_t b = x2[x2_at];
-        if (a == v) {
-            x1_at++;
-            x2_at++;
-            continue;
-        }
-
         if (a == b) {
             x1_at++;
             x2_at++;
-            //we could/should update seen[] but in case there are too many XORs
-            //we could not store the value in seen[] when counting and then
-            //everything would go haywire. So this algorithm is not perfect
-            //but is good enough
             continue;
         }
 

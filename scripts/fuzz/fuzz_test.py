@@ -38,7 +38,6 @@ from random import choice
 from subprocess import Popen, PIPE, STDOUT
 # from optparse import OptionParser
 import optparse
-import calendar
 import glob
 
 print("our CWD is: %s files here: %s" % (os.getcwd(), glob.glob("*")) )
@@ -47,9 +46,6 @@ print("our sys.path is", sys.path)
 
 from xor_to_cnf_class import *
 from debuglib import *
-
-maxTime = 80
-maxTimeDiff = 20
 
 
 class PlainHelpFormatter(optparse.IndentedHelpFormatter):
@@ -94,6 +90,12 @@ parser.add_option("--sqlite", dest="sqlite", default=False,
 
 parser.add_option("--gauss", dest="test_gauss", default=False,
                   action="store_true", help="Test gauss too")
+
+parser.add_option("--tout", "-t", dest="maxtime", type=int, default=80,
+                  help="Max time to run")
+
+parser.add_option("--textra", dest="maxtimediff", type=int, default=20,
+                  help="Extra time on top of timeout for processing")
 
 
 (options, args) = parser.parse_args()
@@ -356,8 +358,8 @@ class create_fuzz:
 
 def setlimits():
     # sys.stdout.write("Setting resource limit in child (pid %d): %d s\n" %
-    # (os.getpid(), maxTime))
-    resource.setrlimit(resource.RLIMIT_CPU, (maxTime, maxTime))
+    # (os.getpid(), options.maxtime))
+    resource.setrlimit(resource.RLIMIT_CPU, (options.maxtime, options.maxtime))
 
 
 def file_exists(fname):
@@ -616,7 +618,7 @@ class Tester:
         # execute with the other solver
         toexec = "lingeling -f %s" % tmpfname
         print("Solving with other solver: %s" % toexec)
-        currTime = calendar.timegm(time.gmtime())
+        curr_time = time.time()
         try:
             p = subprocess.Popen(toexec.rsplit(),
                                  stdout=subprocess.PIPE,
@@ -629,8 +631,8 @@ class Tester:
         os.unlink(tmpfname)
 
         # if other solver was out of time, then we can't say anything
-        diffTime = calendar.timegm(time.gmtime()) - currTime
-        if diffTime > maxTime - maxTimeDiff:
+        diff_time = time.time() - curr_time
+        if diff_time > options.maxtime - options.maxtimediff:
             print("Other solver: too much time to solve, aborted!")
             return None
 
@@ -805,7 +807,7 @@ class Tester:
         consoleOutput = ""
         if checkAgainst is None:
             checkAgainst = fname
-        currTime = calendar.timegm(time.gmtime())
+        curr_time = time.time()
 
         # Do we need to solve the problem, or is it already solved?
         consoleOutput, retcode = self.execute(
@@ -814,13 +816,12 @@ class Tester:
 
         # if time was limited, we need to know if we were over the time limit
         # and that is why there is no solution
-        diffTime = calendar.timegm(time.gmtime()) - currTime
-        if diffTime > (maxTime - maxTimeDiff) / self.num_threads:
+        diff_time = time.time() - curr_time
+        if diff_time > (options.maxtime - options.maxtimediff) / self.num_threads:
             print("Too much time to solve, aborted!")
             return None
-        else:
-            print("Within time limit: %.2f s" % (calendar.timegm(time.gmtime()) - currTime))
 
+        print("Within time limit: %.2f s" % diff_time)
         print("filename: %s" % fname)
 
         # if library debug is set, check it
@@ -852,7 +853,7 @@ class Tester:
             print("Checking DRAT...: ", toexec)
             p = subprocess.Popen(toexec.rsplit(), stdout=subprocess.PIPE)
             consoleOutput2 = p.communicate()[0]
-            diffTime = calendar.timegm(time.gmtime()) - currTime
+            diff_time = time.time() - curr_time
 
             # find verification code
             foundVerif = False
@@ -956,23 +957,30 @@ class Tester:
         # preprocess
         simp = "%s-simplified.cnf" % fname
         self.delete_file_no_matter_what(simp)
+        curr_time = time.time()
         console, retcode = self.execute(fname, fname2=simp,
                                         rnd_opts=rnd_opts,
                                         fixed_opts="--preproc 1")
-        if retcode != 0:
-            print("Return code is not 0, error!")
-            exit(-1)
 
-        solution = "%s-solution.txt" % fname
-        ret = self.check(fname=simp, dump_output_fname=solution)
-        if ret is not None:
-            # didn't time out, so let's reconstruct the solution
-            savedstate = "%s-savedstate.dat" % simp
-            self.check(fname=solution, checkAgainst=fname,
-                       fixed_opts="--preproc 2 --savedstate %s" % savedstate,
-                       rnd_opts=rnd_opts)
-            os.unlink(savedstate)
-            os.unlink(solution)
+        diff_time = time.time() - curr_time
+        if diff_time > (options.maxtime - options.maxtimediff) / self.num_threads:
+            print("Too much time to solve, aborted!")
+        else:
+            print("Within time limit: %.2f s" % diff_time)
+            if retcode != 0:
+                print("Return code is not 0, error!")
+                exit(-1)
+
+            solution = "%s-solution.txt" % fname
+            ret = self.check(fname=simp, dump_output_fname=solution)
+            if ret is not None:
+                # didn't time out, so let's reconstruct the solution
+                savedstate = "%s-savedstate.dat" % simp
+                self.check(fname=solution, checkAgainst=fname,
+                           fixed_opts="--preproc 2 --savedstate %s" % savedstate,
+                           rnd_opts=rnd_opts)
+                os.unlink(savedstate)
+                os.unlink(solution)
 
         # remove temporary filenames
         os.unlink(fname)
