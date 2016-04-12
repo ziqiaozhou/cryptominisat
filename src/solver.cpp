@@ -3161,8 +3161,8 @@ void Solver::reconfigure(int val)
             conf.ratio_keep_clauses[clean_to_int(ClauseClean::size)] = 0.1;
             conf.ratio_keep_clauses[clean_to_int(ClauseClean::activity)] = 0.3;
             conf.inc_max_temp_red_cls = 1.04;
+            conf.var_decay_max_glue  = 0.90; //more 'slow' in adjusting activities
 
-            conf.var_decay_max = 0.90; //more 'slow' in adjusting activities
             update_var_decay();
             reset_temp_cl_num();
             break;
@@ -3178,7 +3178,8 @@ void Solver::reconfigure(int val)
             conf.more_red_minim_limit_binary = 600;
             conf.max_num_lits_more_red_min = 20;
             conf.max_temporary_learnt_clauses = 10000;
-            conf.var_decay_max = 0.99; //more 'fast' in adjusting activities
+            conf.var_decay_max_glue = 0.99; //more 'fast' in adjusting activities
+
             update_var_decay();
             break;
         }
