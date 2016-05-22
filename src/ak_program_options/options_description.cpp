@@ -365,7 +365,6 @@ std::vector<option_description *> options_description::options() const {
 
     for (const options_description *group : m_groups) {
         std::vector<option_description *> vGroup = group->options();
-
         v.insert(v.end(), vGroup.begin(), vGroup.end());
     }
 
