@@ -28,6 +28,8 @@
 #include "main.h"
 #include <fstream>
 #include <map>
+#include <random>
+
 struct SATCount {
     void clear()
     {

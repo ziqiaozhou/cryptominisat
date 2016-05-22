@@ -47,6 +47,7 @@
 #include <string.h>
 #include <list>
 #include <array>
+#include <algorithm>
 #include <time.h>
 
 #include "scalmc.h"
@@ -58,7 +59,6 @@
 using std::cout;
 using std::cerr;
 using std::endl;
-using boost::lexical_cast;
 using std::list;
 using std::map;
 

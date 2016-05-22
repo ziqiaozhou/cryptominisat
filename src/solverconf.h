@@ -203,8 +203,8 @@ class SolverConf
         int print_restart_line_every_n_confl;
 
         //Limits
-        double   maxTime;
-        long maxConfl;
+        double    maxTime;
+        long      maxConfl;
 
         //Glues
         int       update_glues_on_prop;
@@ -217,8 +217,8 @@ class SolverConf
         int       rewardShortenedClauseWithConfl; //Shortened through OTF subsumption
 
         //SQL
-        bool      dump_individual_search_time;
-        bool      dump_individual_restarts_and_clauses;
+        int      dump_individual_search_time;
+        int      dump_individual_restarts_and_clauses;
 
         //Var-elim
         int      doVarElim;          ///<Perform variable elimination

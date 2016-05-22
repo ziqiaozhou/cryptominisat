@@ -1,3 +1,5 @@
+add_subdirectory(ak_program_options)
+
 include_directories(
     ${PROJECT_SOURCE_DIR}
 )
@@ -242,7 +244,6 @@ add_executable(cryptominisat4_simple
 
 set(cryptoms_exec_link_libs
     libcryptominisat4
-    ${Boost_LIBRARIES}
 )
 
 IF (ZLIB_FOUND)
@@ -265,6 +266,7 @@ set_target_properties(cryptominisat4_simple PROPERTIES
 if (NOT ONLY_SIMPLE)
     target_link_libraries(cryptominisat4
         ${cryptoms_exec_link_libs}
+        ak_program_options
     )
     install(TARGETS cryptominisat4
         EXPORT ${CRYPTOMINISAT4_EXPORT_NAME}
@@ -274,6 +276,7 @@ if (NOT ONLY_SIMPLE)
 
     target_link_libraries(scalmc
         ${cryptoms_exec_link_libs}
+        ak_program_options
         rt
     )
     install(TARGETS scalmc
