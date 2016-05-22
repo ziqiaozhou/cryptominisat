@@ -34,6 +34,7 @@
 #include "akpo_getopt.h"
 #include "positional_options.h"
 #include "variables_map.h"
+#include <string.h>
 
 //  global variables for getopt_long()
 int   ac_opterr;   /* if error message should be printed */
@@ -50,7 +51,8 @@ is not changed, even if 'options' specify some value.
 */
 void store(const basic_parsed_options *options, variables_map &vm)
 {
-    char *short_options = (char *)options->short_options().c_str();
+    char *short_options = strdup(options->short_options().c_str());
+
     option *long_options = options->long_options();
     const positional_options_description *positional_options = options->get_positional_description();
     int index;
