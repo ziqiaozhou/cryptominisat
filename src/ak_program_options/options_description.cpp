@@ -273,7 +273,6 @@ const option_description *options_description::findById(int id) const {
 
     for (const options_description *group : m_groups) {
         const option_description *opt = group->findById(id);
-
         if (opt != nullptr) {
             return opt;
         }

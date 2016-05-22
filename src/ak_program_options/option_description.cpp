@@ -138,8 +138,7 @@ namespace ak_program_options {
         return (value_semantic *)m_value_semantic;
     }
 
-    option_description&
-        option_description::set_name(const char* _name)
+    option_description& option_description::set_name(const char* _name)
     {
         std::string name(_name);
         std::string::size_type n = name.find(',');

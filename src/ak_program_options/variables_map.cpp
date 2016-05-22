@@ -107,7 +107,6 @@ void store(const basic_parsed_options *options, variables_map &vm)
             ak_optind-=1;
             std::string name(options->argv[ak_optind]);
             unknown_option e(name);
-
             throw_exception<unknown_option>(e);
         }
 
