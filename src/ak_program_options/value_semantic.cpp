@@ -332,7 +332,17 @@ namespace ak_program_options {
     template<>
     void Value<std::string>::set_value(const char *v) {
         m_value = std::string(v);
-        if ((m_value.size() >= 2) && m_value.substr(0, 2) == "--") {
+
+        //Not another long option
+        if (m_value.size() >= 2 && m_value.substr(0, 2) == "--") {
+            throw_exception<invalid_option_value>(invalid_option_value("", m_value));
+        }
+
+        //Not another short option
+        if (m_value.size() == 2
+            && m_value[0] == '-'
+            && !(m_value[0] >= '0' && m_value[0] <= '9')
+        ) {
             throw_exception<invalid_option_value>(invalid_option_value("", m_value));
         }
         m_empty = false;
