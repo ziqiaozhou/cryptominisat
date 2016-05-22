@@ -91,7 +91,6 @@ void store(const basic_parsed_options *options, variables_map &vm)
 
                 //  entry must not be present yet
                 assert(vm.find(name) == vm.end());
-
                 vm.insert(std::pair<std::string, value_semantic *>(name, sem));
 
                 continue;
@@ -106,7 +105,7 @@ void store(const basic_parsed_options *options, variables_map &vm)
 
         const option_description *desc = options->findById(opt);
         if (desc == nullptr) {
-            ak_optind-=1;
+            ak_optind--;
             std::string name(options->argv[ak_optind]);
             unknown_option e(name);
             throw_exception<unknown_option>(e);
@@ -119,10 +118,8 @@ void store(const basic_parsed_options *options, variables_map &vm)
         if (!(bInsertNeeded || sem->composing())) {
             std::string name(desc->format_name());
             multiple_occurrences e(name);
-
             throw_exception<multiple_occurrences>(e);
-        }
-        else {
+        } else {
             if (sem != nullptr) {
                 if (ak_optarg) {
                     sem->set_value(ak_optarg);
