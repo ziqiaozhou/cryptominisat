@@ -193,8 +193,8 @@ getopt_long(int nargc, char **nargv, const char *options, struct option *long_op
                 match = i;
                 break;
             }
-            if (match == -1)
-                match = i;
+            /*if (match == -1)
+                match = i;*/
         }
         if (match != -1) {
             if (long_options[match].has_arg == required_argument ||
