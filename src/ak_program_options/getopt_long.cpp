@@ -45,8 +45,13 @@
 #include <string.h>
 #include "akpo_getopt.h"
 
+#ifndef __P
 #define __P(x) x
+#endif
+
+#ifndef _DIAGASSERT
 #define _DIAGASSERT(x) assert(x)
+#endif
 
 //  static char * __progname __P((const char *));
 // int getopt_internal __P((int, char * const *, const char *));
