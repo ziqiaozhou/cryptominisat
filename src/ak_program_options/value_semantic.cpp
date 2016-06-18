@@ -47,9 +47,11 @@ std::string no_arg("");
 
 std::string value_semantic::name() const
 {
-    return required() ? arg :
-           is_bool_switch() ? no_arg :
-           optional_arg;
+    if (required()) {
+        return arg;
+    } else {
+       return is_bool_switch() ? no_arg : optional_arg;
+    }
 }
 
 template<>
