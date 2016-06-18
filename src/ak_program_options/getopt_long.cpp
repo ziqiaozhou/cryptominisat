@@ -36,7 +36,7 @@
  * There is one single change of the original: Arguments starting with '-' are treated as no-argument.
  * This is relevant for options with implicit values.
  * Compiled as c++ rather than c
- * 
+ *
  */
 #include <assert.h>
 #include <errno.h>
@@ -56,19 +56,20 @@
 //  static char * __progname __P((const char *));
 // int getopt_internal __P((int, char * const *, const char *));
 
-static const char *
-__progname(const char *nargv0)
+static const char*
+__progname(const char* nargv0)
 {
-    const char * tmp;
+    const char* tmp;
 
     _DIAGASSERT(nargv0 != NULL);
 
     tmp = strrchr(nargv0, '/');
-    if (tmp)
+    if (tmp) {
         tmp++;
-    else
+    } else {
         tmp = nargv0;
-    return(tmp);
+    }
+    return (tmp);
 }
 
 #define BADCH   (int)'?'
@@ -80,10 +81,10 @@ __progname(const char *nargv0)
  *  Parse argc/argv argument vector.
  */
 int
-getopt_internal(int nargc, char **nargv, const char *ostr)
+getopt_internal(int nargc, char** nargv, const char* ostr)
 {
-    static const char *place = EMSG;  /* option letter processing */
-    const char *oli;                          /* option letter list index */
+    static const char* place = EMSG;  /* option letter processing */
+    const char* oli;                          /* option letter list index */
 
     _DIAGASSERT(nargv != NULL);
     _DIAGASSERT(ostr != NULL);
@@ -101,36 +102,40 @@ getopt_internal(int nargc, char **nargv, const char *ostr)
         }
     }                   /* option letter okay? */
     if ((ak_optopt = (int)*place++) == (int)':' ||
-        !(oli = strchr(ostr, ak_optopt))) {
+            !(oli = strchr(ostr, ak_optopt))) {
         /*
          * if the user didn't specify '-' as an option,
          * assume it means -1.
          */
-        if (ak_optopt == (int)'-')
+        if (ak_optopt == (int)'-') {
             return (-1);
-        if (!*place)
+        }
+        if (!*place) {
             ++ak_optind;
+        }
         if (ac_opterr && *ostr != ':')
             (void)fprintf(stderr,
-                "%s: illegal option -- %c\n", __progname(nargv[0]), ak_optopt);
+                          "%s: illegal option -- %c\n", __progname(nargv[0]), ak_optopt);
         return (BADCH);
     }
     if (*++oli != ':') {            /* don't need argument */
         ak_optarg = NULL;
-        if (!*place)
+        if (!*place) {
             ++ak_optind;
+        }
     } else {                /* need an argument */
-        if (*place)         /* no white space */
-            ak_optarg = (char *)place;
-        else if (nargc <= ++ak_optind) {   /* no arg */
+        if (*place) {       /* no white space */
+            ak_optarg = (char*)place;
+        } else if (nargc <= ++ak_optind) { /* no arg */
             place = EMSG;
             if ((ac_opterr) && (*ostr != ':'))
                 (void)fprintf(stderr,
-                    "%s: option requires an argument -- %c\n",
-                    __progname(nargv[0]), ak_optopt);
+                              "%s: option requires an argument -- %c\n",
+                              __progname(nargv[0]), ak_optopt);
             return (BADARG);
-        } else              /* white space */
+        } else {            /* white space */
             ak_optarg = nargv[ak_optind];
+        }
         place = EMSG;
         ++ak_optind;
     }
@@ -144,17 +149,17 @@ getopt_internal(int nargc, char **nargv, const char *ostr)
  */
 int
 getopt2(nargc, nargv, ostr)
-    int nargc;
-    char * const *nargv;
-    const char *ostr;
+int nargc;
+char* const* nargv;
+const char* ostr;
 {
     int retval;
 
     if ((retval = getopt_internal(nargc, nargv, ostr)) == -2) {
         retval = -1;
-        ++ak_optind; 
+        ++ak_optind;
     }
-    return(retval);
+    return (retval);
 }
 #endif
 
@@ -163,7 +168,7 @@ getopt2(nargc, nargv, ostr)
  *  Parse argc/argv argument vector.
  */
 int
-getopt_long(int nargc, char **nargv, const char *options, struct option *long_options, int *index)
+getopt_long(int nargc, char** nargv, const char* options, struct option* long_options, int* index)
 {
     int retval;
 
@@ -173,23 +178,25 @@ getopt_long(int nargc, char **nargv, const char *options, struct option *long_op
     /* index may be NULL */
 
     if ((retval = getopt_internal(nargc, nargv, options)) == -2) {
-        char *current_argv = nargv[ak_optind++] + 2, *has_equal;
+        char* current_argv = nargv[ak_optind++] + 2, *has_equal;
         int i, current_argv_len, match = -1;
 
         if (*current_argv == '\0') {
-            return(-1);
+            return (-1);
         }
         if ((has_equal = strchr(current_argv, '=')) != NULL) {
             current_argv_len = has_equal - current_argv;
             has_equal++;
-        } else
+        } else {
             current_argv_len = strlen(current_argv);
+        }
 
-        for (i = 0; long_options[i].name; i++) { 
-            if (strncmp(current_argv, long_options[i].name, current_argv_len))
+        for (i = 0; long_options[i].name; i++) {
+            if (strncmp(current_argv, long_options[i].name, current_argv_len)) {
                 continue;
+            }
 
-            if (strlen(long_options[i].name) == (unsigned)current_argv_len) { 
+            if (strlen(long_options[i].name) == (unsigned)current_argv_len) {
                 match = i;
                 break;
             }
@@ -198,11 +205,12 @@ getopt_long(int nargc, char **nargv, const char *options, struct option *long_op
         }
         if (match != -1) {
             if (long_options[match].has_arg == required_argument ||
-                long_options[match].has_arg == optional_argument) {
-                if (has_equal)
+                    long_options[match].has_arg == optional_argument) {
+                if (has_equal) {
                     ak_optarg = has_equal;
-                else
+                } else {
                     ak_optarg = nargv[ak_optind++];
+                }
 
                 //  quick fix to handle optional argument which are not present
                 //  Axel Kemper 25-Sep-2015
@@ -214,30 +222,32 @@ getopt_long(int nargc, char **nargv, const char *options, struct option *long_op
 
             }
             if ((long_options[match].has_arg == required_argument)
-                && (ak_optarg == NULL)) {
+                    && (ak_optarg == NULL)) {
                 /*
                  * Missing argument, leading :
                  * indicates no error should be generated
                  */
                 if ((ac_opterr) && (*options != ':'))
                     (void)fprintf(stderr,
-                      "%s: option requires an argument -- %s\n",
-                      __progname(nargv[0]), current_argv);
+                                  "%s: option requires an argument -- %s\n",
+                                  __progname(nargv[0]), current_argv);
                 return (BADARG);
             }
         } else { /* No matching argument */
             if ((ac_opterr) && (*options != ':'))
                 (void)fprintf(stderr,
-                    "%s: illegal option -- %s\n", __progname(nargv[0]), current_argv);
+                              "%s: illegal option -- %s\n", __progname(nargv[0]), current_argv);
             return (BADCH);
         }
         if (long_options[match].flag) {
             *long_options[match].flag = long_options[match].val;
             retval = 0;
-        } else 
+        } else {
             retval = long_options[match].val;
-        if (index)
+        }
+        if (index) {
             *index = match;
+        }
     }
-    return(retval);
+    return (retval);
 }

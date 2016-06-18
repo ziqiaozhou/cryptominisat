@@ -8,14 +8,13 @@ extern int ac_opterr;      /* if error message should be printed */
 extern int ak_optind;      /* index into parent argv vector */
 extern int ak_optopt;      /* character checked for validity */
 extern int ak_optreset;        /* reset getopt */
-extern char *ak_optarg;        /* argument associated with option */
+extern char* ak_optarg;        /* argument associated with option */
 
-struct option
-{
-  const char *name;
-  int has_arg;
-  int *flag;
-  int val;
+struct option {
+    const char* name;
+    int has_arg;
+    int* flag;
+    int val;
 };
 
 
