@@ -243,11 +243,6 @@ MESSAGE(STATUS "PROJECT_VERSION_MAJOR: ${PROJECT_VERSION_MAJOR}")
 MESSAGE(STATUS "PROJECT_VERSION_MINOR: ${PROJECT_VERSION_MINOR}")
 MESSAGE(STATUS "PROJECT_VERSION_PATCH: ${PROJECT_VERSION_PATCH}")
 
-if (ENABLE_TESTING)
-    set (boost_components "")
-    find_package( Boost 1.46 COMPONENTS ${boost_components})
-endif()
-
 option(ALSO_BUILD_STATIC_LIB "Also build the static library" OFF)
 
 
@@ -381,12 +376,6 @@ if (ENABLE_PYTHON_INTERFACE AND PYTHON_OK)
     add_subdirectory(python pycryptosat)
 endif()
 
-#command-line parsing executable needs boost program-options
-if(NOT Boost_FOUND)
-    set(ONLY_SIMPLE ON)
-    message(STATUS "Only building executable with few command-line options because the boost program_options library were not available")
-    set(ENABLE_TESTING OFF)
-endif()
 
 # -----------------------------------------------------------------------------
 # Provide an export name to be used by targets that wish to export themselves.
