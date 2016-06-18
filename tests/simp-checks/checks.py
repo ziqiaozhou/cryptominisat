@@ -73,7 +73,7 @@ def test_velim_one_file(fname):
     except:
         pass
 
-    toexec = "%s --zero-exit-status -p1 %s %s" % (cms4_exe, fname, simp_fname)
+    toexec = "%s --zero-exit-status 1 -p1 %s %s" % (cms4_exe, fname, simp_fname)
     print("Executing: %s" % toexec)
 
     start = time.time()

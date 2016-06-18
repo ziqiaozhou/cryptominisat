@@ -186,7 +186,7 @@ class solverThread (threading.Thread):
         toexec.append(self.get_cnf_fname())
         if self.indata["drat"]:
             toexec.append(self.get_drat_fname())
-            toexec.append("--clid")
+            toexec.append("--clid 1")
             toexec.append("-n 1")
             toexec.append("--keepglue 25")
             toexec.append("--otfsubsume 0")

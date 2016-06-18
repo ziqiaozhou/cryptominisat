@@ -224,15 +224,15 @@ sudo make install
 
 case $CMS_CONFIG in
     MYSQL|WEB)
-        echo "1 2 0" | ./cryptominisat4 --sql 1 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --sql 1 --zero-exit-status 1
     ;;
 
     SQLITE)
-        echo "1 2 0" | ./cryptominisat4 --sql 2 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --sql 2 --zero-exit-status 1
     ;;
 
     M4RI)
-        echo "1 2 0" | ./cryptominisat4 --xor 1 --zero-exit-status
+        echo "1 2 0" | ./cryptominisat4 --xor 1 --zero-exit-status 1
     ;;
 
     *)

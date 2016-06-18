@@ -435,7 +435,7 @@ class Tester:
         return False
 
     def random_options(self, preproc=False):
-        cmd = " --zero-exit-status "
+        cmd = " --zero-exit-status 1 "
 
         if random.choice([True, False]):
             cmd += " --reconf %d " % random.choice([3, 6, 7, 12, 13, 14])

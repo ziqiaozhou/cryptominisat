@@ -112,7 +112,7 @@ class Main
         std::ofstream* resultfile = NULL;
 
         //Config
-        bool zero_exit_status = false;
+        int zero_exit_status = false;
         std::string resultFilename;
         std::string debugLib;
         int printResult = true;
@@ -132,8 +132,8 @@ class Main
 
         //Drat checker
         std::ostream* dratf = NULL;
-        bool dratDebug = false;
-        bool clause_ID_needed = false;
+        int dratDebug = false;
+        int clause_ID_needed = false;
 };
 
 #endif //MAIN_H
