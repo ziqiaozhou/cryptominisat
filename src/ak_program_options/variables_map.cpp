@@ -51,7 +51,7 @@ is not changed, even if 'options' specify some value.
 */
 void store(const basic_parsed_options* options, variables_map& vm)
 {
-    char* short_options = strdup(options->short_options().c_str());
+    std::string short_options(options->short_options().c_str());
 
     option* long_options = options->long_options();
     const positional_options_description* positional_options = options->get_positional_description();
@@ -67,7 +67,7 @@ void store(const basic_parsed_options* options, variables_map& vm)
     while (true) {
         index = 0;
         const int opt = getopt_long(
-                            options->argc, options->argv, short_options, long_options, &index);
+                            options->argc, options->argv, short_options.c_str(), long_options, &index);
 
         if ((char)opt == ':') {
             throw_exception<invalid_option_value>(invalid_option_value(options->argv[ak_optind-2], ""));
@@ -90,7 +90,7 @@ void store(const basic_parsed_options* options, variables_map& vm)
 
                 //  entry must not be present yet
                 assert(vm.find(name) == vm.end());
-                vm.insert(std::pair<std::string, value_semantic*>(name, sem));
+                vm.insert(std::make_pair(name, sem));
 
                 continue;
             } else {
@@ -126,7 +126,7 @@ void store(const basic_parsed_options* options, variables_map& vm)
                 }
             }
             if (bInsertNeeded) {
-                vm.insert(std::pair<std::string, value_semantic*>(name, sem));
+                vm.insert(std::make_pair(name, sem));
             }
         }
     }
@@ -142,7 +142,7 @@ void store(const basic_parsed_options* options, variables_map& vm)
             bool bInsertNeeded = (vm.find(name) == vm.end()) && sem->defaulted();
 
             if (bInsertNeeded) {
-                vm.insert(std::pair<std::string, value_semantic*>(name, sem));
+                vm.insert(std::make_pair(name, sem));
             }
         }
     }
