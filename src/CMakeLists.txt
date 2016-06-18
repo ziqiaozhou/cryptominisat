@@ -221,19 +221,18 @@ if (ALSO_BUILD_STATIC_LIB)
 endif()
 
 
-if (NOT ONLY_SIMPLE)
-    add_executable(cryptominisat4
-        main.cpp
-        main_exe.cpp
-        signalcode.cpp
-    )
 
-    add_executable(scalmc
-        main.cpp
-        signalcode.cpp
-        scalmc.cpp
-    )
-endif()
+add_executable(cryptominisat4
+    main.cpp
+    main_exe.cpp
+    signalcode.cpp
+)
+
+add_executable(scalmc
+    main.cpp
+    signalcode.cpp
+    scalmc.cpp
+)
 add_executable(cryptominisat4_simple
     main_simple.cpp
 )
@@ -246,41 +245,39 @@ IF (ZLIB_FOUND)
     SET(cryptoms_exec_link_libs ${cryptoms_exec_link_libs} ${ZLIB_LIBRARY})
 ENDIF()
 
-if (NOT ONLY_SIMPLE)
-    set_target_properties(cryptominisat4 PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
-        INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-    set_target_properties(scalmc PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
-        INSTALL_RPATH_USE_LINK_PATH TRUE)
-endif()
+set_target_properties(cryptominisat4 PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+    INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+set_target_properties(scalmc PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+    INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 set_target_properties(cryptominisat4_simple PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
     INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-if (NOT ONLY_SIMPLE)
-    target_link_libraries(cryptominisat4
-        ${cryptoms_exec_link_libs}
-        ak_program_options
-    )
-    install(TARGETS cryptominisat4
-        EXPORT ${CRYPTOMINISAT4_EXPORT_NAME}
-        RUNTIME DESTINATION bin
-    )
-    SET(CPACK_PACKAGE_EXECUTABLES "cryptominisat4")
+target_link_libraries(cryptominisat4
+    ${cryptoms_exec_link_libs}
+    ak_program_options
+)
+install(TARGETS cryptominisat4
+    EXPORT ${CRYPTOMINISAT4_EXPORT_NAME}
+    RUNTIME DESTINATION bin
+)
+SET(CPACK_PACKAGE_EXECUTABLES "cryptominisat4")
 
-    target_link_libraries(scalmc
-        ${cryptoms_exec_link_libs}
-        ak_program_options
-        rt
-    )
-    install(TARGETS scalmc
-        EXPORT ${CRYPTOMINISAT4_EXPORT_NAME}
-        RUNTIME DESTINATION bin
-    )
-    SET(CPACK_PACKAGE_EXECUTABLES "scalmc")
-endif()
+target_link_libraries(scalmc
+    ${cryptoms_exec_link_libs}
+    ak_program_options
+    rt
+)
+install(TARGETS scalmc
+    EXPORT ${CRYPTOMINISAT4_EXPORT_NAME}
+    RUNTIME DESTINATION bin
+)
+SET(CPACK_PACKAGE_EXECUTABLES "scalmc")
 
 target_link_libraries(cryptominisat4_simple
     ${cryptoms_exec_link_libs}

@@ -205,7 +205,6 @@ if(STATICCOMPILE AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
     set(STP_STATIC_LIBRARY libstp) # Used for exporting target
     unset(ALSO_BUILD_STATIC_LIB CACHE) # Hide this option for ccmake and cmake-gui users
 else()
-    add_definitions(-DBOOST_TEST_DYN_LINK)
     MESSAGE(STATUS "Compiling for dynamic library use")
 endif()
 
@@ -440,9 +439,7 @@ set(CRYPTOMINISAT4_STATIC_DEPS
 
 # Export targets
 set(MY_TARGETS libcryptominisat4 cryptominisat4_simple)
-if (NOT ONLY_SIMPLE)
-    set(MY_TARGETS ${MY_TARGETS} cryptominisat4)
-endif()
+set(MY_TARGETS ${MY_TARGETS} cryptominisat4)
 if (ALSO_BUILD_STATIC_LIB)
     set(MY_TARGETS ${MY_TARGETS} libcryptominisat4_static)
 endif()

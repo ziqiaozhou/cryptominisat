@@ -76,15 +76,8 @@ case $CMS_CONFIG in
                    "${SOURCE_DIR}"
     ;;
 
-    ONLY_SIMPLE)
+    STATIC)
         eval cmake "${COMMON_CMAKE_ARGS}" \
-                   -DONLY_SIMPLE:BOOL=ON \
-                   "${SOURCE_DIR}"
-    ;;
-
-    ONLY_SIMPLE_STATIC)
-        eval cmake "${COMMON_CMAKE_ARGS}" \
-                   -DONLY_SIMPLE:BOOL=ON \
                    -DSTATICCOMPILE:BOOL=ON \
                    "${SOURCE_DIR}"
     ;;
@@ -278,7 +271,7 @@ fi
 
 
 #do fuzz testing
-if [ "$CMS_CONFIG" != "ONLY_SIMPLE" ] && [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "NOPYTHON" ] && [ "$CMS_CONFIG" != "COVERAGE" ] && [ "$CMS_CONFIG" != "INTREE_BUILD" ] && [ "$CMS_CONFIG" != "STATS" ] && [ "$CMS_CONFIG" != "SQLITE" ] && [ "$CMS_CONFIG" != "MYSQL" ]; then
+if [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "NOPYTHON" ] && [ "$CMS_CONFIG" != "COVERAGE" ] && [ "$CMS_CONFIG" != "INTREE_BUILD" ] && [ "$CMS_CONFIG" != "STATS" ] && [ "$CMS_CONFIG" != "SQLITE" ] && [ "$CMS_CONFIG" != "MYSQL" ]; then
     cd ../scripts/fuzz/
     ./fuzz_test.py --novalgrind --small --fuzzlim 30
 fi
