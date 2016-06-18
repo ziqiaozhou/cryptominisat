@@ -64,6 +64,12 @@ public:
     ~options_description() {};
     options_description(const std::string& caption)
     {
+        for(auto x: m_options) {
+            delete x;
+        }
+        for(auto x: m_groups) {
+            delete x;
+        }
         m_caption = caption;
     };
 

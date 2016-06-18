@@ -388,7 +388,6 @@ operator()(const char* name,
            const char* description)
 {
     option_description* d = new option_description(name, s, description);
-
     m_owner->add(d);
     return *this;
 }

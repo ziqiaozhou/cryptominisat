@@ -69,7 +69,7 @@ public:
     }
 };
 
-basic_command_line_parser command_line_parser(unsigned argc, char** argv);
+basic_command_line_parser* command_line_parser(unsigned argc, char** argv);
 }
 
 #endif

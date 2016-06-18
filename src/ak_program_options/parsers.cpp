@@ -100,11 +100,10 @@ option* basic_parsed_options::long_options() const
     return long_opts;
 }
 
-basic_command_line_parser command_line_parser(unsigned argc, char** argv)
+basic_command_line_parser* command_line_parser(unsigned argc, char** argv)
 {
     basic_command_line_parser* clp = new basic_command_line_parser(argc, argv);
-
-    return *clp;
+    return clp;
 }
 
 }

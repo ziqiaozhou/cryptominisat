@@ -715,7 +715,10 @@ void Main::add_supported_options()
 void Main::check_options_correctness()
 {
     try {
-        po::store(po::command_line_parser(argc, argv).options(all_options).positional(p).run(), vm);
+        ak_program_options::basic_command_line_parser* x  = po::command_line_parser(argc, argv);
+        po::store(x->options(all_options).positional(p).run(), vm);
+        delete x;
+
         if (vm.count("hhelp"))
         {
             cout

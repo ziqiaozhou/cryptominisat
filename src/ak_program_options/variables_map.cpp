@@ -146,6 +146,7 @@ void store(const basic_parsed_options* options, variables_map& vm)
             }
         }
     }
+    delete options;
 }
 
 void notify(variables_map& vm)
