@@ -29,61 +29,113 @@
 #include <fstream>
 #include <random>
 #include <map>
+#include <array>
+#include "cryptominisat5/cryptominisat.h"
+#define PARALLEL 0
 struct SATCount {
     void clear()
     {
         SATCount tmp;
         *this = tmp;
     }
+	std::string str(){
+		std::ostringstream out("");
+		out<<cellSolCount<<"*2^"<<hashCount;
+		return out.str();
+	}
     uint32_t hashCount = 0;
-    uint32_t cellSolCount = 0;
+    double cellSolCount = 0;
 };
-
+class JaccardResult{
+	public:
+		std::map<uint64_t,vector<uint64_t>> numHashList;//for output
+		std::map<uint64_t,vector<int64_t>> numCountList;//for outpur
+		std::map<uint64_t,SATCount> count;//for outpur
+		std::map<uint64_t,uint64_t> hashCount;
+		std::map<uint64_t,bool> searched;
+		JaccardResult(){
+		};
+		~JaccardResult(){
+		};
+};
+struct JaccardPara{
+	bool computePrev;
+	uint64_t jaccardHashCount;
+	std::map<uint64_t,vector<uint64_t>> numHashList;//for output
+	std::map<uint64_t,vector<int64_t>> numCountList;//for outpur
+	std::map<uint64_t,SATCount> count;//for outpur
+	uint64_t *hashCount;
+	int loop;
+	int id;
+};
 class CUSP: public Main {
-public:
-    CUSP(int argc, char** argv):
-        Main(argc, argv)
-        , approxMCOptions("ApproxMC options")
-    {
-        must_interrupt.store(false, std::memory_order_relaxed);
-    }
-    int solve() override;
-    void add_supported_options() override;
+	public:
 
-    po::options_description approxMCOptions;
+	std::vector<CMSat::SATSolver*> solvers;
+		int solve() override;
+		void add_supported_options() override;
+
+		po::options_description approxMCOptions;
+		CUSP(int argc, char** argv):
+			Main(argc, argv)
+			, approxMCOptions("ApproxMC options")
+	{
+		must_interrupt.store(false, std::memory_order_relaxed);
+	}
 
 private:
     void add_approxmc_options();
-    bool ScalApproxMC(SATCount& count);
-    bool ApproxMC(SATCount& count);
-    bool AddHash(uint32_t num_xor_cls, vector<Lit>& assumps);
-    void SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps);
 
-    int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps);
-    lbool BoundedSAT(
-        uint32_t maxSolutions, uint32_t minSolutions
-        , vector<Lit>& assumptions
-        , std::map<std::string, uint32_t>& solutionMap
-        , uint32_t* solutionCount
-    );
-    string GenerateRandomBits(uint32_t size);
+ bool checkParity(string randomBits,int num_xor_cls,int size,int i,int j);
+	bool JaccardApproxMC(std::map<uint64_t,SATCount>& count);
+	bool ScalApproxMC(SATCount& count);
+	bool ApproxMC(SATCount& count);
 
-    //config
-    std::string cuspLogFile = "cusp_log.txt";
+	bool AddJaccardHash(uint32_t num_xor_cls, vector<Lit>& assumps, CMSat::SATSolver* solver);
+	bool AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,CMSat::SATSolver* solver);
+	void SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps,CMSat::SATSolver* solver);
+	
+	void SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps, vector<Lit>& assumps2, CMSat::SATSolver* solver);
+	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps);
 
-    double startTime;
-    std::map< std::string, std::vector<uint32_t>> globalSolutionMap;
-    bool openLogFile();
-    std::atomic<bool> must_interrupt;
-    void call_after_parse() override;
+	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps);
+	int OneRoundCount(uint64_t jaccardHashCount,JaccardResult *result,uint64_t & mPrev,uint64_t& hashPrev,vector<Lit>& jaccardAssumps,SATCount& count,CMSat::SATSolver* solver);
+	void JaccardOneRound(uint64_t jaccardHashCount, JaccardResult* result,bool computePrev,CMSat::SATSolver* solver0);
+void* JaccardOneThread();
+	void computeCountFromList(uint64_t jaccardHashCount, std::map<uint64_t,vector<uint64_t>> &numHashList,std::map<uint64_t,vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);
+	void addKey2Map(uint64_t jaccardHashCount,std::map<uint64_t,vector<uint64_t>> &numHashList,std::map<uint64_t,vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);
+	lbool BoundedSAT(
+				uint32_t maxSolutions, uint32_t minSolutions
+				, vector<Lit>& assumptions
+				, std::map<std::string, uint32_t>& solutionMap
+				, uint32_t* solutionCount
+				);
+	string GenerateRandomBits(uint32_t size);
 
-    uint32_t startIteration = 0;
-    uint32_t pivotApproxMC = 52;
-    uint32_t tApproxMC = 17;
+	//config
+	std::string cuspLogFile = "cusp_log.txt";
+	uint32_t singleIndex=0;
+	double startTime;
+	std::map< std::string, std::vector<uint32_t>> globalSolutionMap;
+	bool openLogFile();
+	std::atomic<bool> must_interrupt;
+	void call_after_parse() override;
+
+	uint32_t startIteration = 0;
+	uint32_t pivotApproxMC = 52;
+    double prevTime;
+	uint32_t endJaccardIndex = 0;
+	uint32_t tApproxMC = 37;
+	uint32_t tJaccardMC = 16;
     uint32_t searchMode = 1;
-    double   loopTimeout = 2500;
-    int      unset_vars = 0;
+	double jaccardXorRate=1;
+	bool Parallel=false;
+    double   loopTimeout = 300;
+    int      unset_vars = 1;
+	int parity=1;
+	int originalPC_size;
     std::ofstream cusp_logf;
+	std::random_device random_dev;
     std::mt19937 randomEngine;
 };
 

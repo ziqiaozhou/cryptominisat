@@ -3,9 +3,13 @@ include_directories(
 )
 
 if(Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
+	include_directories(${Boost_INCLUDE_DIRS})
 endif()
-
+find_package(OpenMP)
+if (OPENMP_FOUND)
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/GitSHA1.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/GitSHA1.cpp" @ONLY)
@@ -187,23 +191,30 @@ install(TARGETS libcryptominisat5
     EXPORT ${CRYPTOMINISAT5_EXPORT_NAME}
     LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"
-    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_PREFIX}/include/cryptominisat5"
-)
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_PREFIX}/include/cryptominisat5"
+	)
 
 if (NOT ONLY_SIMPLE)
-    add_executable(cryptominisat5
-        main.cpp
-        main_exe.cpp
-        signalcode.cpp
-    )
+	add_executable(cryptominisat5
+		main.cpp
+		main_exe.cpp
+		signalcode.cpp
+		)
 
-    if (USE_GAUSS)
-        add_executable(scalmc
-            main.cpp
-            signalcode.cpp
-            scalmc.cpp
-        )
-    endif()
+	if (USE_GAUSS)
+		add_executable(scalmc
+			main.cpp
+			signalcode.cpp
+			 scalmc.cpp
+			)
+		OPTION (USE_OpenMP "Use OpenMP" ON)
+		IF(USE_OpenMP)
+			FIND_PACKAGE(OpenMP)
+			IF(OPENMP_FOUND)
+				SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+			ENDIF()
+		ENDIF()
+	endif()
 endif()
 add_executable(cryptominisat5_simple
     main_simple.cpp
