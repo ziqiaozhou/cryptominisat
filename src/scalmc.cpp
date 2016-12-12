@@ -242,7 +242,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 	
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
-	//	double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
+		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
 
 		solver->set_timeout_all_calls(this_iter_timeout);
 		ret = solver->solve(&new_assumps);
@@ -605,20 +605,22 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		if(computePrev){
 			addKey2Map(jaccardHashCount-1,numHashList,numCountList,count);
 			jaccardAssumps_lastZero.pop_back();
-			int try=0;
+			int trys=0;
 			while(true){
-				try++;
+				trys++;
 				OneRoundCount( jaccardHashCount-1, result,mPrev,hashPrev, jaccardAssumps_lastZero, scount2,solver);
+
 				if(scount2.cellSolCount<=0){
+					if(trys>3){
+						break;
+					}
+
 					continue;
 				}
 				//	if(scount2.cellSolCount>0){
 				numCountList[jaccardHashCount-1].push_back(scount2.cellSolCount);
 				numHashList[jaccardHashCount-1].push_back(scount2.hashCount);
 				break;
-				if(try>3){
-					break;
-				}
 				//	}
 			}
 		}
