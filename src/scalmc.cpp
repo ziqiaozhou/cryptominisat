@@ -194,6 +194,7 @@ inline T findMin(vector<T>& numList)
 }
 bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 {
+	cout<<"solver="<<solver;
     string randomBits = GenerateRandomBits((independent_vars.size() + 1) * num_xor_cls*parity);
     bool rhs = true;
     vector<uint32_t> vars;
@@ -221,12 +222,12 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
     }
     return true;
 }
-int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps)
+int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver)
 {
 //    cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
     //Set up things for adding clauses that can later be removed
 #if PARALLEL 
-	SATSolver *solver=solvers[omp_get_thread_num()];
+//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
 	solver->new_var();
     uint32_t act_var = solver->nVars()-1;
@@ -290,12 +291,12 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     return solutions;
 }
 
-int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps)
+int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,SATSolver * solver)
 {
 	// cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
 	//Set up things for adding clauses that can later be removed
 #if PARALLEL 
-	SATSolver *solver=solvers[omp_get_thread_num()];
+//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
 	solver->new_var();
     uint32_t act_var = solver->nVars()-1;
@@ -387,7 +388,7 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 	}
 	//	hashCount=startIteration;
 	if (hashCount == 0) {
-		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps);
+		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps,solver);
 		//Din't find at least pivotApproxMC+1
 		if (currentNumSolutions <= pivotApproxMC ) {
 			count.cellSolCount = currentNumSolutions;
@@ -411,7 +412,7 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 			uint64_t swapVar = hashCount;
 			SetHash(hashCount,hashVars,assumps,solver);
 			//cout<<"change the size to "<<solver->get_Nclause();
-			int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps);
+			int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps,solver);
 			double currTime=cpuTimeTotal()-myTime;
 		/*	cout << "Num Explored: " << numExplored
 				<<"solver->nvar()="<<solver->nVars()
@@ -945,7 +946,7 @@ bool CUSP::ApproxMC(SATCount& count)
         for (hashCount = 0; hashCount < solver->nVars(); hashCount++) {
             cout << "-> Hash Count " << hashCount << endl;
             double myTime = cpuTimeTotal();
-            currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps);
+            currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,solver);
 
             //cout << currentNumSolutions << ", " << pivotApproxMC << endl;
             cusp_logf << "ApproxMC:" << searchMode << ":"
@@ -1172,7 +1173,7 @@ void CUSP::call_after_parse()
 }
 
 bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps, SATSolver* solver){
-
+	cout<<"solver in jaccard="<<solver<<"\n";
 	uint32_t xorVar=jaccard_vars.size()*jaccardXorRate;
 	if(num_xor_cls*jaccardXorRate<1)
 	  xorVar=jaccard_vars.size();
@@ -1280,7 +1281,7 @@ bool CUSP::ScalApproxMC(SATCount& count)
     double myTime = cpuTimeTotal();
     if (hashCount == 0) {
 		vector<Lit> assumps;
-        int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps);
+        int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,solver);
         cusp_logf << "ApproxMC:"<< searchMode<<":"<<"0:0:"
                   << std::fixed << std::setprecision(2) << (cpuTimeTotal() - myTime) << ":"
                   << (int)(currentNumSolutions == (pivotApproxMC + 1)) << ":"
@@ -1313,7 +1314,7 @@ bool CUSP::ScalApproxMC(SATCount& count)
 				cout<<"start setting hash"<<hashCount<<"hashVar="<<hashVars.size()<<"assumps"<<assumps.size()<<endl;
             SetHash(hashCount,hashVars,assumps,solver);
             cout << "Number of XOR hashes active: " << hashCount << endl;
-            int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps);
+            int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,solver);
 
          //   cout << currentNumSolutions << ", " << pivotApproxMC << endl;
             cusp_logf << "ApproxMC:" << searchMode<<":"
@@ -1419,7 +1420,7 @@ bool CUSP::ScalApproxMC(SATCount& count)
 				cout<<"start setting hash"<<hashCount<<"hashVar="<<hashVars.size()<<"assumps"<<assumps.size()<<endl;
             SetHash(hashCount,hashVars,assumps,solver);
             cout << "Number of XOR hashes active: " << hashCount << endl;
-            int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps);
+            int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,solver);
 
             cout << currentNumSolutions << ", " << pivotApproxMC << endl;
             cusp_logf << "ApproxMC:" << searchMode<<":"
