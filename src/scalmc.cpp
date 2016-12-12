@@ -432,7 +432,7 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 					solver->simplify(&assumps);
 					hashCount--;
 					repeatTry +=1;
-					cout << repeatTry<<"Timeout, try again -- " <<repeatTry<<"prev="<<mPrev <<"hash="<<hashCount<< endl;
+					cout <<"jaccard="<<jaccardHashCount<<"repeatTry="<< repeatTry<<"Timeout, try again -- " <<repeatTry<<"prev="<<mPrev <<"hash="<<hashCount<< endl;
 				} else {
 					//this set of hashes does not work, go up
 					//SetHash(hashCount + 1, hashVars, assumps,solver);
@@ -633,7 +633,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	  cl_that_removes.push_back(Lit(act_var, false));
 	  solver->add_clause(cl_that_removes);
 	  */
-/*	delete solver;
+	delete solver;
 	solver = new SATSolver((void*)&conf, &must_interrupt);
 	solvers[omp_get_thread_num()]=solver;
 	//solver->log_to_file("mydump.cnf");
@@ -643,7 +643,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	}
 
 	parseInAllFiles(solver);
-	*/
+
 	break;
 	}
 	//	cout<<"load to back, nVar="<<solver->nVars();
