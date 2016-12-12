@@ -70,28 +70,29 @@ namespace CMSat {
         unsigned long get_sql_id() const;
 
         //Setup
-        void set_num_threads(unsigned n);
-        void set_allow_otf_gauss();
-        void set_max_confl(int64_t max_confl);
-        void set_verbosity(unsigned verbosity = 0);
-        void set_default_polarity(bool polarity);
-        void set_no_simplify();
-        void set_no_simplify_at_startup();
-        void set_no_equivalent_lit_replacement();
-        void set_no_bva();
-        void set_greedy_undef();
-        void set_independent_vars(std::vector<uint32_t>* ind_vars);
-        void set_timeout_all_calls(double secs);
-
-        //Get info
-        static const char* get_version();
-        static const char* get_version_sha1();
-        static const char* get_compilation_env();
-
-        void print_stats() const;
-        void set_drat(std::ostream* os, bool set_ID);
-        void interrupt_asap();
-        void open_file_and_dump_irred_clauses(std::string fname) const;
+		void set_num_threads(unsigned n);
+		void set_allow_otf_gauss();
+		void set_max_confl(int64_t max_confl);
+		void set_verbosity(unsigned verbosity = 0);
+		void set_default_polarity(bool polarity);
+		void set_no_simplify();
+		void set_no_simplify_at_startup();
+		void set_no_equivalent_lit_replacement();
+		void set_no_bva();
+		void set_greedy_undef();
+		void set_independent_vars(std::vector<uint32_t>* ind_vars);
+		void set_timeout_all_calls(double secs);
+		void save_state(const char* fname, const lbool status); 
+		void load_state(const char* fname); 
+		//Get info
+		static const char* get_version();
+		static const char* get_version_sha1();
+		static const char* get_compilation_env();
+		int get_Nclause(); 
+		void print_stats() const;
+		void set_drat(std::ostream* os, bool set_ID);
+		void interrupt_asap();
+		void open_file_and_dump_irred_clauses(std::string fname) const;
         void open_file_and_dump_red_clauses(std::string fname) const;
         void add_in_partial_solving_stats();
 

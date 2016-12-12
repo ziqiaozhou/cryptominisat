@@ -819,6 +819,26 @@ DLL_PUBLIC std::vector<std::pair<Lit, Lit> > SATSolver::get_all_binary_xors() co
 {
     return data->solvers[0]->get_all_binary_xors();
 }
+DLL_PUBLIC int SATSolver::get_Nclause() 
+{
+    return data->cls_lits.size();
+}
+DLL_PUBLIC void SATSolver::save_state(const char* fname, const lbool status) 
+{
+	if(data->solvers.size()>1)
+	  return;
+	string name=fname;
+	data->solvers[0]->save_all(status);
+}
+
+DLL_PUBLIC void SATSolver::load_state(const char* fname) 
+{
+    if(data->solvers.size()>1)
+	  return;
+
+	string name=fname;
+}
+
 
 DLL_PUBLIC void SATSolver::set_sqlite(std::string filename)
 {

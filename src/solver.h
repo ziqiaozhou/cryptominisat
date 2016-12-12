@@ -157,7 +157,9 @@ class Solver : public Searcher
         void update_assumptions_after_varreplace();
 
         //State load/unload
-        void save_state(const string& fname, const lbool status) const;
+        
+        void save_all(lbool status) const;
+		void save_state(const string& fname, const lbool status) const;
         lbool load_state(const string& fname);
         template<typename A>
         void parse_v_line(A* in, const size_t lineNum);

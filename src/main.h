@@ -58,6 +58,7 @@ class Main
         virtual int solve();
         SolverConf conf;
 
+        void check_num_threads_sanity(const unsigned thread_num) const;
     private:
         //arguments
         int argc;
@@ -71,7 +72,7 @@ class Main
         void parse_restart_type();
         void parse_polarity_type();
         void dumpIfNeeded() const;
-        void check_num_threads_sanity(const unsigned thread_num) const;
+
 
         po::positional_options_description p;
         po::options_description all_options;
@@ -121,6 +122,8 @@ class Main
         string sqlDatabase;
         vector<uint32_t> independent_vars;
 
+        vector<uint32_t> jaccard_vars;
+        vector<uint32_t> dependent_vars;
         //Files to read & write
         bool fileNamePresent;
         vector<string> filesToRead;

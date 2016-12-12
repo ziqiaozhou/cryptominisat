@@ -140,7 +140,8 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
     if (!parser.parse_DIMACS(in)) {
         exit(-1);
     }
-
+	dependent_vars.swap(parser.dependent_vars);
+   jaccard_vars.swap(parser.jaccard_vars);
     independent_vars.swap(parser.independent_vars);
     call_after_parse();
 

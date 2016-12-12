@@ -3275,23 +3275,36 @@ void Solver::save_state(const string& fname, const lbool status) const
         occsimplifier->save_state(f);
     }
 }
+void Solver::save_all(  lbool status)const
+{
 
+        save_state(conf.saved_state_file, status);
+	ClauseDumper dumper(this);
+	if (status == l_False) {
+		dumper.open_file_and_write_unsat(conf.saved_state_file+".cnf");
+	} else {
+		dumper.open_file_and_dump_irred_clauses_preprocessor(conf.saved_state_file+".cnf");
+	}
+
+}
 lbool Solver::load_state(const string& fname)
 {
-    SimpleInFile f;
+	
+	SimpleInFile f;
     f.start(fname);
 
     const lbool status = f.get_lbool();
+
     Searcher::load_state(f, status);
     //f.get_struct(sumStats);
     //f.get_struct(sumPropStats);
     //f.get_vector(outside_assumptions);
-
     varReplacer->load_state(f);
     if (occsimplifier) {
         occsimplifier->load_state(f);
     }
-
+model = assigns;
+full_model = model;
     return status;
 }
 

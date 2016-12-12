@@ -47,7 +47,9 @@ class DimacsParser
         template <class T> bool parse_DIMACS(T input_stream);
         uint64_t max_var = std::numeric_limits<uint64_t>::max();
         vector<uint32_t> independent_vars;
-        const std::string dimacs_spec = "http://www.satcompetition.org/2009/format-benchmarks2009.html";
+        vector<uint32_t> dependent_vars;
+        vector<uint32_t> jaccard_vars;
+		const std::string dimacs_spec = "http://www.satcompetition.org/2009/format-benchmarks2009.html";
         const std::string please_read_dimacs = "\nPlease read DIMACS specification at http://www.satcompetition.org/2009/format-benchmarks2009.html";
 
     private:
@@ -62,7 +64,11 @@ class DimacsParser
         bool parse_solve_simp_comment(C& in, const bool solve);
         void write_solution_to_debuglib_file(const lbool ret) const;
         bool parseIndependentSet(C& in);
-        std::string get_debuglib_fname() const;
+        
+
+        bool parseJaccardSet(C& in);
+        bool parseDependentSet(C& in);
+		std::string get_debuglib_fname() const;
 
 
         SATSolver* solver;
@@ -342,7 +348,17 @@ bool DimacsParser<C>::parseComments(C& in, const std::string& str)
         if (!parseIndependentSet(in)) {
             return false;
         }
-    } else {
+    } else if (str=="dep"){
+		if(!parseDependentSet(in)){
+			return false;
+		}
+	} else if (str=="jac"){
+		if(!parseJaccardSet(in)){
+			return false;
+		}
+	}
+
+	else {
         if (verbosity >= 6) {
             cout
             << "didn't understand in CNF file comment line:"
@@ -471,7 +487,39 @@ bool DimacsParser<C>::parse_DIMACS(T input_stream)
 
     return true;
 }
+template <class C>
+bool DimacsParser<C>::parseJaccardSet(C& in)
+{
+    int32_t parsed_lit;
+    for (;;) {
+        if (!in.parseInt(parsed_lit, lineNum)) {
+            return false;
+        }
+        if (parsed_lit == 0) {
+            break;
+        }
+        uint32_t var = std::abs(parsed_lit) - 1;
+        jaccard_vars.push_back(var);
+    }
+    return true;
+}
 
+template <class C>
+bool DimacsParser<C>::parseDependentSet(C& in)
+{
+    int32_t parsed_lit;
+    for (;;) {
+        if (!in.parseInt(parsed_lit, lineNum)) {
+            return false;
+        }
+        if (parsed_lit == 0) {
+            break;
+        }
+        uint32_t var = std::abs(parsed_lit) - 1;
+        dependent_vars.push_back(var);
+    }
+    return true;
+}
 template <class C>
 bool DimacsParser<C>::parseIndependentSet(C& in)
 {
