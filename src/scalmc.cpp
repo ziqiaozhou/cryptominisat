@@ -62,7 +62,7 @@ using boost::lexical_cast;
 using std::list;
 using std::map;
 
-#define PARALLEL 2
+#define PARALLEL 0
 string binary(unsigned x, uint32_t length)
 {
     uint32_t logSize = (x == 0 ? 1 : log2(x) + 1);
