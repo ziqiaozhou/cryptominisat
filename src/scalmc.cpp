@@ -242,8 +242,8 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 	
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
-		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
-	//	cout<<"time in this loop :"<<(cpuTime()-start_time);
+	//	double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
+
 		solver->set_timeout_all_calls(this_iter_timeout);
 		ret = solver->solve(&new_assumps);
 		if (ret != l_True)
@@ -274,6 +274,8 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
             cout << "WARNING, in this cut there are > 2**30 solutions indicated by the solver!" << endl;
         }
     }
+
+	cout<<"time in this loop :"<<(cpuTime()-start_time);
     if (solutions > maxSolutions) {
         solutions = maxSolutions;
     }
@@ -414,11 +416,11 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 			//cout<<"change the size to "<<solver->get_Nclause();
 			int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps,solver);
 			double currTime=cpuTimeTotal()-myTime;
-		/*	cout << "Num Explored: " << numExplored
+			cout << "Num Explored: " << numExplored
 				<<"solver->nvar()="<<solver->nVars()
 				<< "Number of XOR hashes active: " << hashCount<<",jaccard="<<jaccardHashCount << endl
 				<< currentNumSolutions << ", " << pivotApproxMC
-				<<",time="<<(cpuTimeTotal() - myTime) <<endl;*/
+				<<",time="<<(cpuTimeTotal() - myTime) <<endl;
 			/*	if(currTime>4*prevTime)
 				pivotApproxMC*=2;
 				*/
@@ -603,17 +605,25 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		if(computePrev){
 			addKey2Map(jaccardHashCount-1,numHashList,numCountList,count);
 			jaccardAssumps_lastZero.pop_back();
+			int try=0;
 			while(true){
+				try++;
 				OneRoundCount( jaccardHashCount-1, result,mPrev,hashPrev, jaccardAssumps_lastZero, scount2,solver);
-				if(scount2.cellSolCount==0){
+				if(scount2.cellSolCount<=0){
 					continue;
 				}
 				//	if(scount2.cellSolCount>0){
 				numCountList[jaccardHashCount-1].push_back(scount2.cellSolCount);
 				numHashList[jaccardHashCount-1].push_back(scount2.hashCount);
 				break;
+				if(try>3){
+					break;
+				}
 				//	}
 			}
+		}
+		if(scount2.cellSolCount<=0){
+			continue;
 		}
 		std::ofstream  f;
 		std::ostringstream filename("");
@@ -623,29 +633,29 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		f.close();
 
 
-	/*	cout<<"--------------------------"<<jaccardHashCount<<"\n"<<endl;
-		for(int k=0;k<numCountList[jaccardHashCount].size();k++){
-		cout<<"("<<numCountList[jaccardHashCount][k]<<"*2^"<< numHashList[jaccardHashCount][k]<<"),";
+		/*	cout<<"--------------------------"<<jaccardHashCount<<"\n"<<endl;
+			for(int k=0;k<numCountList[jaccardHashCount].size();k++){
+			cout<<"("<<numCountList[jaccardHashCount][k]<<"*2^"<< numHashList[jaccardHashCount][k]<<"),";
+			}
+			cout<<"\n";
+			*/
+		result->searched[jaccardHashCount-1]=true;
+		/*vector<Lit> cl_that_removes;
+		  cl_that_removes.push_back(Lit(act_var, false));
+		  solver->add_clause(cl_that_removes);
+		  */
+		delete solver;
+		solver = new SATSolver((void*)&conf, &must_interrupt);
+		solvers[omp_get_thread_num()]=solver;
+		//solver->log_to_file("mydump.cnf");
+		//check_num_threads_sanity(num_threads);
+		if (unset_vars) {
+			solver->set_greedy_undef();
 		}
-		cout<<"\n";
-		*/
-	result->searched[jaccardHashCount-1]=true;
-	/*vector<Lit> cl_that_removes;
-	  cl_that_removes.push_back(Lit(act_var, false));
-	  solver->add_clause(cl_that_removes);
-	  */
-	delete solver;
-	solver = new SATSolver((void*)&conf, &must_interrupt);
-	solvers[omp_get_thread_num()]=solver;
-	//solver->log_to_file("mydump.cnf");
-	//check_num_threads_sanity(num_threads);
-	if (unset_vars) {
-		solver->set_greedy_undef();
-	}
 
-	parseInAllFiles(solver);
+		parseInAllFiles(solver);
 
-	break;
+		break;
 	}
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
@@ -905,6 +915,7 @@ cout<<"================end computation\n";
 				results[id].searched[0]=true;
 				computeCountFromList(0,results[id].numHashList,results[id].numCountList,results[id].count);
 				}*/
+			cout<<"Jaccard count="<<j;
 			int retryJaccardSingle=0;
 			while(true){
 				std::ofstream  f;
@@ -922,6 +933,7 @@ cout<<"================end computation\n";
 				if(retryJaccardSingle>5){
 					retryJaccardSingle=0;
 					singleIndex--;
+
 				}
 				retryJaccardSingle++;
 			}
