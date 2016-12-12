@@ -780,15 +780,15 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 		tApproxMC=1;
 		ScalApproxMC(warmcount);
 		cout<<"end of warmup";
-		delete solver;
-		solver = new SATSolver((void*)&conf, &must_interrupt);
-		solvers[omp_get_thread_num()]=solver;
+//		delete solver;
+//		solver = new SATSolver((void*)&conf, &must_interrupt);
+//		solvers[omp_get_thread_num()]=solver;
 		//solver->log_to_file("mydump.cnf");
 		//check_num_threads_sanity(num_threads);
-		if (unset_vars) {
-			solver->set_greedy_undef();
-		}
-		parseInAllFiles(solver);
+//		if (unset_vars) {
+//			solver->set_greedy_undef();
+//		}
+//		parseInAllFiles(solver);
 		//after warm up
 		std::cout<<"after warm up";
 		tApproxMC=tApproxMC0;
