@@ -766,7 +766,7 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 		std::cout<<"parallel=2";
 		//warn up
 		SATCount warmcount;
-		solver=solvers[omp_get_thread_num()];
+		//solver=solvers[omp_get_thread_num()];
 		map<uint64_t,Lit> jaccardHashVars;
 		jaccardAssumps.clear();
 		jaccardAssumps_lastZero.clear();
@@ -774,6 +774,7 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 		if(jaccardHashCount>0){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
 		}
+		cout<<"jaccard index="<<jaccardHashCount<<"\n";
 		solver->add_clause(jaccardAssumps);
 		int tApproxMC0=tApproxMC;
 		tApproxMC=1;
@@ -1082,9 +1083,9 @@ int CUSP::solve()
 		parseInAllFiles(s);
 		solvers.push_back(s);
 	}
-	solver=solvers[omp_get_thread_num()];
+//	solver=solvers[omp_get_thread_num()];
 
-	solverToInterrupt = solver;
+//	solverToInterrupt = solver;
 #endif
 	SATCount solCount;
 	cerr << "Using start iteration " << startIteration << endl;
