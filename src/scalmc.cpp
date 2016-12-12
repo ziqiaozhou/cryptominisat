@@ -600,20 +600,26 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		numCountList[jaccardHashCount].push_back(scount1.cellSolCount);
 		//}
 		if(computePrev){
-		addKey2Map(jaccardHashCount-1,numHashList,numCountList,count);
-		jaccardAssumps_lastZero.pop_back();
-		OneRoundCount( jaccardHashCount-1, result,mPrev,hashPrev, jaccardAssumps_lastZero, scount2,solver);
-		//	if(scount2.cellSolCount>0){
-		numCountList[jaccardHashCount-1].push_back(scount2.cellSolCount);
-		numHashList[jaccardHashCount-1].push_back(scount2.hashCount);
-		//	}
-	}
-	std::ofstream  f;
-	std::ostringstream filename("");
-	filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
-	f.open(filename.str(),std::ofstream::out|std::ofstream::app);
-	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
-	f.close();
+			addKey2Map(jaccardHashCount-1,numHashList,numCountList,count);
+			jaccardAssumps_lastZero.pop_back();
+			while(true){
+				OneRoundCount( jaccardHashCount-1, result,mPrev,hashPrev, jaccardAssumps_lastZero, scount2,solver);
+				if(scount2.cellSolCount==0){
+					continue;
+				}
+				//	if(scount2.cellSolCount>0){
+				numCountList[jaccardHashCount-1].push_back(scount2.cellSolCount);
+				numHashList[jaccardHashCount-1].push_back(scount2.hashCount);
+				break;
+				//	}
+			}
+		}
+		std::ofstream  f;
+		std::ostringstream filename("");
+		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
+		f.close();
 
 
 	/*	cout<<"--------------------------"<<jaccardHashCount<<"\n"<<endl;
