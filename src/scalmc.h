@@ -31,7 +31,7 @@
 #include <map>
 #include <array>
 #include "cryptominisat5/cryptominisat.h"
-#define PARALLEL 0
+#define PARALLEL 2
 struct SATCount {
     void clear()
     {
