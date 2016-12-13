@@ -646,19 +646,21 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		  cl_that_removes.push_back(Lit(act_var, false));
 		  solver->add_clause(cl_that_removes);
 		  */
-		delete solver;
-		solver = new SATSolver((void*)&conf, &must_interrupt);
-		solvers[omp_get_thread_num()]=solver;
-		//solver->log_to_file("mydump.cnf");
-		//check_num_threads_sanity(num_threads);
-		if (unset_vars) {
-			solver->set_greedy_undef();
-		}
-
-		parseInAllFiles(solver);
-
+	
 		break;
 	}
+	cout<<"delete solver";
+	delete solver;
+	solver = new SATSolver((void*)&conf, &must_interrupt);
+	solvers[omp_get_thread_num()]=solver;
+	//solver->log_to_file("mydump.cnf");
+	//check_num_threads_sanity(num_threads);
+	if (unset_vars) {
+		solver->set_greedy_undef();
+	}
+
+	parseInAllFiles(solver);
+
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
 void CUSP::computeCountFromList(uint64_t jaccardHashCount, map<uint64_t,vector<uint64_t>> &numHashList,map<uint64_t,vector<int64_t>>& numCountList,map<uint64_t,SATCount>& count){
