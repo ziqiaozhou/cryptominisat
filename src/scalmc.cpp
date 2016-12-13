@@ -275,7 +275,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
         }
     }
 
-	cout<<"time in this loop :"<<(cpuTime()-start_time);
+//	cout<<"time in this loop :"<<(cpuTime()-start_time);
     if (solutions > maxSolutions) {
         solutions = maxSolutions;
     }
@@ -416,11 +416,11 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 			//cout<<"change the size to "<<solver->get_Nclause();
 			int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps,solver);
 			double currTime=cpuTimeTotal()-myTime;
-			cout << "Num Explored: " << numExplored
+		/*	cout << "Num Explored: " << numExplored
 				<<"solver->nvar()="<<solver->nVars()
 				<< "Number of XOR hashes active: " << hashCount<<",jaccard="<<jaccardHashCount << endl
 				<< currentNumSolutions << ", " << pivotApproxMC
-				<<",time="<<(cpuTimeTotal() - myTime) <<endl;
+				<<",time="<<(cpuTimeTotal() - myTime) <<endl;*/
 			/*	if(currTime>4*prevTime)
 				pivotApproxMC*=2;
 				*/
