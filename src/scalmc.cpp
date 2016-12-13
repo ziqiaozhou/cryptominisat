@@ -938,7 +938,9 @@ cout<<"================end computation\n";
 				cout<<"====0 retry singleIndex"<<endl;
 				if(retryJaccardSingle>5){
 					retryJaccardSingle=0;
-					singleIndex--;
+				//	singleIndex--;
+				j--;
+				break;
 
 				}
 				retryJaccardSingle++;
