@@ -652,7 +652,9 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	cout<<"delete solver";
 	delete solver;
 	solver = new SATSolver((void*)&conf, &must_interrupt);
+#if PARALLEL
 	solvers[omp_get_thread_num()]=solver;
+#endif
 	//solver->log_to_file("mydump.cnf");
 	//check_num_threads_sanity(num_threads);
 	if (unset_vars) {
