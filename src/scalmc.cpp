@@ -742,7 +742,7 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 	uint64_t hashPrev = 0;
 	uint64_t mPrev = 0;
 	uint64_t jaccardHashCount,jaccardPrev=0;
-	if(singleIndex==0)
+	if(singleIndex<0)
 	  singleIndex=jaccard_vars.size();
 	jaccardHashCount=singleIndex;
 	double myTime = cpuTimeTotal();
