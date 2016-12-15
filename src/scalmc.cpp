@@ -929,8 +929,8 @@ cout<<"================end computation\n";
 				std::ostringstream filename("");
 				filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
 				JaccardOneRound(singleIndex,&results[0],true,solver);
-				computeCountFromList(singleIndex,results[id].numHashList,results[id].numCountList,results[id].count);
-				computeCountFromList(singleIndex-1,results[id].numHashList,results[id].numCountList,results[id].count);
+				computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
+				computeCountFromList(singleIndex-1,results[0].numHashList,results[0].numCountList,results[0].count);
 				results[0].searched[singleIndex]=true;
 				if(results[0].count[singleIndex].cellSolCount>0){
 					cout<<"break";
@@ -940,7 +940,7 @@ cout<<"================end computation\n";
 				if(retryJaccardSingle>5){
 					retryJaccardSingle=0;
 					//	singleIndex--;
-				//	j--;
+					j--;
 					break;
 				}
 				retryJaccardSingle++;
