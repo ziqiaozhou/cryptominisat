@@ -1240,7 +1240,10 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps, SATSolver
 }
 void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,vector<Lit>& assumps,vector<Lit>& assumps2,SATSolver* solver )
 {
-
+	double originaljaccardXorRate=jaccardXorRate;
+	if (jaccard_vars.size()/clausNum>2){
+		jaccardXorRate=clausNum/jaccard_vars.size();
+	}
 	if (clausNum < assumps.size()) {
 		uint64_t numberToRemove = assumps.size()- clausNum;
 		for (uint64_t i = 0; i<numberToRemove; i++) {
@@ -1262,6 +1265,7 @@ void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,ve
 	assumps2=assumps;
 	uint32_t x =(assumps2[clausNum-1].toInt()-1)/2;
 	assumps2[clausNum-1]=Lit(x, false);
+	jaccardXorRate=originaljaccardXorRate;
 }
 
 //For ScalApproxMC only
