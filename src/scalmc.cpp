@@ -416,11 +416,11 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 			//cout<<"change the size to "<<solver->get_Nclause();
 			int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps,solver);
 			double currTime=cpuTimeTotal()-myTime;
-		/*	cout << "Num Explored: " << numExplored
+			cout << "Num Explored: " << numExplored
 				<<"solver->nvar()="<<solver->nVars()
 				<< "Number of XOR hashes active: " << hashCount<<",jaccard="<<jaccardHashCount << endl
 				<< currentNumSolutions << ", " << pivotApproxMC
-				<<",time="<<(cpuTimeTotal() - myTime) <<endl;*/
+				<<",time="<<(cpuTimeTotal() - myTime) <<endl;
 			/*	if(currTime>4*prevTime)
 				pivotApproxMC*=2;
 				*/
@@ -431,11 +431,14 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 				hashVars.clear();
 				if (repeatTry < 2) {    /* Retry up to twice more */
 					assert(hashCount > 0);
-					SetHash(hashCount,hashVars,assumps,solver);
+
+
 					solver->simplify(&assumps);
-					hashCount--;
-					repeatTry +=1;
+					hashCount-=2;
 					cout <<"jaccard="<<jaccardHashCount<<"repeatTry="<< repeatTry<<"Timeout, try again -- " <<repeatTry<<"prev="<<mPrev <<"hash="<<hashCount<< endl;
+					SetHash(hashCount,hashVars,assumps,solver);
+					repeatTry +=1;
+
 				} else {
 					//this set of hashes does not work, go up
 					//SetHash(hashCount + 1, hashVars, assumps,solver);
