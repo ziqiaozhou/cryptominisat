@@ -1247,6 +1247,7 @@ void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,ve
 	if (jaccard_vars.size()/clausNum<2){
 		jaccardXorRate=(float)(2.0/clausNum);
 	}
+	std::cout<<"jaccardxorrate="<<jaccardXorRate<<"\n";
 	if (clausNum < assumps.size()) {
 		uint64_t numberToRemove = assumps.size()- clausNum;
 		for (uint64_t i = 0; i<numberToRemove; i++) {
