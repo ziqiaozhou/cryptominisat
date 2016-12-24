@@ -1244,8 +1244,8 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps, SATSolver
 void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,vector<Lit>& assumps,vector<Lit>& assumps2,SATSolver* solver )
 {
 	double originaljaccardXorRate=jaccardXorRate;
-	if (jaccard_vars.size()/clausNum>2){
-		jaccardXorRate=clausNum/jaccard_vars.size();
+	if (jaccard_vars.size()/clausNum<2){
+		jaccardXorRate=(float)(2.0/clausNum);
 	}
 	if (clausNum < assumps.size()) {
 		uint64_t numberToRemove = assumps.size()- clausNum;
@@ -1360,7 +1360,6 @@ bool CUSP::ScalApproxMC(SATCount& count)
                     SetHash(hashCount,hashVars,assumps,solver);
                     solver->simplify(&assumps);
                     hashCount --;
-					
                     repeatTry += 1;
                     cout << "Timeout, try again -- " << repeatTry << endl;
                 } else {
