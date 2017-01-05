@@ -1245,7 +1245,7 @@ void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,ve
 {
 	double originaljaccardXorRate=jaccardXorRate;
 	if (jaccard_vars.size()/clausNum<2){
-		jaccardXorRate=(float)(2.0/clausNum);
+		jaccardXorRate=(float)(1.1/clausNum);
 	}
 	std::cout<<"jaccardxorrate="<<jaccardXorRate<<"\n";
 	if (clausNum < assumps.size()) {
