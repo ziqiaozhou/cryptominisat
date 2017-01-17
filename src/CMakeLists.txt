@@ -261,6 +261,7 @@ if (NOT ONLY_SIMPLE)
         RUNTIME DESTINATION bin
     )
     SET(CPACK_PACKAGE_EXECUTABLES "cryptominisat5")
+endif()
 
     if (USE_GAUSS)
         target_link_libraries(scalmc
@@ -272,7 +273,6 @@ if (NOT ONLY_SIMPLE)
         )
         SET(CPACK_PACKAGE_EXECUTABLES "scalmc")
     endif()
-endif()
 
 target_link_libraries(cryptominisat5_simple
     ${cryptoms_exec_link_libs}

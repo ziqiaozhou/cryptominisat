@@ -46,6 +46,7 @@ namespace CMSat {
         , std::atomic<bool>* interrupt_asap = NULL
         );
         ~SATSolver();
+		int detachClauses(int);
         unsigned nVars() const;
         bool add_clause(const std::vector<Lit>& lits);
         bool add_xor_clause(const std::vector<unsigned>& vars, bool rhs);

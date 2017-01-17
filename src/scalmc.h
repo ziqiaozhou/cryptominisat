@@ -32,6 +32,19 @@
 #include <array>
 #include "cryptominisat5/cryptominisat.h"
 #define PARALLEL 0
+class XorClause{
+	public:
+		std::vector<uint32_t> vars;
+		bool rhs;
+		XorClause(std::vector<uint32_t> vars0,bool rhs0){
+			vars=vars0;
+			rhs=rhs0;
+		}
+		~XorClause(){
+			vars.clear();
+		}
+};
+
 struct SATCount {
     void clear()
     {
@@ -86,12 +99,12 @@ class CUSP: public Main {
 private:
     void add_approxmc_options();
 
- bool checkParity(string randomBits,int num_xor_cls,int size,int i,int j);
+ bool checkParity(int,string randomBits,int num_xor_cls,int size,int i,int j);
 	bool JaccardApproxMC(std::map<uint64_t,SATCount>& count);
 	bool ScalApproxMC(SATCount& count);
 	bool ApproxMC(SATCount& count);
 
-	bool AddJaccardHash(uint32_t num_xor_cls, vector<Lit>& assumps, CMSat::SATSolver* solver);
+	bool AddJaccardHash(uint32_t num_xor_cls, vector<Lit>& assumps,std::vector<XorClause>&, CMSat::SATSolver* solver);
 	bool AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,CMSat::SATSolver* solver);
 	void SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps,CMSat::SATSolver* solver);
 	
@@ -99,7 +112,7 @@ private:
 	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,CMSat::SATSolver * solver);
 
 	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,CMSat::SATSolver * solver);
-	int OneRoundCount(uint64_t jaccardHashCount,JaccardResult *result,uint64_t & mPrev,uint64_t& hashPrev,vector<Lit>& jaccardAssumps,SATCount& count,CMSat::SATSolver* solver);
+	int OneRoundCount(uint64_t jaccardHashCount,JaccardResult *result,uint64_t & mPrev,uint64_t& hashPrev,vector<Lit> jaccardAssumps,SATCount& count,CMSat::SATSolver* solver);
 	void JaccardOneRound(uint64_t jaccardHashCount, JaccardResult* result,bool computePrev,CMSat::SATSolver* solver0);
 void* JaccardOneThread();
 	void computeCountFromList(uint64_t jaccardHashCount, std::map<uint64_t,vector<uint64_t>> &numHashList,std::map<uint64_t,vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);
@@ -111,8 +124,9 @@ void* JaccardOneThread();
 				, uint32_t* solutionCount
 				);
 	string GenerateRandomBits(uint32_t size);
-
-	//config
+string GenerateRandomBits_prob(uint32_t size,double prob);
+void trimVar(std::vector<uint32_t>*);
+//config
 	std::string cuspLogFile = "cusp_log.txt";
 	uint32_t singleIndex=0;
 	double startTime;
@@ -129,10 +143,12 @@ void* JaccardOneThread();
 	uint32_t tJaccardMC = 16;
     uint32_t searchMode = 1;
 	double jaccardXorRate=1;
+	std::vector<XorClause> jaccardXorClause;
+	int jaccardXorMax=600;
 	bool Parallel=false;
     double   loopTimeout = 300;
     int      unset_vars = 1;
-	int parity=1;
+	int Parity=1;
 	int originalPC_size;
     std::ofstream cusp_logf;
 	std::random_device random_dev;

@@ -851,7 +851,14 @@ DLL_PUBLIC void SATSolver::set_sqlite(std::string filename)
     data->sql = 1;
     data->solvers[0]->set_sqlite(filename);
 }
-
+DLL_PUBLIC int SATSolver::detachClauses(int numClause){
+	for(int i=0;i<numClause;++i){
+		assert(data->solvers[0]->longIrredCls.size()>0);
+		ClOffset offset=*(data->solvers[0]->longIrredCls.end());
+		data->solvers[0]->detachClause(offset);
+	}
+	return 0;
+}
 DLL_PUBLIC void SATSolver::set_mysql(
     std::string sqlServer
     , std::string sqlUser
