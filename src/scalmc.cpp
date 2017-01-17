@@ -498,6 +498,9 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 
 				continue;
 			}
+			if(currentNumSolutions==0){
+				return -1;
+			}
 			if(!searched){
 				if (currentNumSolutions < pivotApproxMC + 1) {
 					numExplored = lowerFib+independent_vars.size()-hashCount;
@@ -669,7 +672,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 			continue;
 		}
 
-	result->searched[jaccardHashCount]=true;
+		result->searched[jaccardHashCount]=true;
 		ret=OneRoundCount( jaccardHashCount, result,mPrev,hashPrev, jaccardAssumps_lastZero,scount1,solver);
 		if(scount1.cellSolCount<=0){
 			continue;
