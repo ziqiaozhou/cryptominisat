@@ -486,6 +486,7 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 				if (repeatTry < 2) {    /* Retry up to twice more */
 					assert(hashCount > 0);
 					hashCount-=2;
+					solver->simplify(&assumps);
 					cout <<"jaccard="<<jaccardHashCount<<"repeatTry="<< repeatTry<<"Timeout, try again -- " <<repeatTry<<"prev="<<mPrev <<"hash="<<hashCount<< endl;
 					SetHash(hashCount,hashVars,assumps,solver);
 					repeatTry +=1;
@@ -577,16 +578,11 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 			}
 		}
 		assumps.clear();
-		hashVars.clear();
+		solver->simplify(&assumps);
 		hashCount =mPrev;
-		cout<<"delete solver";
+	/*	cout<<"delete solver";
 		delete solver;
 		solver = new SATSolver((void*)&conf, &must_interrupt);
-#if PARALLEL
-		solvers[omp_get_thread_num()]=solver;
-#endif
-		//solver->log_to_file("mydump.cnf");
-		//check_num_threads_sanity(num_threads);
 		if (unset_vars) {
 			solver->set_greedy_undef();
 		}
@@ -602,6 +598,7 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 		for(auto xorclause : jaccardXorClause){
 			solver->add_xor_clause(xorclause.vars,xorclause.rhs);
 		}
+		*/
 	}
 	if (numHashList->size() == 0) {
 		count.cellSolCount = 0;
@@ -651,6 +648,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		jaccardAssumps_lastZero.clear();
 		jaccardHashVars.clear();
 		jaccardXorClause.clear();
+		solver->simplify(&jaccardAssumps);
 		if(jaccardHashCount>0){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
 		}
@@ -735,18 +733,15 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	}
 	cout<<"delete solver";
 	delete solver;
+	cout<<"end delete";
 	solver = new SATSolver((void*)&conf, &must_interrupt);
-#if PARALLEL
-	solvers[omp_get_thread_num()]=solver;
-#endif
 	//solver->log_to_file("mydump.cnf");
 	//check_num_threads_sanity(num_threads);
 	if (unset_vars) {
 		solver->set_greedy_undef();
 	}
-
 	parseInAllFiles(solver);
-
+	cout<<"end delete";
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
 void CUSP::computeCountFromList(uint64_t jaccardHashCount, map<uint64_t,vector<uint64_t>> &numHashList,map<uint64_t,vector<int64_t>>& numCountList,map<uint64_t,SATCount>& count){
@@ -872,6 +867,7 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 		jaccardAssumps_lastZero.clear();
 		jaccardHashVars.clear();
 		jaccardXorClause.clear();
+		solver->simplify(&jaccardAssumps);
 		if(jaccardHashCount>0){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
 		}
@@ -998,7 +994,7 @@ cout<<"================end computation\n";
 		//check_num_threads_sanity(num_threads);
 		//after warm up
 		trimVar(&independent_vars);
-		trimVar(&jaccard_vars);
+		//trimVar(&jaccard_vars);
 		for(unsigned j = 0; j < tJaccardMC; j++) {
 			/*	if(j==0)	{
 				JaccardOneRound(0,&results[id],false,solvers[id]);
@@ -1269,13 +1265,16 @@ void CUSP::call_after_parse()
         for (size_t i = 0; i < solver->nVars(); i++) {
             independent_vars.push_back(i);
         }
-    }
+    
     solver->set_independent_vars(&independent_vars);
+	}
+
 }
 
 bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<XorClause>& jaccardXorClause, SATSolver* solver){
 	int var_size=jaccard_vars.size();
 	jaccardXorRate=(jaccardXorRate>0.5)?0.5:jaccardXorRate;
+
 	string randomBits = GenerateRandomBits_prob((var_size ) * num_xor_cls,jaccardXorRate);
 	string randomBits_rhs = GenerateRandomBits( num_xor_cls);
 	bool rhs = true;
@@ -1289,12 +1288,18 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<Xor
 		vars.push_back(act_var);
 		rhs = (randomBits_rhs[i]== '1');
 //		cout<<"x ";
+		
+	if(num_xor_cls==var_size)
+	{
+		vars.push_back(jaccard_vars[i]);
+	}else{
 		for (uint32_t k = 0; k < var_size; k++) {
 			if (randomBits[var_size * i + k] == '1') {
 				vars.push_back(jaccard_vars[k]);
 				//	cout<<jaccard_vars[j]<<" ";
 			}
 		}
+	}
 		/*		if(rhs){
 			cout<<act_var<<" 0"<<endl;
 		}else{
@@ -1316,10 +1321,10 @@ void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,ve
 {
 	double originaljaccardXorRate=jaccardXorRate;
 	if (jaccard_vars.size()/clausNum<2){
-		jaccardXorRate=(float)(4/clausNum);
+		jaccardXorRate=(float)(0.2*jaccard_vars.size()/clausNum);
 	}
-	jaccardXorRate=(jaccardXorRate>0.4)?jaccardXorRate:0.4;
-	if (conf.verbosity)
+	jaccardXorRate=(jaccardXorRate<0.4)?jaccardXorRate:0.4;
+	//if (conf.verbosity)
 	std::cout<<"jaccardxorrate="<<jaccardXorRate<<"\n";
 	if (clausNum < assumps.size()) {
 		uint64_t numberToRemove = assumps.size()- clausNum;
@@ -1604,7 +1609,8 @@ bool CUSP::ScalApproxMC(SATCount& count)
             hashPrev = swapVar;
         }
         assumps.clear();
-        hashCount =mPrev;
+        solver->simplify(&assumps);
+		hashCount =mPrev;
     }
     if (numHashList.size() == 0) {
         //UNSAT
