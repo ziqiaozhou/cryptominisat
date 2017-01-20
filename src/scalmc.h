@@ -50,14 +50,28 @@ struct SATCount {
     {
         SATCount tmp;
         *this = tmp;
-    }
+		numHashList.clear();
+		numCountList.clear();
+	}
+	int size(){
+		return numHashList.size();
+	}
+	std::string str(int i){
+		std::ostringstream out("");
+		if(i<numHashList.size())
+		  out<<numCountList[i]<<"*2^"<<numHashList[i];
+		return out.str();
+	}
 	std::string str(){
 		std::ostringstream out("");
 		out<<cellSolCount<<"*2^"<<hashCount;
 		return out.str();
 	}
-    uint32_t hashCount = 0;
-    double cellSolCount = 0;
+	uint32_t hashCount = 0;
+	double cellSolCount = 0;
+	vector<uint64_t> numHashList;//for output
+	vector<int64_t> numCountList;//for outpur
+
 };
 class JaccardResult{
 	public:

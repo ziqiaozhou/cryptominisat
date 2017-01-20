@@ -617,6 +617,8 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 		int medSolCount = findMedian(*numCountList);
 		count.cellSolCount = medSolCount;
 		count.hashCount = minHash;
+		count.numHashList=*numHashList;
+		count.numCountList= *numCountList;
 	}
 	cout<<"thread:"<<omp_get_thread_num()<<",Avg["<<jaccardIndex<<"]="<<count.cellSolCount<<"*2^"<<count.hashCount<<endl;
 	return 0;
@@ -713,6 +715,9 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		std::ostringstream filename("");
 		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		for(int i=0;i<scount0.size()&& i<scount1.size()&& i<scount2.size();++i){
+			f<<scount0.str(i)<<"\t"<<scount1.str(i)<<"\t"<<scount2.str(i)<<"\n";
+		}
 		f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
 		f.close();
 
@@ -1287,25 +1292,19 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<Xor
 		vars.clear();
 		vars.push_back(act_var);
 		rhs = (randomBits_rhs[i]== '1');
-//		cout<<"x ";
-		
-	if(num_xor_cls==var_size)
-	{
-		vars.push_back(jaccard_vars[i]);
-	}else{
+		//		cout<<"x ";
 		for (uint32_t k = 0; k < var_size; k++) {
 			if (randomBits[var_size * i + k] == '1') {
 				vars.push_back(jaccard_vars[k]);
 				//	cout<<jaccard_vars[j]<<" ";
 			}
 		}
-	}
 		/*		if(rhs){
-			cout<<act_var<<" 0"<<endl;
-		}else{
-		cout<<"-"<<act_var<<" 0"<<endl;
-		}
-*/
+				cout<<act_var<<" 0"<<endl;
+				}else{
+				cout<<"-"<<act_var<<" 0"<<endl;
+				}
+				*/
 		solver->add_xor_clause(vars, rhs);
 		if (conf.verbosity ) {
 			print_xor(vars, rhs);
