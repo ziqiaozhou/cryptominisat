@@ -673,7 +673,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		}
 
 		result->searched[jaccardHashCount]=true;
-		ret=OneRoundCount( jaccardHashCount, result,mPrev,hashPrev, jaccardAssumps_lastZero,scount1,solver);
+		ret=OneRoundCount(jaccardHashCount, result,mPrev,hashPrev, jaccardAssumps_lastZero,scount1,solver);
 		if(scount1.cellSolCount<=0){
 			continue;
 		}
