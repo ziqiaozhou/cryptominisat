@@ -653,6 +653,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 						//printf("hashPrev:%d hashCount:%d\n",hashPrev, hashCount);
 						hashCount = lowerFib + (hashCount -lowerFib)*2;
 					}
+					hashPrev = swapVar;
 					break;
 				default:
 				//case NEAR_RESULT:
@@ -674,7 +675,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					}
 					break;
 			}
-			hashPrev = swapVar;
+
 		}
 		assumps.clear();
 		solver->simplify(&assumps);
@@ -788,7 +789,6 @@ int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_
 
 				} else {
 					assert(currentNumSolutions == pivotApproxMC+1);
-
 					numExplored = hashCount + independent_vars.size()-upperFib;
 					if (succRecord.find(hashCount+1) != succRecord.end()
 								&& succRecord[hashCount+1] == 0
