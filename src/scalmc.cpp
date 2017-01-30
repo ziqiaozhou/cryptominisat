@@ -926,11 +926,19 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		std::ostringstream filename("");
 		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		for(int j=0;j<3;++j)
+		  scounts[j].summarize();
 		for(int i=0;i<scount0.size()&& i<scount1.size()&& i<scount2.size();++i){
 			f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
 		}
-	//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
+		//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
 		f.close();
+		if(scounts[0].cellSolCount<=0){
+			continue;
+		}else{
+			break;
+		}
+
 
 
 		/*	cout<<"--------------------------"<<jaccardHashCount<<"\n"<<endl;
