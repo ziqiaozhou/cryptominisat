@@ -561,6 +561,30 @@ withhashresample:
 		}
 	}
 }
+void printFor3(int ret){
+	string str;
+	switch(ret){
+		case RETRY_IND_HASH:
+			str="RETRY_IND_HASH";
+			break;
+
+		case RETRY_JACCARD_HASH:
+			str="RETRY_JACCARD_HASh";
+			break;
+		case GOT_RESULT:
+			str="GOT_RESULT";
+			break;
+
+		case TOO_MUCH:
+			str="TOO_MUCH";
+			break;
+		default:
+			str="NEAR_RESULT";
+			break;
+	}
+	std::cout<<str;
+}
+
 int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL)
 {
 	//	solver->simplify(&jaccardAssumps);
@@ -600,6 +624,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 				nextCount=countRecord[hashCount+1];
 			}
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,solver);
+			printFor3(ret);
 			switch(ret){
 				case RETRY_IND_HASH:
 					assumps.clear();
