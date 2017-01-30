@@ -926,6 +926,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 	delete solver;
 	cout<<"end delete";
 	solver = new SATSolver((void*)&conf, &must_interrupt);
+	this->solver=solver;
 	//solver->log_to_file("mydump.cnf");
 	//check_num_threads_sanity(num_threads);
 	if (unset_vars) {
@@ -1316,7 +1317,7 @@ cout<<"================end computation\n";
 				std::ofstream  f;
 				std::ostringstream filename("");
 				filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
-				JaccardOneRound(singleIndex,&results[0],true,solver);
+				JaccardOneRoundFor3(singleIndex,&results[0],true,solver);
 				computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
 				computeCountFromList(singleIndex-1,results[0].numHashList,results[0].numCountList,results[0].count);
 				results[0].searched[singleIndex]=true;
