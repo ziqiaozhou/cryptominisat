@@ -636,6 +636,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					return -1;
 				case GOT_RESULT:
 					numExplored = lowerFib+independent_vars.size()-hashCount;
+					std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
 					mPrev = hashCount;
 					break;
 				
