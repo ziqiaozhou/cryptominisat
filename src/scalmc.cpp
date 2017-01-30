@@ -681,6 +681,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		solver->simplify(&assumps);
 		hashCount =mPrev;
 	}
+	std::cout<<"return from OneRoundFor3";
 	return 0;
 }
 int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,vector<Lit> jaccardAssumps,SATCount& count,SATSolver * solver=NULL)
@@ -934,6 +935,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
 		f.close();
 		if(scounts[0].cellSolCount<=0){
+			cout<<"cellSolCount<=0,cntinue";
 			continue;
 		}else{
 			break;
