@@ -32,6 +32,12 @@
 #include <array>
 #include "cryptominisat5/cryptominisat.h"
 #define PARALLEL 0
+#define RETRY_IND_HASH -1
+#define RETRY_JACCARD_HASH -2
+#define NEAR_RESULT -4
+#define GOT_RESULT 0
+#define TOO_MUCH -8
+
 class XorClause{
 	public:
 		std::vector<uint32_t> vars;
@@ -45,7 +51,9 @@ class XorClause{
 		}
 };
 
-struct SATCount {
+class SATCount {
+	public:
+		void summarize();
     void clear()
     {
         SATCount tmp;
@@ -53,6 +61,7 @@ struct SATCount {
 		numHashList.clear();
 		numCountList.clear();
 	}
+	
 	int size(){
 		return numHashList.size();
 	}
@@ -127,6 +136,12 @@ private:
 
 	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,CMSat::SATSolver * solver);
 	int OneRoundCount(uint64_t jaccardHashCount,JaccardResult *result,uint64_t & mPrev,uint64_t& hashPrev,vector<Lit> jaccardAssumps,SATCount& count,CMSat::SATSolver* solver);
+	
+int OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,std::vector<std::vector<Lit>> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
+	int OneRoundFor3NoHash(std::vector<std::vector<CMSat::Lit> >, std::vector<SATCount>&, CMSat::SATSolver*);
+
+int OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,uint64_t &hashCount,std::map<uint64_t,Lit>& hashVars,std::vector<Lit>assumps ,std::vector<std::vector<Lit>> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
+	void JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,bool computePrev,SATSolver* solver);
 	void JaccardOneRound(uint64_t jaccardHashCount, JaccardResult* result,bool computePrev,CMSat::SATSolver* solver0);
 void* JaccardOneThread();
 	void computeCountFromList(uint64_t jaccardHashCount, std::map<uint64_t,vector<uint64_t>> &numHashList,std::map<uint64_t,vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);

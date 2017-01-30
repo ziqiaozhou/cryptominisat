@@ -424,8 +424,239 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     }
 	return solutions;
 }
+void SATCount::summarize(){
+	auto minHash = findMin(numHashList);
 
+	auto cnt_it = numCountList.begin();
+	for (auto hash_it = numHashList.begin()
+				; hash_it != numHashList.end() && cnt_it != numCountList.end()
+				; hash_it++, cnt_it++
+		) {
+		*cnt_it *= pow(2, (*hash_it) - minHash);
+	}
 
+	int medSolCount = findMedian(numCountList);
+	cellSolCount = medSolCount;
+	hashCount = minHash;
+}
+ int CUSP::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL){
+	int64_t s[3];
+		vector<Lit> assumps;
+		int64_t hashCount=0;
+	int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[0],solver);
+	//Din't find at least pivotApproxMC+1
+	if(currentNumSolutions<pivotApproxMC+1){
+		s[0]=currentNumSolutions;
+		s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+		if(s[1]<=0||s[1]>pivotApproxMC*2){
+			//unbalanced jaccard sampling, giveup
+			return -1;
+		}
+		s[2]= BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
+		if(s[2]<=0|| s[2]>(s[1]+s[0])){
+			//impossible reach
+			assert(0);
+			return -1;
+			//goto resample;
+		}
+		for(int k=0;k<scounts.size();++k)
+		{
+			scounts[k].numHashList.push_back(hashCount);
+			scounts[k].numCountList.push_back(s[k]);
+		
+		scounts[k].summarize();
+		}
+
+		return 0;
+	}else
+	  hashCount++;
+	return hashCount;
+}
+int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,uint64_t &hashCount,map<uint64_t,Lit>& hashVars,vector<Lit>assumps ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL){
+	int repeatTry=0;
+	while(true){
+		SetHash(hashCount,hashVars,assumps,solver);
+		int64_t s[3];
+		double myTime = cpuTimeTotal();
+		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps[0],solver);
+		s[0]=currentNumSolutions;
+		cout	<<"solver->nvar()="<<solver->nVars()
+			<< "Number of XOR hashes active: " << hashCount << endl
+			<< currentNumSolutions << ", " << pivotApproxMC
+			<<",time="<<(cpuTimeTotal() - myTime) <<endl;
+
+		if (currentNumSolutions < 0) {
+			//Remove all hashes
+			if (repeatTry < 2) {    /* Retry up to twice more */
+				assert(hashCount > 0);
+				hashCount-=2*repeatTry;
+				cout <<"repeatTry="<< repeatTry<<"Timeout, try again -- " <<repeatTry<<"hash="<<hashCount<< endl;
+				repeatTry +=1;
+				continue;
+			} else {
+				//this set of hashes does not work, go up
+				//SetHash(hashCount + 1, hashVars, assumps,solver);
+				cout << "Timeout, moving up" << endl;
+				return RETRY_JACCARD_HASH;
+			}
+			continue;
+		}
+		if(currentNumSolutions==0){
+			return RETRY_JACCARD_HASH;
+		}
+		if (currentNumSolutions < pivotApproxMC + 1) {
+
+			if (readyPrev) {
+				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+				if(s[1]<=0||s[1]>pivotApproxMC*2){
+					//unbalanced sampling, giveup
+withhashresample:
+					assumps.clear();
+					hashVars.clear();
+					solver->simplify(&assumps);
+					return currentNumSolutions;
+					//return NEAR_RESULT;
+				}
+				s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
+				if(s[2]<=0|| s[2]>(s[1]+s[0])){
+					//impossible reach
+					assert(0);
+					goto withhashresample;
+				}
+				for(int k=0;k<scounts.size();++k)
+				{
+					scounts[k].numHashList.push_back(hashCount);
+					scounts[k].numCountList.push_back(s[k]);
+				}
+				return GOT_RESULT;
+			}
+			//return NEAR_RESULT;
+			return currentNumSolutions;
+		}else{
+			if(readyNext){
+				hashCount++;
+				SetHash(hashCount,hashVars,assumps,solver);
+				s[0]=nextCount;
+				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+				if(s[1]<=0||s[1]>pivotApproxMC*2){
+					//unbalanced sampling, giveup
+					goto withhashresample;
+				}
+				s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
+				if(s[2]<=0|| s[2]>(s[1]+s[0])){
+					//impossible reach
+					assert(0);
+					goto withhashresample;
+				}
+				for(int k=0;k<scounts.size();++k)
+				{
+					scounts[k].numHashList.push_back(hashCount);
+					scounts[k].numCountList.push_back(s[k]);
+				}
+				return GOT_RESULT;
+			}
+
+			assert(currentNumSolutions == pivotApproxMC+1);
+			return TOO_MUCH;
+		}
+	}
+}
+int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL)
+{
+	//	solver->simplify(&jaccardAssumps);
+	uint64_t& hashCount=result->hashCount[jaccardHashCount];
+	bool& searched=result->searched[jaccardHashCount];
+	vector<Lit> assumps;
+	double myTime = cpuTimeTotal();
+	uint64_t jaccardIndex=jaccardHashCount;
+	bool less=false,more=false;
+	if(solver==NULL){
+		solver=this->solver;
+	}
+	//	hashCount=startIteration;
+	if (hashCount == 0) {
+		hashCount=OneRoundFor3NoHash(jaccardAssumps,scounts,solver);
+		if(hashCount==0)
+		  return 0;
+	}
+	//	hashCount=startIteration;
+	for (uint32_t j = 0; j < tApproxMC; j++) {
+		map<uint64_t,int64_t> countRecord;
+		map<uint64_t,uint32_t> succRecord;
+		map<uint64_t,Lit> hashVars; //map assumption var to XOR hash
+
+		uint32_t repeatTry = 0;
+		uint64_t numExplored = 1;
+		uint64_t lowerFib = 0, upperFib = independent_vars.size();
+		while (numExplored < independent_vars.size()) {
+			myTime = cpuTimeTotal();
+			uint64_t swapVar = hashCount;
+			//cout<<"change the size to "<<solver->get_Nclause();
+			//solver->simplify(&assumps);
+			bool readyPrev=searched?true:((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
+			bool readyNext=searched?true:((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
+			uint64_t nextCount=-1;
+			if(succRecord.find(hashCount+1) != succRecord.end()){
+				nextCount=countRecord[hashCount+1];
+			}
+			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,solver);
+			switch(ret){
+				case RETRY_IND_HASH:
+					assumps.clear();
+					hashVars.clear();
+					solver->simplify(&assumps);
+					break;
+
+				case RETRY_JACCARD_HASH:
+					return -1;
+				case GOT_RESULT:
+					numExplored = lowerFib+independent_vars.size()-hashCount;
+					mPrev = hashCount;
+					continue;
+					break;
+				
+				case TOO_MUCH:
+					numExplored = hashCount + independent_vars.size()-upperFib;
+					succRecord[hashCount] = 1;
+					if (abs(hashCount - mPrev) < 2 && mPrev!=0) {
+						lowerFib = hashCount;
+						hashCount ++;
+					} else if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1) {
+						lowerFib = hashCount;
+						hashCount = (lowerFib+upperFib)/2;
+					} else {
+						//printf("hashPrev:%d hashCount:%d\n",hashPrev, hashCount);
+						hashCount = lowerFib + (hashCount -lowerFib)*2;
+					}
+					break;
+				default:
+				//case NEAR_RESULT:
+					numExplored = lowerFib+independent_vars.size()-hashCount;
+					succRecord[hashCount] = 0;
+					countRecord[hashCount] = ret;
+					if (abs(hashCount-mPrev) <= 2 && mPrev != 0) {
+						upperFib = hashCount;
+						hashCount--;
+					} else {
+						if (hashPrev > hashCount) {
+							hashPrev = 0;
+						}
+						upperFib = hashCount;
+						if (hashPrev > lowerFib) {
+							lowerFib = hashPrev;
+						}
+						hashCount = (upperFib+lowerFib)/2;
+					}
+					break;
+			}
+			hashPrev = swapVar;
+		}
+		assumps.clear();
+		solver->simplify(&assumps);
+		hashCount =mPrev;
+	}
+	return 0;
+}
 int CUSP::OneRoundCount(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,vector<Lit> jaccardAssumps,SATCount& count,SATSolver * solver=NULL)
 {
 	//	solver->simplify(&jaccardAssumps);
@@ -633,6 +864,78 @@ void CUSP::addKey2Map(uint64_t jaccardHashCount,map<uint64_t,vector<uint64_t>> &
 		count[jaccardHashCount]=(onecount);
 	}
 }
+void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,bool computePrev,SATSolver* solver=NULL){
+	if(solver==NULL)
+	  solver=solver;
+	map<uint64_t,vector<uint64_t>> &numHashList=result->numHashList;
+	map<uint64_t,vector<int64_t>>& numCountList=result->numCountList;
+	map<uint64_t,SATCount>& count=result->count;
+	uint64_t &hashCount=result->hashCount[jaccardHashCount];
+	map<uint64_t,Lit> jaccardHashVars;
+	uint64_t mPrev = 0;
+	vector<Lit >jaccardAssumps,jaccardAssumps_lastZero;
+	int ret;
+	while(true){
+		jaccardAssumps.clear();
+		jaccardAssumps_lastZero.clear();
+		jaccardHashVars.clear();
+		jaccardXorClause.clear();
+		solver->simplify(&jaccardAssumps);
+		if(jaccardHashCount>0){	
+			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
+		}
+	//	solver->simplify(&jaccardAssumps);
+		uint64_t hashPrev = 0;
+		addKey2Map(jaccardHashCount,numHashList,numCountList,count);
+		map<uint64_t,int64_t> countRecord;
+		map<uint64_t,uint32_t> succRecord;
+		map<uint64_t,Lit> hashVars; //map assumption var to XOR hash
+
+		//	int64_t currentNumSolutions_lastZero = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps_lastZero);
+		SATCount scount0,scount1,scount2;
+		JaccardResult result0,result1;
+		vector<vector<Lit>> jaccard3Assumps={jaccardAssumps,jaccardAssumps_lastZero,jaccardAssumps};
+		vector<SATCount>scounts={scount0,scount1,scount2};
+		OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
+		std::ofstream  f;
+		std::ostringstream filename("");
+		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		for(int i=0;i<scount0.size()&& i<scount1.size()&& i<scount2.size();++i){
+			f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
+		}
+	//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
+		f.close();
+
+
+		/*	cout<<"--------------------------"<<jaccardHashCount<<"\n"<<endl;
+			for(int k=0;k<numCountList[jaccardHashCount].size();k++){
+			cout<<"("<<numCountList[jaccardHashCount][k]<<"*2^"<< numHashList[jaccardHashCount][k]<<"),";
+			}
+			cout<<"\n";
+			*/
+		result->searched[jaccardHashCount-1]=true;
+		/*vector<Lit> cl_that_removes;
+		  cl_that_removes.push_back(Lit(act_var, false));
+		  solver->add_clause(cl_that_removes);
+		  */
+	
+		break;
+	}
+	cout<<"delete solver";
+	delete solver;
+	cout<<"end delete";
+	solver = new SATSolver((void*)&conf, &must_interrupt);
+	//solver->log_to_file("mydump.cnf");
+	//check_num_threads_sanity(num_threads);
+	if (unset_vars) {
+		solver->set_greedy_undef();
+	}
+	parseInAllFiles(solver);
+	cout<<"end delete";
+	//	cout<<"load to back, nVar="<<solver->nVars();
+}
+
 
 void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool computePrev,SATSolver* solver=NULL){
 	if(solver==NULL)
@@ -916,7 +1219,7 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 				std::ofstream  f;
 				std::ostringstream filename("");
 				filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
-				JaccardOneRound(singleIndex,&results[id],true,solvers[id]);
+				JaccardOneRoundFor3(singleIndex,&results[id],true,solvers[id]);
 			//	computeCountFromList(singleIndex,results[id].numHashList,results[id].numCountList,results[id].count);
 			//	computeCountFromList(singleIndex-1,results[id].numHashList,results[id].numCountList,results[id].count);
 				results[id].searched[singleIndex]=true;
