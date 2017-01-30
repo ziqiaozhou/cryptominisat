@@ -637,7 +637,6 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 				case GOT_RESULT:
 					numExplored = lowerFib+independent_vars.size()-hashCount;
 					mPrev = hashCount;
-					continue;
 					break;
 				
 				case TOO_MUCH:
