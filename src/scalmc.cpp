@@ -623,7 +623,9 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 
 		uint32_t repeatTry = 0;
 		uint64_t numExplored = 1;
-		uint64_t lowerFib = searched?(hashCount-2):0, upperFib = searched?(hashCount+2):independent_vars.size();
+	//	uint64_t lowerFib = searched?(hashCount-2):0, upperFib = searched?(hashCount+2):independent_vars.size();
+	//
+		uint64_t lowerFib = 0, upperFib = independent_vars.size();
 		while (numExplored < independent_vars.size()) {
 			myTime = cpuTimeTotal();
 			uint64_t swapVar = hashCount;
@@ -663,7 +665,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 				case TOO_MUCH:
 					numExplored = hashCount + independent_vars.size()-upperFib;
 					succRecord[hashCount] = 1;
-					if (abs(hashCount - mPrev) < 2 && mPrev!=0) {
+					if (searched||(abs(hashCount - mPrev) < 2 && mPrev!=0)) {
 						lowerFib = hashCount;
 						hashCount ++;
 					} else if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1) {
@@ -680,7 +682,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					numExplored = lowerFib+independent_vars.size()-hashCount;
 					succRecord[hashCount] = 0;
 					countRecord[hashCount] = ret;
-					if (abs(hashCount-mPrev) <= 2 && mPrev != 0) {
+					if (searched||(abs(hashCount-mPrev) <= 2 && mPrev != 0)) {
 						upperFib = hashCount;
 						hashCount--;
 					} else {
