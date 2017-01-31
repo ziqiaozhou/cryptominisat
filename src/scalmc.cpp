@@ -623,14 +623,17 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 
 		uint32_t repeatTry = 0;
 		uint64_t numExplored = 1;
-		uint64_t lowerFib = 0, upperFib = independent_vars.size();
+		uint64_t lowerFib = searched?(hashCount-2):0, upperFib = searched?(hashCount+2):independent_vars.size();
 		while (numExplored < independent_vars.size()) {
 			myTime = cpuTimeTotal();
 			uint64_t swapVar = hashCount;
 			//cout<<"change the size to "<<solver->get_Nclause();
 			//solver->simplify(&assumps);
-			bool readyPrev=searched?true:((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
-			bool readyNext=searched?true:((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
+			
+			bool readyPrev=((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
+		//	bool readyPrev=searched?true:((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
+			bool readyNext=((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
+			//bool readyNext=searched?true:((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
 			uint64_t nextCount=-1;
 			if(succRecord.find(hashCount+1) != succRecord.end()){
 				nextCount=countRecord[hashCount+1];
