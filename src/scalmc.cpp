@@ -1,4 +1,5 @@
-/*
+/*ES
+
  * CUSP and ScalMC
  *
  * Copyright (c) 2009-2015, Mate Soos. All rights reserved.
@@ -225,7 +226,7 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 			ratio=(1.0*jaccardXorMax)/(num_xor_cls*var_size);
 			ratio=(ratio<jaccardXorRate)?ratio:jaccardXorRate;
 			if(ratio<0.1){
-				std::cerr<<"too low ratio... too many xor"<<ratio;
+				std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<num_xor_cls<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax;
 			}
 		}
 	}else if(parity<var_size/2)
@@ -475,6 +476,7 @@ void SATCount::summarize(){
 int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,uint64_t &hashCount,map<uint64_t,Lit>& hashVars,vector<Lit>assumps ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL){
 	int repeatTry=0;
 	while(true){
+		std::cout<<"hashCount="<<hashCount;
 		SetHash(hashCount,hashVars,assumps,solver);
 		int64_t s[3];
 		double myTime = cpuTimeTotal();
@@ -511,10 +513,11 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,
 				if(s[1]<=0||s[1]>pivotApproxMC*2){
 					//unbalanced sampling, giveup
 withhashresample:
+					cout<<"s[1]="<<s[1]<<"\n";
 					assumps.clear();
 					hashVars.clear();
 					solver->simplify(&assumps);
-					return currentNumSolutions;
+					return RETRY_JACCARD_HASH;
 					//return NEAR_RESULT;
 				}
 				s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
@@ -528,7 +531,7 @@ withhashresample:
 					scounts[k].numHashList.push_back(hashCount);
 					scounts[k].numCountList.push_back(s[k]);
 				}
-				return GOT_RESULT;
+				return GOT_RESULT_LOWER;
 			}
 			//return NEAR_RESULT;
 			return currentNumSolutions;
@@ -553,7 +556,7 @@ withhashresample:
 					scounts[k].numHashList.push_back(hashCount);
 					scounts[k].numCountList.push_back(s[k]);
 				}
-				return GOT_RESULT;
+				return GOT_RESULT_UPPER;
 			}
 
 			assert(currentNumSolutions == pivotApproxMC+1);
@@ -571,9 +574,14 @@ void printFor3(int ret){
 		case RETRY_JACCARD_HASH:
 			str="RETRY_JACCARD_HASh";
 			break;
-		case GOT_RESULT:
+		case GOT_RESULT_UPPER:
+			str="GOT_RESULT_upper";
+			break;
+
+		case GOT_RESULT_LOWER:
 			str="GOT_RESULT";
 			break;
+
 
 		case TOO_MUCH:
 			str="TOO_MUCH";
@@ -599,9 +607,13 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	}
 	//	hashCount=startIteration;
 	if (hashCount == 0) {
-		hashCount=OneRoundFor3NoHash(jaccardAssumps,scounts,solver);
-		if(hashCount==0)
+		int ret=OneRoundFor3NoHash(jaccardAssumps,scounts,solver);
+		if(ret==0)
 		  return 0;
+		if(ret<0){
+			return -1;
+		}
+		hashCount=ret;
 	}
 	//	hashCount=startIteration;
 	for (uint32_t j = 0; j < tApproxMC; j++) {
@@ -634,12 +646,17 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 
 				case RETRY_JACCARD_HASH:
 					return -1;
-				case GOT_RESULT:
+				case GOT_RESULT_LOWER:
 					numExplored = lowerFib+independent_vars.size()-hashCount;
 					std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
 					mPrev = hashCount;
 					break;
-				
+				case GOT_RESULT_UPPER:
+					numExplored = independent_vars.size()+hashCount-upperFib;
+					std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
+					mPrev = hashCount;
+					break;
+
 				case TOO_MUCH:
 					numExplored = hashCount + independent_vars.size()-upperFib;
 					succRecord[hashCount] = 1;
@@ -920,16 +937,21 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		//	int64_t currentNumSolutions_lastZero = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps_lastZero);
 		SATCount scount0,scount1,scount2;
 		JaccardResult result0,result1;
-		vector<vector<Lit>> jaccard3Assumps={jaccardAssumps,jaccardAssumps_lastZero,jaccardAssumps};
+		vector<Lit> jaccardAssumps_two= jaccardAssumps_lastZero;
+		jaccardAssumps_two.pop_back();
+		vector<vector<Lit>> jaccard3Assumps={jaccardAssumps,jaccardAssumps_lastZero,jaccardAssumps_two};
 		vector<SATCount>scounts={scount0,scount1,scount2};
-		OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
+		int ret=OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
+		if(ret==-1){
+			continue;
+		}
 		std::ofstream  f;
 		std::ostringstream filename("");
 		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 		for(int j=0;j<3;++j)
 		  scounts[j].summarize();
-		for(int i=0;i<scount0.size()&& i<scount1.size()&& i<scount2.size();++i){
+		for(int i=0;i<scounts[0].size()&& i<scounts[1].size()&& i<scounts[2].size();++i){
 			f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
 		}
 		//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
@@ -938,6 +960,13 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 			cout<<"cellSolCount<=0,cntinue";
 			continue;
 		}else{
+			for(int j=0;j<2;++j){
+				numHashList[jaccardHashCount].push_back(scounts[j].hashCount);
+				numCountList[jaccardHashCount].push_back(scounts[j].cellSolCount);
+			}
+			numHashList[jaccardHashCount+1].push_back(scounts[2].hashCount);
+			numCountList[jaccardHashCount+1].push_back(scounts[2].cellSolCount);
+
 			break;
 		}
 
@@ -1348,7 +1377,7 @@ cout<<"================end computation\n";
 				}*/
 			cout<<"Jaccard count="<<j;
 			int retryJaccardSingle=0;
-					while(true){
+			while(true){
 				std::ofstream  f;
 				std::ostringstream filename("");
 				filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();

@@ -35,7 +35,8 @@
 #define RETRY_IND_HASH -1
 #define RETRY_JACCARD_HASH -2
 #define NEAR_RESULT -4
-#define GOT_RESULT 0
+#define GOT_RESULT_UPPER -16
+#define GOT_RESULT_LOWER -32
 #define TOO_MUCH -8
 
 class XorClause{
