@@ -260,21 +260,25 @@ return true;
 }
 
 void CUSP::trimVar(vector<uint32_t>*vars){
+	vector<uint32_t> new_vars=*vars;
 	for(int i=0;i<vars->size();++i){
 		uint32_t var=(*vars)[i];
 		vector<Lit>assume;
+		std::cerr<<"var="<<var;
+		assume.clear();
 		assume.push_back(Lit(var,true));
 		lbool ret0=solver->solve(&assume);
 		assume.clear();
+		std::cerr<<"!var="<<var;
 		assume.push_back(Lit(var,false));
 		lbool ret1=solver->solve(&assume);
 		if(ret0!=ret1){
-			vars->erase(vars->begin()+i);
+			new_vars.erase(new_vars.begin()+i);
 			if (conf.verbosity )
-			  std::cout<<"delete "<<var<<"\n";
-			i--;
+			  std::cerr<<"delete "<<var<<"\n";
 		}		
 	}
+	*vars=new_vars;
 
 }
 int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver)
@@ -370,7 +374,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
 		solver->set_timeout_all_calls(this_iter_timeout);
 		ret = solver->solve(&new_assumps);
-		if(firstRound){
+		/*if(firstRound){
 			for (const uint32_t i: dependent_vars) {
 				vector<Lit> Eqlits;
 				bool value=(rand()%2==1);
@@ -380,7 +384,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 				nAddedClause++;
 			}
 			firstRound=false;
-		}
+		}*/
 
 		if (ret != l_True)
 		  break;
@@ -1372,7 +1376,7 @@ cout<<"================end computation\n";
 			//solver->log_to_file("mydump.cnf");
 		//check_num_threads_sanity(num_threads);
 		//after warm up
-		trimVar(&independent_vars);
+	//	trimVar(&independent_vars);
 		//trimVar(&jaccard_vars);
 		for(unsigned j = 0; j < tJaccardMC; j++) {
 			/*	if(j==0)	{
