@@ -992,17 +992,12 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		int ret=OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
 		if(ret==-1){
 			cout<<"delete solver";
-	delete solver;
-	cout<<"end delete";
-	solver = new SATSolver((void*)&conf, &must_interrupt);
-	this->solver=solver;
-	//solver->log_to_file("mydump.cnf");
-	//check_num_threads_sanity(num_threads);
-	if (unset_vars) {
-		solver->set_greedy_undef();
-	}
-	parseInAllFiles(solver);
-	cout<<"end delete";
+			delete solver;
+			cout<<"end delete";
+			solver = new SATSolver((void*)&conf, &must_interrupt);
+			this->solver=solver;
+			solver_init();
+			cout<<"end delete";
 
 			continue;
 		}
@@ -1054,10 +1049,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 	this->solver=solver;
 	//solver->log_to_file("mydump.cnf");
 	//check_num_threads_sanity(num_threads);
-	if (unset_vars) {
-		solver->set_greedy_undef();
-	}
-	parseInAllFiles(solver);
+solver_init();
 	cout<<"end delete";
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
@@ -1172,10 +1164,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	this->solver=solver;
 	//solver->log_to_file("mydump.cnf");
 	//check_num_threads_sanity(num_threads);
-	if (unset_vars) {
-		solver->set_greedy_undef();
-	}
-	parseInAllFiles(solver);
+	solver_init();
 	cout<<"end delete";
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
@@ -1540,33 +1529,7 @@ bool CUSP::ApproxMC(SATCount& count)
     count.hashCount = minHash;
     return true;
 }
-
-int CUSP::solve()
-{
-   /* conf.reconfigure_at = 0;
-    conf.reconfigure_val = 15;
-    conf.gaussconf.max_matrix_rows = 3000;
-    conf.gaussconf.decision_until = 3000;
-    conf.gaussconf.max_num_matrixes = 1;
-    conf.gaussconf.min_matrix_rows = 5;
-    conf.gaussconf.autodisable = false;
-*/
-    //set seed
-    assert(vm.count("random"));
-    unsigned int seed = vm["random"].as<unsigned int>();
-	randomEngine.seed(seed);
-
-	openLogFile();
-	startTime = cpuTimeTotal();
-	solver = new SATSolver((void*)&conf, &must_interrupt);
-	//solver->log_to_file("mydump.cnf");
-	solverToInterrupt = solver;
-	if (dratf) {
-		cout
-			<< "ERROR: Gauss does NOT work with DRAT and Gauss is needed for CUSP. Exiting."
-			<< endl;
-		exit(-1);
-	}
+void CUSP::solver_init(){
 	if (dratf) {
 		solver->set_drat(dratf, clause_ID_needed);
 	}
@@ -1595,8 +1558,38 @@ int CUSP::solve()
 	if (unset_vars) {
 		solver->set_greedy_undef();
 	}
-	printVersionInfo();
+
 	parseInAllFiles(solver);
+}
+int CUSP::solve()
+{
+   /* conf.reconfigure_at = 0;
+    conf.reconfigure_val = 15;
+    conf.gaussconf.max_matrix_rows = 3000;
+    conf.gaussconf.decision_until = 3000;
+    conf.gaussconf.max_num_matrixes = 1;
+    conf.gaussconf.min_matrix_rows = 5;
+    conf.gaussconf.autodisable = false;
+*/
+    //set seed
+    assert(vm.count("random"));
+    unsigned int seed = vm["random"].as<unsigned int>();
+	randomEngine.seed(seed);
+
+	openLogFile();
+	startTime = cpuTimeTotal();
+	solver = new SATSolver((void*)&conf, &must_interrupt);
+	//solver->log_to_file("mydump.cnf");
+	solverToInterrupt = solver;
+	if (dratf) {
+		cout
+			<< "ERROR: Gauss does NOT work with DRAT and Gauss is needed for CUSP. Exiting."
+			<< endl;
+		exit(-1);
+	}
+	solver_init();
+	//printVersionInfo();
+
 
 	originalPC_size=solver->get_Nclause();
 	cout<<"original size="<<originalPC_size<<"\n";

@@ -123,7 +123,7 @@ class CUSP: public Main {
 
 private:
     void add_approxmc_options();
-
+void solver_init();
  bool checkParity(int,string randomBits,int num_xor_cls,int size,int i,int j);
 	bool JaccardApproxMC(std::map<uint64_t,SATCount>& count);
 	bool ScalApproxMC(SATCount& count);
