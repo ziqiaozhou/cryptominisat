@@ -347,7 +347,8 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     //Timeout
     if (ret == l_Undef) {
         must_interrupt.store(false, std::memory_order_relaxed);
-        return -1;
+        
+		return -1;
     }
     return solutions;
 }
@@ -372,18 +373,21 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
+		if(solutions>maxSolutions/2 && this_iter_timeout<loopTimeout/5){
+				this_iter_timeout=loopTimeout/4;
+		}
 		solver->set_timeout_all_calls(this_iter_timeout);
 		ret = solver->solve(&new_assumps);
-		/*if(firstRound){
+		/*if(firstround){
 			for (const uint32_t i: dependent_vars) {
-				vector<Lit> Eqlits;
+				vector<lit> eqlits;
 				bool value=(rand()%2==1);
-				Eqlits.push_back(Lit(act_var,false));
-				Eqlits.push_back(Lit(i,solver->get_model()[i]==l_False));
-				solver->add_clause(Eqlits);
-				nAddedClause++;
+				eqlits.push_back(lit(act_var,false));
+				eqlits.push_back(lit(i,solver->get_model()[i]==l_false));
+				solver->add_clause(eqlits);
+				naddedclause++;
 			}
-			firstRound=false;
+			firstround=false;
 		}*/
 
 		if (ret != l_True)
@@ -425,7 +429,8 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     //Timeout
     if (ret == l_Undef) {
         must_interrupt.store(false, std::memory_order_relaxed);
-        return -1;
+		std::cout<<"explored count="<<solutions;
+		return -1;
     }
 	return solutions;
 }
@@ -495,9 +500,10 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,
 			//Remove all hashes
 			if (repeatTry < 2) {    /* Retry up to twice more */
 				assert(hashCount > 0);
-				hashCount-=2*repeatTry;
+				//hashCount-=lower+repeatTry;
 				cout <<"repeatTry="<< repeatTry<<"Timeout, try again -- " <<repeatTry<<"hash="<<hashCount<< endl;
 				repeatTry +=1;
+				return TIMEOUT;
 				continue;
 			} else {
 				//this set of hashes does not work, go up
@@ -652,7 +658,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			myTime = cpuTimeTotal();
 			uint64_t swapVar = hashCount;
 			//cout<<"change the size to "<<solver->get_Nclause();
-			//solver->simplify(&assumps);
+			//solver->simp:lify(&assumps);
 			
 			bool readyPrev=((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
 		//	bool readyPrev=searched?true:((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
@@ -666,6 +672,15 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,solver);
 			printFor3(ret);
 			switch(ret){
+				case TIMEOUT:
+					if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1) {
+						lowerFib = hashCount;
+						hashCount = (lowerFib+upperFib)/2;
+					} else {
+						//printf("hashPrev:%d hashCount:%d\n",hashPrev, hashCount);
+						hashCount = lowerFib + (hashCount -lowerFib)*2;
+					}
+					break;
 				case RETRY_IND_HASH:
 					assumps.clear();
 					hashVars.clear();
