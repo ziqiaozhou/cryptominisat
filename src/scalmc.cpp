@@ -513,7 +513,10 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev) {
+
+				double myTime1 = cpuTimeTotal();
 				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 				if(s[1]<=0||s[1]>pivotApproxMC*2){
 					//unbalanced sampling, giveup
 withhashresample:
@@ -524,11 +527,16 @@ withhashresample:
 					return RETRY_JACCARD_HASH;
 					//return NEAR_RESULT;
 				}
+				
+				double myTime2=cpuTimeTotal();
 				s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
+				std::cout<<"s[2]"<<s[2]<<",time:"<<cpuTimeTotal()-myTime2<<"\n";
 				if(s[2]<=0|| s[2]>(s[1]+s[0])){
 					//impossible reach
-					assert(0);
-					goto withhashresample;
+					assumps.clear();
+					hashVars.clear();
+					solver->simplify(&assumps);
+					return RETRY_JACCARD_HASH;
 				}
 				for(int k=0;k<scounts.size();++k)
 				{
@@ -544,16 +552,26 @@ withhashresample:
 				hashCount++;
 				SetHash(hashCount,hashVars,assumps,solver);
 				s[0]=nextCount;
-				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+				double myTime1=cpuTimeTotal();
+				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
+				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
+					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
 				if(s[1]<=0||s[1]>pivotApproxMC*2){
 					//unbalanced sampling, giveup
-					goto withhashresample;
+					assumps.clear();
+					hashVars.clear();
+					solver->simplify(&assumps);
+					return RETRY_JACCARD_HASH;
 				}
+				myTime1=cpuTimeTotal();
 				s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
+				std::cout<<"s[2]"<<s[2]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
+
 				if(s[2]<=0|| s[2]>(s[1]+s[0])){
 					//impossible reach
 					assert(0);
-					goto withhashresample;
+					
+					assert(0);
 				}
 				for(int k=0;k<scounts.size();++k)
 				{
@@ -644,6 +662,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			if(succRecord.find(hashCount+1) != succRecord.end()){
 				nextCount=countRecord[hashCount+1];
 			}
+			std::cout<<"------------------------\n";
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,solver);
 			printFor3(ret);
 			switch(ret){
@@ -693,15 +712,20 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 						if (hashPrev > hashCount) {
 							hashPrev = 0;
 						}
+						int delta=log2((pivotApproxMC+1)/ret);
 						upperFib = hashCount;
 						if (hashPrev > lowerFib) {
 							lowerFib = hashPrev;
 						}
+					//	uint64_t tmp=hashCount-2*delta;
+					//	lowerFib=(lowerFib>tmp)?lowerFib:tmp;
 						hashCount = (upperFib+lowerFib)/2;
+						std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
 					}
 					break;
 			}
-
+	std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
+	std::cout<<"===================="<<"\n";
 		}
 		assumps.clear();
 		solver->simplify(&assumps);
@@ -932,7 +956,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		jaccardAssumps_lastZero.clear();
 		jaccardHashVars.clear();
 		jaccardXorClause.clear();
-		solver->simplify(&jaccardAssumps);
+		//solver->simplify(&jaccardAssumps);
 		if(jaccardHashCount>0){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
 		}
@@ -952,6 +976,19 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		vector<SATCount>scounts={scount0,scount1,scount2};
 		int ret=OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
 		if(ret==-1){
+			cout<<"delete solver";
+	delete solver;
+	cout<<"end delete";
+	solver = new SATSolver((void*)&conf, &must_interrupt);
+	this->solver=solver;
+	//solver->log_to_file("mydump.cnf");
+	//check_num_threads_sanity(num_threads);
+	if (unset_vars) {
+		solver->set_greedy_undef();
+	}
+	parseInAllFiles(solver);
+	cout<<"end delete";
+
 			continue;
 		}
 		std::ofstream  f;
