@@ -176,9 +176,12 @@ void trimVar(std::vector<uint32_t>*);
 	uint32_t tApproxMC = 37;
 	uint32_t tJaccardMC = 16;
     uint32_t searchMode = 1;
-	double jaccardXorRate=1;
+	double jaccardXorRate=0.5;
+	double xorRate=0.5;
 	std::vector<XorClause> jaccardXorClause;
 	int jaccardXorMax=600;
+	
+	int XorMax=1000;
 	bool Parallel=false;
     double   loopTimeout = 300;
     int      unset_vars = 1;

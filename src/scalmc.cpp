@@ -118,8 +118,8 @@ void CUSP::add_approxmc_options()
 	 ,"Seach mode. ApproxMX = 0, JaccardMC=1,ScalMC = 2")
 	("JaccardXorMax", po::value(&jaccardXorMax)->default_value(jaccardXorMax)
 	 ,"default =600, if xor is eceed this value, trim the xor by change the ratio for randombits")
-
-
+	("XorMax", po::value(&XorMax)->default_value(XorMax)
+	 ,"default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
 	("JaccardXorRate", po::value(&jaccardXorRate)->default_value(jaccardXorRate)
 	 ,"default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
 
@@ -220,21 +220,8 @@ inline T findMin(vector<T>& numList)
 bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 {
 	cout<<"solver="<<solver;
-	int parity=Parity;
-	int var_size=independent_vars.size();
-	double ratio=0.5;
-	if(parity<=1){
-		if(num_xor_cls*var_size>(jaccardXorMax)){//don't allow too many xor
-			ratio=(1.0*jaccardXorMax)/(num_xor_cls*var_size);
-			ratio=(ratio<jaccardXorRate)?ratio:jaccardXorRate;
-			if(ratio<0.1){
-				std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<num_xor_cls<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax;
-			}
-		}
-	}else if(parity<var_size/2)
-	  ratio=(double)(parity)/var_size;
-	std::cout<<"xor ratio="<<ratio;
 
+	double ratio=xorRate;
 	string randomBits = GenerateRandomBits_prob((independent_vars.size()) * num_xor_cls,ratio);
 	string randomBits_rhs=GenerateRandomBits(num_xor_cls);
 	bool rhs = true;
@@ -1776,6 +1763,22 @@ void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,ve
 //For ScalApproxMC only
 void CUSP::SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps,SATSolver* solver)
 {
+	double ratio=0.5;
+	int parity=Parity;
+	int var_size=independent_vars.size();
+	if(parity<=1){
+		if(clausNum*var_size>(XorMax)){//don't allow too many xor
+			ratio=(1.0*XorMax)/(clausNum*var_size);
+			//ratio=(ratio<XorRate)?XorRate:0.5;
+			if(ratio<0.1){
+				std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax;
+			}
+		}
+	}else if(parity<var_size/2)
+	  ratio=(double)(parity)/var_size;
+	xorRate=ratio;
+	std::cout<<"xor ratio="<<ratio;
+
     if (clausNum < assumps.size()) {
         uint64_t numberToRemove = assumps.size()- clausNum;
         for (uint64_t i = 0; i<numberToRemove; i++) {
