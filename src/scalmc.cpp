@@ -337,6 +337,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     if (ret == l_Undef) {
         must_interrupt.store(false, std::memory_order_relaxed);
         
+		std::cout<<"timeout,but explored count="<<solutions;
 		return -1;
     }
     return solutions;
@@ -634,7 +635,9 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			return -1;
 		}
 		hashCount=ret;
-		hashCount=(LowerFib+(UpperFib?UpperFib:independent_vars.size()))/2;
+		UpperFib=UpperFib?UpperFib:independent_vars.size();
+			hashCount=(LowerFib+UpperFib)/2;
+			std::cout<<"starter hashcount="<<hashCount<<"\n"
 	}
 
 	//	hashCount=startIteration;
@@ -662,7 +665,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			if(succRecord.find(hashCount+1) != succRecord.end()){
 				nextCount=countRecord[hashCount+1];
 			}
-			std::cout<<"------------------------\n";
+			std::cout<<"\n------------------------\n";
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,solver);
 			printFor3(ret);
 			switch(ret){
@@ -729,7 +732,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					break;
 			}
 	std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
-	std::cout<<"===================="<<"\n";
+	std::cout<<"\n===================="<<"\n";
 		}
 		assumps.clear();
 		solver->simplify(&assumps);
