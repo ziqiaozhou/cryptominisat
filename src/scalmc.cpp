@@ -634,8 +634,9 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			return -1;
 		}
 		hashCount=ret;
+		hashCount=(LowerFib+(UpperFib?UpperFib:independent_vars.size()))/2;
 	}
-	hashCount=(LowerFib+UpperFib)/2;
+
 	//	hashCount=startIteration;
 	for (uint32_t j = 0; j < tApproxMC; j++) {
 		map<uint64_t,int64_t> countRecord;
