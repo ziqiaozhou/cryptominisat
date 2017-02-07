@@ -170,6 +170,9 @@ void trimVar(std::vector<uint32_t>*);
 	uint32_t pivotApproxMC = 52;
     double prevTime;
 	uint32_t endJaccardIndex = 0;
+
+	uint32_t LowerFib = 0;
+	uint32_t UpperFib = 0;
 	uint32_t tApproxMC = 37;
 	uint32_t tJaccardMC = 16;
     uint32_t searchMode = 1;
