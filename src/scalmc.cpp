@@ -614,6 +614,9 @@ void printFor3(int ret){
 		case TOO_MUCH:
 			str="TOO_MUCH";
 			break;
+		case TIMEOUT:
+			str="TIMEOUT";
+			break;
 		default:
 			str="NEAR_RESULT";
 			break;
@@ -673,13 +676,8 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			printFor3(ret);
 			switch(ret){
 				case TIMEOUT:
-					if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1) {
-						lowerFib = hashCount;
-						hashCount = (lowerFib+upperFib)/2;
-					} else {
-						//printf("hashPrev:%d hashCount:%d\n",hashPrev, hashCount);
-						hashCount = lowerFib + (hashCount -lowerFib)*2;
-					}
+					assumps.clear();
+					hashVars.clear();
 					break;
 				case RETRY_IND_HASH:
 					assumps.clear();
@@ -1533,8 +1531,8 @@ void CUSP::solver_init(){
 	if (dratf) {
 		solver->set_drat(dratf, clause_ID_needed);
 	}
-//	check_num_threads_sanity(num_threads);
-//	solver->set_num_threads(num_threads);
+	check_num_threads_sanity(num_threads);
+	solver->set_num_threads(num_threads);
 	if (sql == 1) {
 		solver->set_mysql(sqlServer
 					, sqlUser
