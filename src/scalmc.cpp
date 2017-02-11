@@ -449,6 +449,7 @@ void SATCount::summarize(){
 	int64_t s[3];
 		vector<Lit> assumps;
 		int64_t hashCount=0;
+		cachedSolutions.clear();
 	int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[0],solver);
 	//Din't find at least pivotApproxMC+1
 	if(currentNumSolutions<pivotApproxMC+1){
@@ -458,7 +459,7 @@ void SATCount::summarize(){
 			//unbalanced jaccard sampling, giveup
 			return -1;
 		}
-		s[2]= BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
+		s[2]=cachedSolutions.size();// BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
 		if(s[2]<=0|| s[2]>(s[1]+s[0])){
 			//impossible reach
 			assert(0);
@@ -567,7 +568,8 @@ withhashresample:
 					return RETRY_JACCARD_HASH;
 				}
 				myTime1=cpuTimeTotal();
-				s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
+				s[2]=cachedSolutions.size();
+				//s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
 				std::cout<<"s[2]"<<s[2]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 
 				if(s[2]<=0|| s[2]>(s[1]+s[0])){
