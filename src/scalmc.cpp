@@ -563,6 +563,8 @@ withhashresample:
 				SetHash(hashCount,hashVars,assumps,solver);
 				s[0]=nextCount;
 				double myTime1=cpuTimeTotal();
+				cachedSolutions.clear();
+				s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
 				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
