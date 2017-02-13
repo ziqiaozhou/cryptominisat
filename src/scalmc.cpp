@@ -312,8 +312,8 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 
 			solver->add_clause(lits);
 			string sol="";
-			for(int i=0;i<lits.size();i++){
-				sol+=lits[i+1].sign()?"1":"0";
+			for(int i=1;i<lits.size();i++){
+				sol+=lits[i].sign()?"1":"0";
 			}
 			if(cachedSolutions.count(sol)==0)
 			  cachedSolutions.insert(sol);
