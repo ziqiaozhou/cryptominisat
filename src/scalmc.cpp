@@ -702,9 +702,9 @@ int64_t checkJaccard;
 					 checkJaccard= BoundedSATCount(2,assumps,jaccardAssumps[0],solver);
 					if(checkJaccard>0){
 						std::cout<<"there is solutions, but hashCount too large to find one";
-						assumps.clear();
-						hashVars.clear();
-						hashCount=lowerFib;
+						//assumps.clear();
+						//hashVars.clear();
+						goto TOO_SMALL_ENTRY;
 						break;
 					}
 					assumps.clear();
@@ -742,6 +742,7 @@ int64_t checkJaccard;
 					numExplored = lowerFib+independent_vars.size()-hashCount;
 					succRecord[hashCount] = 0;
 					countRecord[hashCount] = ret;
+TOO_SMALL_ENTRY:
 					if (searched||(abs(hashCount-mPrev) <= 2 && mPrev != 0)) {
 						upperFib = hashCount;
 						hashCount--;
