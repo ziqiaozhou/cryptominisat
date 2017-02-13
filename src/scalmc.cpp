@@ -312,9 +312,10 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 			solver->add_clause(lits);
 			string sol="";
 			for(int i=0;i<independent_vars.size();i++){
-				sol+=lits[i].sign()?"1":"0";
+				sol+=lits[i+1].sign()?"1":"0";
 			}
-			cachedSolutions.insert(sol);
+			if(cachedSolutions.count(sol)==0)
+			  cachedSolutions.insert(sol);
 		}
 		if (num_undef) {
 			cout << "WOW Num undef:" << num_undef << endl;
@@ -460,6 +461,7 @@ void SATCount::summarize(){
 			return -1;
 		}
 		s[2]=cachedSolutions.size();// BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
+		cachedSolutions.clear();
 		if(s[2]<=0|| s[2]>(s[1]+s[0])){
 			//impossible reach
 			assert(0);
@@ -517,7 +519,6 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev) {
-
 				double myTime1 = cpuTimeTotal();
 				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
@@ -574,8 +575,6 @@ withhashresample:
 
 				if(s[2]<=0|| s[2]>(s[1]+s[0])){
 					//impossible reach
-					assert(0);
-					
 					assert(0);
 				}
 				for(int k=0;k<scounts.size();++k)
