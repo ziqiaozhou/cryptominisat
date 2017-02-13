@@ -686,6 +686,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			std::cout<<"\n------------------------\n";
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,solver);
 			printFor3(ret);
+int64_t checkJaccard;
 			switch(ret){
 				case TIMEOUT:
 					assumps.clear();
@@ -698,6 +699,17 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					break;
 
 				case RETRY_JACCARD_HASH:
+					 checkJaccard= BoundedSATCount(2,assumps,jaccardAssumps[0],solver);
+					if(checkJaccard>0){
+						std::cout<<"there is solutions, but hashCount too large to find one";
+						assumps.clear();
+						hashVars.clear();
+						hashCount=lowerFib;
+						break;
+					}
+					assumps.clear();
+					hashVars.clear();
+
 					return -1;
 				case GOT_RESULT_LOWER:
 					numExplored = lowerFib+independent_vars.size()-hashCount;
