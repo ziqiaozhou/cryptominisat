@@ -301,7 +301,8 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 		if (solutions < maxSolutions) {
 			vector<Lit> lits;
 			lits.push_back(Lit(act_var, false));
-			for (const uint32_t var: independent_vars) {
+			for (int i=0;i<independent_vars.size();++i) {
+				uint32_t var=independent_vars[i];
 				if (solver->get_model()[var] != l_Undef) {
 					lits.push_back(Lit(var, solver->get_model()[var] == l_True));
 				} else {
@@ -311,7 +312,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 
 			solver->add_clause(lits);
 			string sol="";
-			for(int i=0;i<independent_vars.size();i++){
+			for(int i=0;i<lits.size();i++){
 				sol+=lits[i+1].sign()?"1":"0";
 			}
 			if(cachedSolutions.count(sol)==0)
@@ -534,6 +535,10 @@ withhashresample:
 				}
 				
 				double myTime2=cpuTimeTotal();
+				for(auto one : cachedSolutions){
+					cout<<"one="<<one<<"\n";
+				}
+
 				s[2]=cachedSolutions.size();// BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
 				std::cout<<"s[2]"<<s[2]<<",time:"<<cpuTimeTotal()-myTime2<<"\n";
 				if(s[2]<=0|| s[2]>(s[1]+s[0])){
@@ -569,6 +574,9 @@ withhashresample:
 					return RETRY_JACCARD_HASH;
 				}
 				myTime1=cpuTimeTotal();
+				for(auto one : cachedSolutions){
+					cout<<"one="<<one<<"\n";
+				}
 				s[2]=cachedSolutions.size();
 				//s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
 				std::cout<<"s[2]"<<s[2]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
