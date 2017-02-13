@@ -1768,7 +1768,7 @@ void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,ve
 	if (jaccard_vars.size()/clausNum<2){
 		jaccardXorRate=(float)(0.2*jaccard_vars.size()/clausNum);
 	}
-	jaccardXorRate=(jaccardXorRate<0.4)?jaccardXorRate:0.4;
+	jaccardXorRate=(jaccardXorRate<0.5)?jaccardXorRate:0.5;
 	//if (conf.verbosity)
 	std::cout<<"jaccardxorrate="<<jaccardXorRate<<"\n";
 	if (clausNum < assumps.size()) {
@@ -1811,7 +1811,7 @@ void CUSP::SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<L
 		}
 	}else if(parity<var_size/2)
 	  ratio=(double)(parity)/var_size;
-	xorRate=ratio;
+	xorRate=(ratio>0.5)?0.5:ratio;
 	std::cout<<"xor ratio="<<ratio;
 
     if (clausNum < assumps.size()) {
