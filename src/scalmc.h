@@ -163,7 +163,7 @@ void* JaccardOneThread();
 				);
 	string GenerateRandomBits(uint32_t size);
 string GenerateRandomBits_prob(uint32_t size,double prob);
-void trimVar(std::vector<uint32_t>*);
+void trimVar(std::vector<uint32_t>&);
 //config
 	std::string cuspLogFile = "cusp_log.txt";
 	uint32_t singleIndex=0;
