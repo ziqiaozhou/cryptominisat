@@ -1057,6 +1057,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 			jaccard3Assumps.push_back(jaccardAssumps_lastZero);
 			jaccard3Assumps.push_back(jaccardAssumps_two);
 			SetSampledJaccardHash(jaccardHashCount,jaccardHashVars,jaccard3Assumps,solver);
+			cout<<"sampled jaccard";
 		}
 		//	solver->simplify(&jaccardAssumps);
 		uint64_t hashPrev = LowerFib;
@@ -1068,7 +1069,6 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		//	int64_t currentNumSolutions_lastZero = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps_lastZero);
 		SATCount scount0,scount1,scount2;
 		JaccardResult result0,result1;
-		
 		vector<SATCount>scounts={scount0,scount1,scount2};
 		int ret=OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
 		if(ret==-1){
@@ -1845,12 +1845,13 @@ void CUSP::SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hash
 			uint32_t sol_var = solver->nVars()-1;
 			vars.push_back(Lit(sol_var,true));
 			vars.push_back(Lit(act_var,true));
-				orVars.push_back(Lit(sol_var,false));
+			orVars.push_back(Lit(sol_var,false));
 			for(int j=0;j<size;++j){
 				vars.push_back(Lit(jaccard_vars[j],sampleOne[j]=='1'));
+				solver->add_clause(vars);
+				vars.pop_back();
 			}
 			sampleit++;
-			solver->add_clause(vars);
 		}
 		solver->add_clause(orVars);
 	}
