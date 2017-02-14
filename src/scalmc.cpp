@@ -280,7 +280,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 	int sampleSize=(1<<(size-assumps.size()));
 	if(sampleSize<=maxSolutions){
 		while(independent_samples.size()<sampleSize){
-			sampleOne=GenerateRandomBits(size);
+			sampleOne=GenerateRandomBits_prob(size,0.5);
 			independent_samples.insert(sampleOne);
 		}
 		std::set<string>::iterator sampleit=independent_samples.begin();
@@ -289,6 +289,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 			sampleOne=*sampleit;
 			vector<Lit> new_assumps(jassumps);
 			for(int j=0;i<size;++j){
+				assert(strlen(sampleOne)>j);
 				new_assumps.push_back(Lit(independent_vars[j],sampleOne[j]=='1'));
 			}
 			ret = solver->solve(&new_assumps);
@@ -1824,7 +1825,7 @@ void CUSP::SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hash
 	int sampleSize=1<<(jaccard_vars.size()-clausNum);
 	sampleSize*=2;
 	while(jaccard_samples.size()<sampleSize){
-			sampleOne=GenerateRandomBits(size);
+			sampleOne=GenerateRandomBits_prob(size,0.5);
 			jaccard_samples.insert(sampleOne);
 	}
 	std::set<string>::iterator sampleit=jaccard_samples.begin();
