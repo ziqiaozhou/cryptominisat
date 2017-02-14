@@ -288,8 +288,9 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 		for(int i=0;i<sampleSize;++i){
 			sampleOne=*sampleit;
 			vector<Lit> new_assumps(jassumps);
-			for(int j=0;i<size;++j){
+			for(int j=0;j<size;++j){
 				assert(strlen(sampleOne)>j);
+				assert(independent_vars.size()>j);
 				new_assumps.push_back(Lit(independent_vars[j],sampleOne[j]=='1'));
 			}
 			ret = solver->solve(&new_assumps);
