@@ -250,7 +250,7 @@ return true;
 void CUSP::trimVar(vector<uint32_t> &vars){
 	vector<uint32_t> new_vars;
 	for(int i=0;i<vars.size();++i){
-		uint32_t var=(*vars)[i];
+		uint32_t var=vars[i];
 		vector<Lit>assume;
 		std::cerr<<"var="<<var;
 		assume.clear();
