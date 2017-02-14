@@ -261,7 +261,6 @@ void CUSP::trimVar(vector<uint32_t> &vars){
 		assume.push_back(Lit(var,false));
 		lbool ret1=solver->solve(&assume);
 		if(ret0!=ret1){
-			if (conf.verbosity )
 			  std::cerr<<"delete "<<var<<"\n";
 		}else{
 			new_vars.push_back(var);
@@ -278,8 +277,11 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 
 	lbool ret;
 	int64_t solutions=-2;
-	int sampleSize=(1<<(size-assumps.size()));
-	if(sampleSize<=maxSolutions){
+
+	uint64_t samplelog=(size-assumps.size());
+	if(samplelog<=log2(maxSolutions)){
+
+	uint64_t sampleSize=(1<<(size-assumps.size()));
 		while(independent_samples.size()<sampleSize){
 			sampleOne=GenerateRandomBits_prob(size,0.5);
 			independent_samples.insert(sampleOne);
@@ -560,9 +562,13 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,
 			}
 			continue;
 		}
-		if(currentNumSolutions==0){
-			return RETRY_JACCARD_HASH;
-		}
+	/*	if(currentNumSolutions==0){
+			lbool ret=solver->solve(&assumps);
+			if(ret=lTrue){
+				return RETRY_JACCARD_HASH;
+			}
+
+		}*/
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev) {
@@ -582,7 +588,7 @@ withhashresample:
 				
 				double myTime2=cpuTimeTotal();
 				for(auto one : cachedSolutions){
-					cout<<"one="<<one<<"\n";
+					//cout<<"one="<<one<<"\n";
 				}
 
 				s[2]=cachedSolutions.size();// BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
@@ -626,7 +632,7 @@ withhashresample:
 				}
 				myTime1=cpuTimeTotal();
 				for(auto one : cachedSolutions){
-					cout<<"one="<<one<<"\n";
+			//		cout<<"one="<<one<<"\n";
 				}
 				s[2]=cachedSolutions.size();
 				//s[2]= BoundedSATCount(s[1]+s[0]+1,assumps,jaccardAssumps[2],solver);
@@ -751,14 +757,13 @@ int64_t checkJaccard;
 					 checkJaccard= BoundedSATCount(2,assumps,jaccardAssumps[0],solver);
 					if(checkJaccard>0){
 						std::cout<<"there is solutions, but hashCount too large to find one";
-						//assumps.clear();
-						//hashVars.clear();
+						assumps.clear();
+						hashVars.clear();
 						goto TOO_SMALL_ENTRY;
 						break;
 					}
 					assumps.clear();
 					hashVars.clear();
-
 					return -1;
 				case GOT_RESULT_LOWER:
 					numExplored = lowerFib+independent_vars.size()-hashCount;
