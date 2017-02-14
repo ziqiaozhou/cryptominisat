@@ -247,9 +247,9 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 return true;
 }
 
-void CUSP::trimVar(vector<uint32_t>*vars){
-	vector<uint32_t> new_vars=*vars;
-	for(int i=0;i<vars->size();++i){
+void CUSP::trimVar(vector<uint32_t> &vars){
+	vector<uint32_t> new_vars;
+	for(int i=0;i<vars.size();++i){
 		uint32_t var=(*vars)[i];
 		vector<Lit>assume;
 		std::cerr<<"var="<<var;
@@ -261,11 +261,11 @@ void CUSP::trimVar(vector<uint32_t>*vars){
 		assume.push_back(Lit(var,false));
 		lbool ret1=solver->solve(&assume);
 		if(ret0!=ret1){
-			new_vars.erase(new_vars.begin()+i);
-			i--;
 			if (conf.verbosity )
 			  std::cerr<<"delete "<<var<<"\n";
-		}		
+		}else{
+			new_vars.push_back(var);
+		}
 	}
 	*vars=new_vars;
 
@@ -1495,7 +1495,7 @@ cout<<"================end computation\n";
 			//solver->log_to_file("mydump.cnf");
 		//check_num_threads_sanity(num_threads);
 		//after warm up
-		trimVar(&independent_vars);
+		trimVar(independent_vars);
 		//trimVar(&jaccard_vars);
 		for(unsigned j = 0; j < tJaccardMC; j++) {
 			/*	if(j==0)	{
