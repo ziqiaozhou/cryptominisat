@@ -267,7 +267,7 @@ void CUSP::trimVar(vector<uint32_t> &vars){
 			new_vars.push_back(var);
 		}
 	}
-	*vars=new_vars;
+	vars=new_vars;
 
 }
 
