@@ -273,6 +273,7 @@ void CUSP::trimVar(vector<uint32_t> &vars){
 
 int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver){
 	size_t size=independent_vars.size();
+	cout<<"size of ind="<<size<<"\n";
 	std::string sampleOne;
 
 	lbool ret;
@@ -303,7 +304,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 			sampleit++;
 		}
 	}
-	std::cout<<solutions;
+	std::cout<<"sampled solu:"<<solutions<<"\n";
 	return solutions;
 }
 int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver)
