@@ -262,6 +262,7 @@ void CUSP::trimVar(vector<uint32_t>*vars){
 		lbool ret1=solver->solve(&assume);
 		if(ret0!=ret1){
 			new_vars.erase(new_vars.begin()+i);
+			i--;
 			if (conf.verbosity )
 			  std::cerr<<"delete "<<var<<"\n";
 		}		
