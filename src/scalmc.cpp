@@ -568,12 +568,15 @@ withhashresample:
 				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
-				if(s[1]<=0||s[1]>pivotApproxMC*2){
+				if(s[1]<=0){
 					//unbalanced sampling, giveup
 					assumps.clear();
 					hashVars.clear();
 					solver->simplify(&assumps);
 					return RETRY_JACCARD_HASH;
+				}
+				if(s[1]>pivotApproxMC*2||s[0]>pivotApproxMC){
+					return TOO_MUCH;
 				}
 				myTime1=cpuTimeTotal();
 				for(auto one : cachedSolutions){
@@ -762,8 +765,8 @@ TOO_SMALL_ENTRY:
 					}
 					break;
 			}
-	std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
-	std::cout<<"\n===================="<<"\n";
+			std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
+			std::cout<<"\n===================="<<"\n";
 		}
 		assumps.clear();
 		solver->simplify(&assumps);
