@@ -303,6 +303,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 			sampleit++;
 		}
 	}
+	std::cout<<solutions;
 	return solutions;
 }
 int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver)
@@ -1851,6 +1852,7 @@ void CUSP::SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hash
 			sampleit++;
 			solver->add_clause(vars);
 		}
+		solver->add_clause(orVars);
 	}
 
 }
