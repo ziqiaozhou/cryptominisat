@@ -124,6 +124,8 @@ class CUSP: public Main {
 private:
 
 		std::set<std::string> cachedSolutions;
+		std::set<std::string> independent_samples;
+		std::set<std::string> jaccard_samples;
 		void add_approxmc_options();
 void solver_init();
  bool checkParity(int,string randomBits,int num_xor_cls,int size,int i,int j);
@@ -135,6 +137,9 @@ void solver_init();
 	bool AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,CMSat::SATSolver* solver);
 	void SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps,CMSat::SATSolver* solver);
 	
+int64_t SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver);
+void SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,vector<vector<Lit>>& assumps,SATSolver* solver );
+void cache_clear();
 	void SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps, vector<Lit>& assumps2, CMSat::SATSolver* solver);
 	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,CMSat::SATSolver * solver);
 
