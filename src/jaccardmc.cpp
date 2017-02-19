@@ -738,7 +738,7 @@ withhashresample:
 				cache_clear();
 				cachedSolutions.insert(nextCount.begin(),nextCount.end());
 			//	s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
-				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount, &jaccardAssumps[1], &assump,ssolver);				
+				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount, &jaccardAssumps[1], &assumps,solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
 				if(s[1]<=0){
