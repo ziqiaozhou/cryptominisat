@@ -66,6 +66,9 @@ class LitStr{
 			randomBits="";
 			randomBits_rhs="";
 		}
+		void print(){
+		std::cout<<"randombits="<<randomBits<<",rhs="<<randomBits_rhs<<"\n";
+		}
 		std::string randomBits;
 		std::string randomBits_rhs;
 };
