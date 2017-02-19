@@ -67,7 +67,7 @@ class LitStr{
 			randomBits_rhs="";
 		}
 		void print(){
-		std::cout<<"randombits="<<randomBits<<",rhs="<<randomBits_rhs<<"\n";
+			std::cout<<"randombits="<<randomBits<<",rhs="<<randomBits_rhs<<"\n";
 		}
 		std::string randomBits;
 		std::string randomBits_rhs;
@@ -170,7 +170,7 @@ bool  genHashForAssump(vector<uint32_t> vars, uint32_t num_xor_cls,LitStr& assum
 int OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::string> nextCount,uint64_t &hashCount,LitStr& assumps ,std::vector<LitStr> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
 int OneRoundFor3NoHash_slow(vector<LitStr> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
 
-int64_t BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, const LitStr * jaccardAssumpStr,const LitStr * assumpStr ,SATSolver* solver);
+int64_t BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount,LitStr * jaccardAssumpStr, LitStr * assumpStr ,SATSolver* solver);
 	int64_t BoundedSATCount(uint32_t maxSolutions, const std::vector<Lit>& assumps,CMSat::SATSolver * solver);
 	int OneRoundCount(uint64_t jaccardHashCount,JaccardResult *result,uint64_t & mPrev,uint64_t& hashPrev,std::vector<Lit> jaccardAssumps,SATCount& count,CMSat::SATSolver* solver);
 

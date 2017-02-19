@@ -319,7 +319,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 
 	return solutions;
 }
-int64_t CUSP::BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, const LitStr * jaccardAssumpStr,const LitStr * assumpStr ,SATSolver* solver)
+int64_t CUSP::BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, LitStr * jaccardAssumpStr,LitStr * assumpStr ,SATSolver* solver)
 {
 //    cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
     //Set up things for adding clauses that can later be removed
