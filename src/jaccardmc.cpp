@@ -331,10 +331,14 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, const Li
 	lbool ret;
 	bool firstRound=true;
 
-	if(jaccardAssumpStr)
-	  SetHashByString(singleIndex,jaccard_vars,jaccardAssumpStr->randomBits,jaccardAssumpStr->randomBits_rhs,solver);
-	if(assumpStr)
-	  SetHashByString(hashCount,independent_vars,assumpStr->randomBits,assumpStr->randomBits_rhs,solver);
+	if(jaccardAssumpStr){
+		jaccardAssumpStr->print();
+		SetHashByString(singleIndex,jaccard_vars,jaccardAssumpStr->randomBits,jaccardAssumpStr->randomBits_rhs,solver);
+	}
+	if(assumpStr){
+		assumpStr->print();
+		SetHashByString(hashCount,independent_vars,assumpStr->randomBits,assumpStr->randomBits_rhs,solver);
+	}
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
@@ -2198,13 +2202,10 @@ void CUSP::call_after_parse()
 bool  CUSP::genHashForAssump(vector<uint32_t> vars, uint32_t num_xor_cls,LitStr& assumps){
 	int var_size=vars.size();
 	jaccardXorRate=(jaccardXorRate>0.5)?0.5:jaccardXorRate;
-	string & randomBits=assumps.randomBits;
-
-	string & randomBits_rhs=assumps.randomBits_rhs;
 	int original_size=assumps.randomBits_rhs.size();
 	if(original_size<num_xor_cls){
-		randomBits += GenerateRandomBits_prob((var_size ) *( num_xor_cls-original_size),jaccardXorRate);
-		randomBits_rhs += GenerateRandomBits( num_xor_cls-original_size);
+		assumps.randomBits += GenerateRandomBits_prob((var_size ) *( num_xor_cls-original_size),jaccardXorRate);
+		assumps.randomBits_rhs += GenerateRandomBits( num_xor_cls-original_size);
 	}
 }
 
