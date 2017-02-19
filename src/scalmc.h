@@ -177,7 +177,9 @@ void trimVar(std::vector<uint32_t>&);
 	uint32_t pivotApproxMC = 52;
     double prevTime;
 	uint32_t endJaccardIndex = 0;
-
+	
+	int printXor=0;
+	int trimOnly=0;
 	uint32_t LowerFib = 0;
 	uint32_t UpperFib = 0;
 	uint32_t tApproxMC = 37;

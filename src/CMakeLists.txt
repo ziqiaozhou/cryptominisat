@@ -203,6 +203,12 @@ if (NOT ONLY_SIMPLE)
 		)
 
 	if (USE_GAUSS)
+		add_executable(jaccardmc
+			main.cpp
+			signalcode.cpp
+			 jaccardmc.cpp
+			)
+
 		add_executable(scalmc
 			main.cpp
 			signalcode.cpp
@@ -241,7 +247,10 @@ if (NOT ONLY_SIMPLE)
    
 endif()
  if (USE_GAUSS)
-        set_target_properties(scalmc PROPERTIES
+        set_target_properties(jaccardmc PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+            INSTALL_RPATH_USE_LINK_PATH TRUE)
+	 set_target_properties(scalmc PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
             INSTALL_RPATH_USE_LINK_PATH TRUE)
     endif()
@@ -265,6 +274,7 @@ if (NOT ONLY_SIMPLE)
 endif()
 
 if (USE_GAUSS)
+	
 	target_link_libraries(scalmc
 		${cryptoms_exec_link_libs}
 		)
@@ -273,6 +283,14 @@ if (USE_GAUSS)
 		RUNTIME DESTINATION bin
 		)
 	SET(CPACK_PACKAGE_EXECUTABLES "scalmc")
+	target_link_libraries(jaccardmc
+		${cryptoms_exec_link_libs}
+		)
+	install(TARGETS jaccardmc
+		EXPORT ${CRYPTOMINISAT5_EXPORT_NAME}
+		RUNTIME DESTINATION bin
+		)
+	SET(CPACK_PACKAGE_EXECUTABLES "jaccardmc")
 endif()
 target_link_libraries(cryptominisat5_simple
     ${cryptoms_exec_link_libs}

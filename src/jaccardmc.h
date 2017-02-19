@@ -52,7 +52,23 @@ class XorClause{
 			vars.clear();
 		}
 };
-
+class LitStr{
+	public:
+		LitStr(){
+			randomBits="";
+			randomBits_rhs="";
+		}
+		~LitStr(){
+			randomBits="";
+			randomBits_rhs="";
+		}
+		void clear(){
+			randomBits="";
+			randomBits_rhs="";
+		}
+		std::string randomBits;
+		std::string randomBits_rhs;
+};
 class SATCount {
 	public:
 		void summarize();
@@ -86,8 +102,8 @@ class SATCount {
 };
 class JaccardResult{
 	public:
-		std::map<uint64_t,vector<uint64_t>> numHashList;//for output
-		std::map<uint64_t,vector<int64_t>> numCountList;//for outpur
+		std::map<uint64_t,std::vector<uint64_t>> numHashList;//for output
+		std::map<uint64_t,std::vector<int64_t>> numCountList;//for outpur
 		std::map<uint64_t,SATCount> count;//for outpur
 		std::map<uint64_t,uint64_t> hashCount;
 		std::map<uint64_t,bool> searched;
@@ -99,8 +115,8 @@ class JaccardResult{
 struct JaccardPara{
 	bool computePrev;
 	uint64_t jaccardHashCount;
-	std::map<uint64_t,vector<uint64_t>> numHashList;//for output
-	std::map<uint64_t,vector<int64_t>> numCountList;//for outpur
+	std::map<uint64_t,std::vector<uint64_t>> numHashList;//for output
+	std::map<uint64_t,std::vector<int64_t>> numCountList;//for outpur
 	std::map<uint64_t,SATCount> count;//for outpur
 	uint64_t *hashCount;
 	int loop;
@@ -138,23 +154,34 @@ void solver_init();
 	void SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps,CMSat::SATSolver* solver);
 	
 int64_t SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver);
-void SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,vector<vector<Lit>>& assumps,SATSolver* solver );
+void SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,std::vector<vector<Lit>>& assumps,SATSolver* solver );
 void cache_clear();
 	void SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps, vector<Lit>& assumps2, CMSat::SATSolver* solver);
 	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,CMSat::SATSolver * solver);
+void reset_solver();
+bool  SetHashByString( uint32_t num_xor_cls,std::vector<uint32_t> jaccard_vars,const string randomBits,const string randomBits_rhs,  SATSolver* solver);
 
-	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,CMSat::SATSolver * solver);
-	int OneRoundCount(uint64_t jaccardHashCount,JaccardResult *result,uint64_t & mPrev,uint64_t& hashPrev,vector<Lit> jaccardAssumps,SATCount& count,CMSat::SATSolver* solver);
-	
+bool  genHashForJaccard( uint32_t num_xor_cls,std::vector<LitStr>& assumps);
+bool  genHashForAssump(vector<uint32_t> vars, uint32_t num_xor_cls,LitStr& assumps);
+	int OneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,std::vector<LitStr> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
+int OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::string> nextCount,uint64_t &hashCount,LitStr& assumps ,std::vector<LitStr> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
+int OneRoundFor3NoHash_slow(vector<LitStr> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
+
+int64_t BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, const LitStr * jaccardAssumpStr,const LitStr * assumpStr ,SATSolver* solver);
+	int64_t BoundedSATCount(uint32_t maxSolutions, const std::vector<Lit>& assumps,CMSat::SATSolver * solver);
+	int OneRoundCount(uint64_t jaccardHashCount,JaccardResult *result,uint64_t & mPrev,uint64_t& hashPrev,std::vector<Lit> jaccardAssumps,SATCount& count,CMSat::SATSolver* solver);
+
 int OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,std::vector<std::vector<Lit>> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
 	int OneRoundFor3NoHash(std::vector<std::vector<CMSat::Lit> >, std::vector<SATCount>&, CMSat::SATSolver*);
 
 int OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,uint64_t &hashCount,std::map<uint64_t,Lit>& hashVars,std::vector<Lit>assumps ,std::vector<std::vector<Lit>> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
 	void JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,bool computePrev,SATSolver* solver);
 	void JaccardOneRound(uint64_t jaccardHashCount, JaccardResult* result,bool computePrev,CMSat::SATSolver* solver0);
+
+void JaccardOneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* result ,bool computePrev,SATSolver* solver);
 void* JaccardOneThread();
-	void computeCountFromList(uint64_t jaccardHashCount, std::map<uint64_t,vector<uint64_t>> &numHashList,std::map<uint64_t,vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);
-	void addKey2Map(uint64_t jaccardHashCount,std::map<uint64_t,vector<uint64_t>> &numHashList,std::map<uint64_t,vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);
+	void computeCountFromList(uint64_t jaccardHashCount, std::map<uint64_t,std::vector<uint64_t>> &numHashList,std::map<uint64_t,std::vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);
+	void addKey2Map(uint64_t jaccardHashCount,std::map<uint64_t,std::vector<uint64_t>> &numHashList,std::map<uint64_t,std::vector<int64_t>>& numCountList,std::map<uint64_t,SATCount>& count);
 	lbool BoundedSAT(
 				uint32_t maxSolutions, uint32_t minSolutions
 				, vector<Lit>& assumptions

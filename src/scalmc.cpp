@@ -122,7 +122,9 @@ void CUSP::add_approxmc_options()
 	 ,"default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
 	("JaccardXorRate", po::value(&jaccardXorRate)->default_value(jaccardXorRate)
 	 ,"default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
-
+	
+	("printXor",po::value(&printXor)->default_value(0),"default(false)")
+	("trimOnly",po::value(&trimOnly)->default_value(0),"default(false)")
     ("tApproxMC", po::value(&tApproxMC)->default_value(tApproxMC)
         , "Number of measurements")
   ("tJaccardMC", po::value(&tJaccardMC)->default_value(tJaccardMC)
@@ -162,14 +164,19 @@ void CUSP::add_supported_options()
 
 void print_xor(const vector<uint32_t>& vars, const uint32_t rhs)
 {
-    cout << "Added XOR ";
-    for (size_t i = 0; i < vars.size(); i++) {
-        cout << vars[i]+1;
+	std::ofstream  ff;
+	std::ostringstream filename("");
+	filename<<"xor.txt";
+	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
+	ff<<"x";
+	for (size_t i = 1; i < vars.size(); i++) {
+        ff << vars[i]+1;
         if (i < vars.size()-1) {
-            cout << " + ";
+            ff << " ";
         }
     }
-    cout << " = " << (rhs ? "True" : "False") << endl;
+    ff<< " " << (rhs ? "1" : "0") << endl;
+	ff.close();
 }
 
 bool CUSP::openLogFile()
@@ -240,7 +247,7 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 			  vars.push_back(independent_vars[j]);
 	}
 	solver->add_xor_clause(vars, rhs);
-	if (conf.verbosity) {
+	if (conf.verbosity||printXor) {
 		print_xor(vars, rhs);
 	}
 }
@@ -255,7 +262,9 @@ void CUSP::trimVar(vector<uint32_t> &vars){
 		std::cerr<<"var="<<var;
 		assume.clear();
 		assume.push_back(Lit(var,true));
+		double start=cpuTimeTotal();
 		lbool ret0=solver->solve(&assume);
+		std::cout<<"\ntime:"<<cpuTimeTotal()-start;
 		assume.clear();
 		std::cerr<<"!var="<<var;
 		assume.push_back(Lit(var,false));
@@ -293,7 +302,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 			sampleOne=*sampleit;
 			vector<Lit> new_assumps(jassumps);
 			for(int j=0;j<size;++j){
-				assert(strlen(sampleOne)>j);
+				assert(sampleOne.size()>j);
 				assert(independent_vars.size()>j);
 				new_assumps.push_back(Lit(independent_vars[j],sampleOne[j]=='1'));
 			}
@@ -317,7 +326,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 #if PARALLEL 
 //	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
-	solver->new_var();
+		solver->new_var();
     uint32_t act_var = solver->nVars()-1;
     vector<Lit> new_assumps(assumps);
 	new_assumps.insert(new_assumps.end(),jassumps.begin(),jassumps.end());
@@ -502,7 +511,11 @@ void SATCount::summarize(){
 		vector<Lit> assumps;
 		int64_t hashCount=0;
 		cache_clear();
+
+    double start_time = cpuTime();
 	int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[0],solver);
+	
+    cout<<"\ncost time:"<<cpuTime()-start_time<<"\n"<<"count="<<currentNumSolutions;
 	//Din't find at least pivotApproxMC+1
 	if(currentNumSolutions<pivotApproxMC+1){
 		s[0]=currentNumSolutions;
@@ -540,6 +553,9 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,
 		int64_t s[3];
 		double myTime = cpuTimeTotal();
 		cache_clear();
+		if(printXor)
+		  exit(0);
+
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps[0],solver);
 		s[0]=currentNumSolutions;
 		cout	<<"solver->nvar()="<<solver->nVars()
@@ -1506,7 +1522,20 @@ cout<<"================end computation\n";
 			//solver->log_to_file("mydump.cnf");
 		//check_num_threads_sanity(num_threads);
 		//after warm up
+
+		if(trimOnly){
 		trimVar(independent_vars);
+			std::ofstream  ff;
+			std::ostringstream filename("");
+			filename<<"trimed.txt";
+			ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
+			ff<<"c ind ";
+			for(auto var : independent_vars){
+				ff<<var<<" ";
+			}
+			ff.close();
+			exit(0);
+		}
 		//trimVar(&jaccard_vars);
 		for(unsigned j = 0; j < tJaccardMC; j++) {
 			/*	if(j==0)	{
@@ -1820,7 +1849,7 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<Xor
 				}
 				*/
 		solver->add_xor_clause(vars, rhs);
-		if (conf.verbosity ) {
+		if (conf.verbosity||printXor ) {
 			print_xor(vars, rhs);
 		}
 		XorClause xc(vars, rhs);
