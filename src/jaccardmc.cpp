@@ -381,13 +381,13 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, const Li
         solutions = maxSolutions;
     }
 
+	reset_solver();
     if (ret == l_Undef) {
         must_interrupt.store(false, std::memory_order_relaxed);
         
 		std::cout<<"timeout,but explored count="<<solutions;
 		return -1;
     }
-	reset_solver();
     return solutions;
 }
 
@@ -664,8 +664,6 @@ int CUSP::OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::
 		int64_t s[3];
 		double myTime = cpuTimeTotal();
 		cache_clear();
-		if(printXor)
-		  exit(0);
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1,hashCount, &assumps,&jaccardAssumps[0],solver);
 		s[0]=currentNumSolutions;
 		cout	<<"solver->nvar()="<<solver->nVars()
@@ -781,8 +779,6 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,
 		int64_t s[3];
 		double myTime = cpuTimeTotal();
 		cache_clear();
-		if(printXor)
-		  exit(0);
 
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps[0],solver);
 		s[0]=currentNumSolutions;
