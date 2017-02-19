@@ -669,7 +669,7 @@ int CUSP::OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::
 		int64_t s[3];
 		double myTime = cpuTimeTotal();
 		cache_clear();
-		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1,hashCount, &assumps,&jaccardAssumps[0],solver);
+		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1,hashCount, &jaccardAssumps[0],&assumps,solver);
 		s[0]=currentNumSolutions;
 		cout	<<"solver->nvar()="<<solver->nVars()
 			<< "Number of XOR hashes active: " << hashCount << endl
@@ -703,7 +703,7 @@ int CUSP::OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::
 
 			if (readyPrev) {
 				double myTime1 = cpuTimeTotal();	
-				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount, &assumps,&jaccardAssumps[1],solver);
+				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount,&jaccardAssumps[1], &assumps,solver);
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 				if(s[1]<0||s[1]>pivotApproxMC*2){
 					//unbalanced sampling, giveup
@@ -738,7 +738,7 @@ withhashresample:
 				cache_clear();
 				cachedSolutions.insert(nextCount.begin(),nextCount.end());
 			//	s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
-				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount, &assumps,&jaccardAssumps[1],solver);				
+				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount, &jaccardAssumps[1], &assump,ssolver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
 				if(s[1]<=0){
