@@ -166,17 +166,18 @@ void print_xor(const vector<uint32_t>& vars, const uint32_t rhs)
 {
 	std::ofstream  ff;
 	std::ostringstream filename("");
-	filename<<"xor.txt";
+	/*filename<<"xor.txt";
 	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
-	ff<<"x";
+	*/
+	std::cout<<"x";
 	for (size_t i = 1; i < vars.size(); i++) {
-        ff << vars[i]+1;
+		std::cout<< vars[i]+1;
         if (i < vars.size()-1) {
-            ff << " ";
+			std::cout << " ";
         }
     }
-    ff<< " " << (rhs ? "1" : "0") << endl;
-	ff.close();
+	std::cout<< " " << (rhs ? "1" : "0") << endl;
+//	ff.close();
 }
 
 bool CUSP::openLogFile()
@@ -1089,8 +1090,11 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		}
 		hashCount=ret;
 		UpperFib=UpperFib?UpperFib:independent_vars.size();
-			hashCount=(LowerFib+UpperFib)/2;
-			std::cout<<"starter hashcount="<<hashCount<<"\n";
+		if(LowerFib)	
+		  hashCount=(LowerFib+UpperFib)/2;
+		else
+		  hashCount=1;
+		std::cout<<"starter hashcount="<<hashCount<<"\n";
 	}
 
 	//	hashCount=startIteration;
@@ -1427,6 +1431,7 @@ void CUSP::JaccardOneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* res
 	vector<LitStr> jaccard3Assumps;
 	while(true){
 		//solver->simplify(&jaccardAssumps);
+		jaccard3Assumps.clear();
 		genHashForJaccard(jaccardHashCount,jaccard3Assumps);
 		cout<<"sampled jaccard";
 		//	solver->simplify(&jaccardAssumps);
@@ -2219,8 +2224,8 @@ bool  CUSP::genHashForJaccard( uint32_t num_xor_cls,vector<LitStr>& jaccardHash)
 	anotherHash.randomBits_rhs[num_xor_cls-1]=(oneHash.randomBits_rhs[num_xor_cls-1]=='1')?'0':'1';
 	jaccardHash.push_back(anotherHash);
 }
-bool  CUSP::SetHashByString( uint32_t num_xor_cls,vector<uint32_t> jaccard_vars,const string randomBits,const string randomBits_rhs,  SATSolver* solver){
-	int var_size=jaccard_vars.size();
+bool  CUSP::SetHashByString( uint32_t num_xor_cls,vector<uint32_t> input_vars,const string randomBits,const string randomBits_rhs,  SATSolver* solver){
+	int var_size=input_vars.size();
 	if(randomBits.size()==0){
 		assert(0);
 	}
@@ -2237,11 +2242,12 @@ bool  CUSP::SetHashByString( uint32_t num_xor_cls,vector<uint32_t> jaccard_vars,
 		//		cout<<"x ";
 		for (uint32_t k = 0; k < var_size; k++) {
 			if (randomBits[var_size * i + k] == '1') {
-				vars.push_back(jaccard_vars[k]);
+				vars.push_back(input_vars[k]);
 			}
 		}
 		solver->add_xor_clause(vars, rhs);
 		if (conf.verbosity||printXor ) {
+			std::cout<<"printXor=";
 			print_xor(vars, rhs);
 		}
 
