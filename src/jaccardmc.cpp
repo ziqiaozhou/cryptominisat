@@ -166,17 +166,17 @@ void print_xor(const vector<uint32_t>& vars, const uint32_t rhs)
 {
 	std::ofstream  ff;
 	std::ostringstream filename("");
-	/*filename<<"xor.txt";
+	filename<<"xor.txt";
 	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
-	*/
-	std::cout<<"x";
+	
+	ff<<"x";
 	for (size_t i = 1; i < vars.size(); i++) {
-		std::cout<< vars[i]+1;
+		ff<< vars[i]+1;
         if (i < vars.size()-1) {
-			std::cout << " ";
+			ff << " ";
         }
     }
-	std::cout<< " " << (rhs ? "1" : "0") << endl;
+	ff<< " " << (rhs ? "1" : "0") << endl;
 //	ff.close();
 }
 
@@ -340,7 +340,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, LitStr *
 	//	assumpStr->print();
 		SetHashByString(hashCount,independent_vars,assumpStr->randomBits,assumpStr->randomBits_rhs,solver);
 	}
-	if(printXor==1){
+	if(printXor==1&& assumpStr){
 		exit(0);
 	}
 	while (solutions < maxSolutions) {
