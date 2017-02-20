@@ -333,11 +333,11 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, LitStr *
 	bool firstRound=true;
 
 	if(jaccardAssumpStr){
-		jaccardAssumpStr->print();
+	//	jaccardAssumpStr->print();
 		SetHashByString(singleIndex,jaccard_vars,jaccardAssumpStr->randomBits,jaccardAssumpStr->randomBits_rhs,solver);
 	}
 	if(assumpStr){
-		assumpStr->print();
+	//	assumpStr->print();
 		SetHashByString(hashCount,independent_vars,assumpStr->randomBits,assumpStr->randomBits_rhs,solver);
 	}
 	while (solutions < maxSolutions) {
@@ -708,7 +708,9 @@ int CUSP::OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::
 				double myTime1 = cpuTimeTotal();
 				s[1]=0;
 				int pos=1;
+				std::set<uint32_t> cachedSolutions_tmp=cachedSolutions;
 				while(s[1]==0&& pos<10){		
+					cachedSolutions= cachedSolutions_tmp;
 					s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount,&jaccardAssumps[1], &assumps,solver);
 					jaccardAssumps[1].random_rhs(pos);
 					pos++;
@@ -747,9 +749,19 @@ withhashresample:
 				s[0]=nextCount.size();
 				double myTime1=cpuTimeTotal();
 				cache_clear();
+				//	s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
+				s[1]=0;
+				int pos=1;
+				while(s[1]==0&& pos<10){		
+					cachedSolutions.clear();
+					s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount,&jaccardAssumps[1], &assumps,solver);
+					jaccardAssumps[1].random_rhs(pos);
+					pos++;
+				}
+				pos--;
+				jaccardAssumps[1].random_rhs(pos);
 				cachedSolutions.insert(nextCount.begin(),nextCount.end());
-			//	s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
-				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount, &jaccardAssumps[1], &assumps,solver);				
+			//	s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount, &jaccardAssumps[1], &assumps,solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
 				if(s[1]<=0){
