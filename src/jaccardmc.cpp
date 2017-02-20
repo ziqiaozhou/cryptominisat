@@ -1894,7 +1894,6 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 		}
 	}
 
-#endif
 
 	return true;
 }
