@@ -340,6 +340,9 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions,uint64_t hashCount, LitStr *
 	//	assumpStr->print();
 		SetHashByString(hashCount,independent_vars,assumpStr->randomBits,assumpStr->randomBits_rhs,solver);
 	}
+	if(printXor==1){
+		exit(0);
+	}
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
@@ -1838,157 +1841,62 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 	//	solver->save_state(conf.saved_state_file.c_str(), l_True);
 	//	return true;
 
-#if PARALLEL==1 
-		pthread_t threads[NUM_THREADS];
-		pthread_mutex_lock hashCount_lock;
-		pthread_mutex_init(&hashCount_lock,NULL);
-		for(int i=0;i<NUM_THREADS;++i){
-			JaccardPara jaccardPara;
-			jaccardPara.index=singleIndex;
-			/*	jaccardPara.numHashList=&numHashList;
-				jaccardPara.numCountList=&numCountList;
-				jaccardPara.cout=&count;
-				*/	
-			jaccardPara.hashCount=&hashCount;
-			jaccardPara.computePrev=false;
-			jaccardPara->id=i;
-			pthread_create(&threads[i],NULL,JaccardOneThread,&Jaccardpara);
+	int numCore=1;
+	JaccardResult * results=new JaccardResult[numCore];
+	for(int i=0;i<numCore;++i){
+		for(int j=0;j<singleIndex;++j){
+			results->hashCount[j]=0;
+			results->searched[j]=false;
 		}
-#elif PARALLEL==2
-		int numCore=omp_get_max_threads();
-		JaccardResult * results=new JaccardResult[numCore];
-		for(int i=0;i<numCore;++i){
-			for(int j=0;j<singleIndex;++j){
-				results->hashCount[j]=0;
-				results->searched[j]=false;
-			}
+	}
+	if(trimOnly){
+		trimVar(independent_vars);
+		std::ofstream  ff;
+		std::ostringstream filename("");
+		filename<<"trimed.txt";
+		ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		ff<<"c ind ";
+		for(auto var : independent_vars){
+			ff<<var<<" ";
 		}
-		//warn up
-		SATCount warmcount;
-		//solver=solvers[omp_get_thread_num()];
-		map<uint64_t,Lit> jaccardHashVars;
-		jaccardAssumps.clear();
-		jaccardAssumps_lastZero.clear();
-		jaccardHashVars.clear();
-		jaccardXorClause.clear();
-		solver->simplify(&jaccardAssumps);
-		if(jaccardHashCount>0){	
-			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
-		}
-		cout<<"jaccard index="<<jaccardHashCount<<"\n";
-		solver->add_clause(jaccardAssumps);
-		int tApproxMC0=tApproxMC;
-		tApproxMC=1;
-		ScalApproxMC(warmcount);
-		cout<<"end of warmup";
-//		delete solver;
-//		solver = new SATSolver((void*)&conf, &must_interrupt);
-//		solvers[omp_get_thread_num()]=solver;
-		//solver->log_to_file("mydump.cnf");
-		//check_num_threads_sanity(num_threads);
-//		if (unset_vars) {
-//			solver->set_greedy_undef();
-//		}
-//		parseInAllFiles(solver);
-		//after warm up
-		tApproxMC=tApproxMC0;
-		for(int i=0;i<numCore;++i){
-			for(int j=singleIndex-1;j<singleIndex+1;++j){
-				if(warmcount.cellSolCount>pivotApproxMC)
-				  results->hashCount[j]=log2(warmcount.cellSolCount/pivotApproxMC+1)+warmcount.hashCount;
-				else
-				  results->hashCount[j]=warmcount.hashCount;
-				results->searched[j]=true;
-			}
-		}
-
-#pragma omp parallel for
-		for(unsigned j = 0; j < tJaccardMC; j++) {
-			int id=omp_get_thread_num();
-			/*	if(j==0)	{
-				JaccardOneRound(0,&results[id],false,solvers[id]);
-				results[id].searched[0]=true;
-				computeCountFromList(0,results[id].numHashList,results[id].numCountList,results[id].count);
-				}*/
-			int retryJaccardSingle=0;
-			while(true){
-				std::ofstream  f;
-				std::ostringstream filename("");
-				filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
-				JaccardOneRoundFor3(singleIndex,&results[id],true,solvers[id]);
-			//	computeCountFromList(singleIndex,results[id].numHashList,results[id].numCountList,results[id].count);
-			//	computeCountFromList(singleIndex-1,results[id].numHashList,results[id].numCountList,results[id].count);
-				results[id].searched[singleIndex]=true;
-				if(results[id].count[singleIndex].cellSolCount>0){
-					cout<<"break";
-					break;
-				}
-				cout<<"====0 retry singleIndex"<<endl;
-				if(retryJaccardSingle>5){
-					retryJaccardSingle=0;
-					singleIndex--;
-					j--;
-				}
-				retryJaccardSingle++;
-			}
-		}
-#else
-		int numCore=1;
-		JaccardResult * results=new JaccardResult[numCore];
-		for(int i=0;i<numCore;++i){
-			for(int j=0;j<singleIndex;++j){
-				results->hashCount[j]=0;
-				results->searched[j]=false;
-			}
-		}
-		if(trimOnly){
-			trimVar(independent_vars);
-			std::ofstream  ff;
+		ff.close();
+		exit(0);
+	}
+	//trimVar(&jaccard_vars);
+	for(unsigned j = 0; j < tJaccardMC; j++) {
+		/*	if(j==0)	{
+			JaccardOneRound(0,&results[id],false,solvers[id]);
+			results[id].searched[0]=true;
+			computeCountFromList(0,results[id].numHashList,results[id].numCountList,results[id].count);
+			}*/
+		cout<<"Jaccard count="<<j;
+		int retryJaccardSingle=0;
+		while(true){
+			std::ofstream  f;
 			std::ostringstream filename("");
-			filename<<"trimed.txt";
-			ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
-			ff<<"c ind ";
-			for(auto var : independent_vars){
-				ff<<var<<" ";
+			filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
+			JaccardOneRoundFor3_slow(singleIndex,&results[0],true,solver);
+			computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
+			computeCountFromList(singleIndex-1,results[0].numHashList,results[0].numCountList,results[0].count);
+			results[0].searched[singleIndex]=true;
+			if(results[0].count[singleIndex].cellSolCount>0){
+				cout<<"break";
+				break;
 			}
-			ff.close();
-			exit(0);
-		}
-		//trimVar(&jaccard_vars);
-		for(unsigned j = 0; j < tJaccardMC; j++) {
-			/*	if(j==0)	{
-				JaccardOneRound(0,&results[id],false,solvers[id]);
-				results[id].searched[0]=true;
-				computeCountFromList(0,results[id].numHashList,results[id].numCountList,results[id].count);
-				}*/
-			cout<<"Jaccard count="<<j;
-			int retryJaccardSingle=0;
-			while(true){
-				std::ofstream  f;
-				std::ostringstream filename("");
-				filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
-				JaccardOneRoundFor3_slow(singleIndex,&results[0],true,solver);
-				computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
-				computeCountFromList(singleIndex-1,results[0].numHashList,results[0].numCountList,results[0].count);
-				results[0].searched[singleIndex]=true;
-				if(results[0].count[singleIndex].cellSolCount>0){
-					cout<<"break";
-					break;
-				}
-				cout<<"====0 retry singleIndex"<<endl;
-				if(retryJaccardSingle>5){
-					retryJaccardSingle=0;
-					//	singleIndex--;
-					j--;
-					break;
-				}
-				retryJaccardSingle++;
+			cout<<"====0 retry singleIndex"<<endl;
+			if(retryJaccardSingle>5){
+				retryJaccardSingle=0;
+				//	singleIndex--;
+				j--;
+				break;
 			}
+			retryJaccardSingle++;
 		}
+	}
 
 #endif
 
-		return true;
+	return true;
 }
 
 
@@ -2070,17 +1978,16 @@ void CUSP::reset_solver(){
 	cout<<"delete solver";
 	delete solver;
 	cout<<"end delete";
-	solver = new SATSolver((void*)&conf, &must_interrupt);
+	solver = new SATSolver((void*)&conf);
 	this->solver=solver;
 	solver_init();
 }
 
 void CUSP::solver_init(){
+	solverToInterrupt = solver;
 	if (dratf) {
 		solver->set_drat(dratf, clause_ID_needed);
 	}
-
-	solverToInterrupt = solver;
 	check_num_threads_sanity(num_threads);
 	solver->set_num_threads(num_threads);
 	if (sql == 1) {
@@ -2108,6 +2015,7 @@ void CUSP::solver_init(){
 	}
 	vector<uint32_t> original_independent_vars=independent_vars;
 	parseInAllFiles(solver);
+	std::cout<<"finished parsing\n";
 	if(original_independent_vars.size()>0)
 	  independent_vars=original_independent_vars;
 }
