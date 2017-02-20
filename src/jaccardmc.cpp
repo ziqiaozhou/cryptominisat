@@ -570,19 +570,24 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 }
 void SATCount::summarize(){
 	vector<uint64_t>list=numHashList;
+	vector<int64_t>cnt_list=numCountList;
 	auto minHash = findMin(list);
 	if(list.size()<=0){
 		return;
 	}
-	auto cnt_it = list.begin();
+	if(list.size()==1){
+		cellSolCount=cnt_list[0];
+		hashCount=list[0];
+	}
+	auto cnt_it = cnt_list.begin();
 	for (auto hash_it = list.begin()
-				; hash_it != list.end() && cnt_it != list.end()
+				; hash_it != list.end() && cnt_it != cnt_list.end()
 				; hash_it++, cnt_it++
 		) {
 		*cnt_it *= pow(2, (*hash_it) - minHash);
 	}
 
-	int medSolCount = findMedian(list);
+	int medSolCount = findMedian(cnt_list);
 	cellSolCount = medSolCount;
 	hashCount = minHash;
 }
@@ -595,19 +600,23 @@ int CUSP::OneRoundFor3NoHash_slow(vector<LitStr> jaccardAssumps,vector<SATCount>
 
 	cout<<"\ncost time:"<<cpuTime()-start_time<<"\n"<<"count="<<currentNumSolutions;
 	//Din't find at least pivotApproxMC+1
+	if(currentNumSolutions==0){
+		return -1;
+	}
 	if(currentNumSolutions<pivotApproxMC+1){
 		s[0]=currentNumSolutions;
-			std::set<std::basic_string<char> > cachedSolutions_tmp=cachedSolutions;
+		std::set<std::basic_string<char> > cachedSolutions_tmp=cachedSolutions;
 		int pos=1;
+		s[1]=0;
 		while(s[1]==0&& pos<10){		
 			cachedSolutions= cachedSolutions_tmp;
 			s[1] = BoundedSATCount(pivotApproxMC*2+1,0,&jaccardAssumps[1], NULL,solver);
 			jaccardAssumps[1].random_rhs(pos);
 			pos++;
 		}
+
 		pos--;
 		jaccardAssumps[1].random_rhs(pos);
-
 		//s[1] = BoundedSATCount(pivotApproxMC*2+1,0,&jaccardAssumps[1],NULL,solver);
 		if(s[1]<=0||s[1]>pivotApproxMC*2){
 			//unbalanced jaccard sampling, giveup
@@ -625,8 +634,8 @@ int CUSP::OneRoundFor3NoHash_slow(vector<LitStr> jaccardAssumps,vector<SATCount>
 		{
 			scounts[k].numHashList.push_back(hashCount);
 			scounts[k].numCountList.push_back(s[k]);
-		
-		scounts[k].summarize();
+			std::cout<<"s["<<k<<"]="<<s[k]<<"\n";
+			scounts[k].summarize();
 		}
 
 		return 0;
@@ -1482,9 +1491,6 @@ void CUSP::JaccardOneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* res
 		int ret=OneRoundFor3_slow( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
 		if(ret==-1){
 			continue;
-		}
-		if(ret==0){
-			assert(0);
 		}
 		std::ofstream  f;
 		std::ostringstream filename("");
