@@ -597,7 +597,18 @@ int CUSP::OneRoundFor3NoHash_slow(vector<LitStr> jaccardAssumps,vector<SATCount>
 	//Din't find at least pivotApproxMC+1
 	if(currentNumSolutions<pivotApproxMC+1){
 		s[0]=currentNumSolutions;
-		s[1] = BoundedSATCount(pivotApproxMC*2+1,0,&jaccardAssumps[1],NULL,solver);
+			std::set<std::basic_string<char> > cachedSolutions_tmp=cachedSolutions;
+		int pos=1;
+		while(s[1]==0&& pos<10){		
+			cachedSolutions= cachedSolutions_tmp;
+			s[1] = BoundedSATCount(pivotApproxMC*2+1,0,&jaccardAssumps[1], NULL,solver);
+			jaccardAssumps[1].random_rhs(pos);
+			pos++;
+		}
+		pos--;
+		jaccardAssumps[1].random_rhs(pos);
+
+		//s[1] = BoundedSATCount(pivotApproxMC*2+1,0,&jaccardAssumps[1],NULL,solver);
 		if(s[1]<=0||s[1]>pivotApproxMC*2){
 			//unbalanced jaccard sampling, giveup
 			return -1;
@@ -979,8 +990,8 @@ int CUSP::OneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* result, uin
 		}
 		hashCount=ret;
 		UpperFib=UpperFib?UpperFib:independent_vars.size();
-			hashCount=(LowerFib+UpperFib)/2;
-			std::cout<<"starter hashcount="<<hashCount<<"\n";
+		hashCount=(LowerFib+UpperFib)/2;
+		std::cout<<"starter hashcount="<<hashCount<<"\n";
 	}
 
 	//	hashCount=startIteration;
@@ -1456,7 +1467,7 @@ void CUSP::JaccardOneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* res
 		//solver->simplify(&jaccardAssumps);
 		jaccard3Assumps.clear();
 		genHashForJaccard(jaccardHashCount,jaccard3Assumps);
-		cout<<"sampled jaccard";
+	//	cout<<"sampled jaccard";
 		//	solver->simplify(&jaccardAssumps);
 		uint64_t hashPrev = LowerFib;
 		addKey2Map(jaccardHashCount,numHashList,numCountList,count);
@@ -1471,6 +1482,9 @@ void CUSP::JaccardOneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* res
 		int ret=OneRoundFor3_slow( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
 		if(ret==-1){
 			continue;
+		}
+		if(ret==0){
+			assert(0);
 		}
 		std::ofstream  f;
 		std::ostringstream filename("");
