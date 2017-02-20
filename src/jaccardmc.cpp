@@ -708,7 +708,7 @@ int CUSP::OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::
 				double myTime1 = cpuTimeTotal();
 				s[1]=0;
 				int pos=1;
-				std::set<uint32_t> cachedSolutions_tmp=cachedSolutions;
+				std::set<std::basic_string<char> > cachedSolutions_tmp=cachedSolutions;
 				while(s[1]==0&& pos<10){		
 					cachedSolutions= cachedSolutions_tmp;
 					s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount,&jaccardAssumps[1], &assumps,solver);
