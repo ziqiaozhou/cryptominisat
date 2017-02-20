@@ -170,14 +170,16 @@ void print_xor(const vector<uint32_t>& vars, const uint32_t rhs)
 	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
 	
 	ff<<"x";
+	ff<< (rhs ?"":"-")<< vars[0]+1 << " ";
 	for (size_t i = 1; i < vars.size(); i++) {
 		ff<< vars[i]+1;
         if (i < vars.size()-1) {
 			ff << " ";
         }
     }
-	ff<< " " << (rhs ? "1" : "0") << endl;
-//	ff.close();
+	ff<<"0\n";
+
+	ff.close();
 }
 
 bool CUSP::openLogFile()
