@@ -571,6 +571,9 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 void SATCount::summarize(){
 	vector<uint64_t>list=numHashList;
 	auto minHash = findMin(list);
+	if(list.size()<=0){
+		return;
+	}
 	auto cnt_it = list.begin();
 	for (auto hash_it = list.begin()
 				; hash_it != list.end() && cnt_it != list.end()
@@ -702,8 +705,16 @@ int CUSP::OneRoundFor3WithHash_slow(bool readyPrev,bool readyNext,std::set<std::
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev) {
-				double myTime1 = cpuTimeTotal();	
-				s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount,&jaccardAssumps[1], &assumps,solver);
+				double myTime1 = cpuTimeTotal();
+				s[1]=0;
+				int pos=1;
+				while(s[1]==0&& pos<10){		
+					s[1] = BoundedSATCount(pivotApproxMC*2+1,hashCount,&jaccardAssumps[1], &assumps,solver);
+					jaccardAssumps[1].random_rhs(pos);
+					pos++;
+				}
+				pos--;
+				jaccardAssumps[1].random_rhs(pos);
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 				if(s[1]<0||s[1]>pivotApproxMC*2){
 					//unbalanced sampling, giveup
@@ -997,13 +1008,13 @@ int CUSP::OneRoundFor3_slow(uint64_t jaccardHashCount,JaccardResult* result, uin
 					assumps.clear();
 					break;
 				case RETRY_JACCARD_HASH:
-					 checkJaccard= BoundedSATCount(2,0,&jaccardAssumps[0],NULL,solver);
+				/*	 checkJaccard= BoundedSATCount(2,0,&jaccardAssumps[0],NULL,solver);
 					if(checkJaccard>0){
 						std::cout<<"there is solutions, but hashCount too large to find one";
 						assumps.clear();
 						goto TOO_SMALL_ENTRY;
 						break;
-					}
+					}*/
 					assumps.clear();
 					hashVars.clear();
 					return -1;

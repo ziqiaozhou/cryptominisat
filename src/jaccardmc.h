@@ -62,6 +62,9 @@ class LitStr{
 			randomBits="";
 			randomBits_rhs="";
 		}
+		void random_rhs(int pos){
+			randomBits_rhs[pos]=(randomBits_rhs[pos]=='1')?'0':'1';
+		}
 		void clear(){
 			randomBits="";
 			randomBits_rhs="";
