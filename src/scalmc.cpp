@@ -493,16 +493,23 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 }
 void SATCount::summarize(){
 	vector<uint64_t>list=numHashList;
+	vector<int64_t>cnt_list=numCountList;
 	auto minHash = findMin(list);
-	auto cnt_it = list.begin();
+	if(list.size()<=0){
+		return;
+	}
+	if(list.size()==1){
+		cellSolCount=cnt_list[0];
+		hashCount=list[0];
+	}
+	auto cnt_it = cnt_list.begin();
 	for (auto hash_it = list.begin()
-				; hash_it != list.end() && cnt_it != list.end()
+				; hash_it != list.end() && cnt_it != cnt_list.end()
 				; hash_it++, cnt_it++
 		) {
 		*cnt_it *= pow(2, (*hash_it) - minHash);
 	}
-
-	int medSolCount = findMedian(list);
+	int medSolCount = findMedian(cnt_list);
 	cellSolCount = medSolCount;
 	hashCount = minHash;
 }
@@ -512,22 +519,23 @@ void SATCount::summarize(){
 		int64_t hashCount=0;
 		cache_clear();
 
-    double start_time = cpuTime();
-	int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[0],solver);
-	
-    cout<<"\ncost time:"<<cpuTime()-start_time<<"\n"<<"count="<<currentNumSolutions;
-	//Din't find at least pivotApproxMC+1
-	if(currentNumSolutions<pivotApproxMC+1){
-		s[0]=currentNumSolutions;
-		s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
-		if(s[1]<=0||s[1]>pivotApproxMC*2){
-			//unbalanced jaccard sampling, giveup
-			return -1;
-		}
-		s[2]=cachedSolutions.size();// BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
-		cache_clear();
-		if(s[2]<=0|| s[2]>(s[1]+s[0])){
-			//impossible reach
+		double start_time = cpuTime();
+		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[0],solver);
+
+		cout<<"\ncost time:"<<cpuTime()-start_time<<"\n"<<"count="<<currentNumSolutions;
+		//Din't find at least pivotApproxMC+1
+		if(currentNumSolutions<pivotApproxMC+1){
+			s[0]=currentNumSolutions;
+			s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+			cout<<"s[0]="<<s[0]<<",s[1]="<<s[1]<<"\n";
+			if(s[1]<=0||s[1]>pivotApproxMC*2){
+				//unbalanced jaccard sampling, giveup
+				return -1;
+			}
+			s[2]=cachedSolutions.size();// BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
+			cache_clear();
+			if(s[2]<=0|| s[2]>(s[1]+s[0])){
+				//impossible reach
 			assert(0);
 			return -1;
 			//goto resample;
