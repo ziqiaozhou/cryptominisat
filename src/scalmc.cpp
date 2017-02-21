@@ -553,7 +553,7 @@ void SATCount::summarize(){
 	  hashCount++;
 	return hashCount;
 }
-int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,uint64_t &hashCount,map<uint64_t,Lit>& hashVars,vector<Lit>assumps ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL){
+int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::string> nextCount,uint64_t &hashCount,map<uint64_t,Lit>& hashVars,vector<Lit>assumps ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL){
 	int repeatTry=0;
 	while(true){
 		std::cout<<"hashCount="<<hashCount;
@@ -639,10 +639,13 @@ withhashresample:
 			if(readyNext){
 				hashCount++;
 				SetHash(hashCount,hashVars,assumps,solver);
-				s[0]=nextCount;
+			//	s[0]=nextCount;
 				double myTime1=cpuTimeTotal();
 				cache_clear();
-				s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
+				cachedSolutions.insert(nextCount.begin(),nextCount.end());
+				s[0]=nextCount.size();
+
+				//s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
 				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
@@ -741,7 +744,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 
 	//	hashCount=startIteration;
 	for (uint32_t j = 0; j < tApproxMC; j++) {
-		map<uint64_t,int64_t> countRecord;
+	map<uint64_t,std::set<std::string> > countRecord;
 		map<uint64_t,uint32_t> succRecord;
 		map<uint64_t,Lit> hashVars; //map assumption var to XOR hash
 
@@ -760,7 +763,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		//	bool readyPrev=searched?true:((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
 			bool readyNext=((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
 			//bool readyNext=searched?true:((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
-			uint64_t nextCount=-1;
+			std::set<std::string> nextCount;
 			if(succRecord.find(hashCount+1) != succRecord.end()){
 				nextCount=countRecord[hashCount+1];
 			}
@@ -821,7 +824,8 @@ int64_t checkJaccard;
 				//case NEAR_RESULT:
 					numExplored = lowerFib+independent_vars.size()-hashCount;
 					succRecord[hashCount] = 0;
-					countRecord[hashCount] = ret;
+					assert(ret==cachedSolutions.size());
+					countRecord[hashCount] =cachedSolutions;					
 TOO_SMALL_ENTRY:
 					if (searched||(abs(hashCount-mPrev) <= 2 && mPrev != 0)) {
 						upperFib = hashCount;
