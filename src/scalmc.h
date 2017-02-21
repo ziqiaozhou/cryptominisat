@@ -149,7 +149,8 @@ void cache_clear();
 int OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,std::vector<std::vector<Lit>> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
 	int OneRoundFor3NoHash(std::vector<std::vector<CMSat::Lit> >, std::vector<SATCount>&, CMSat::SATSolver*);
 
-int OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,uint64_t &hashCount,std::map<uint64_t,Lit>& hashVars,std::vector<Lit>assumps ,std::vector<std::vector<Lit>> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
+int OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::string> nextCount,uint64_t &hashCount,std::map<uint64_t,Lit>& hashVars,vector<Lit>assumps ,std::vector<std::vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver);
+//int OneRoundFor3WithHash(bool readyPrev,bool readyNext,uint64_t nextCount,uint64_t &hashCount,std::map<uint64_t,Lit>& hashVars,std::vector<Lit>assumps ,std::vector<std::vector<Lit>> jaccardAssumps,std::vector<SATCount>& scounts,SATSolver * solver);
 	void JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,bool computePrev,SATSolver* solver);
 	void JaccardOneRound(uint64_t jaccardHashCount, JaccardResult* result,bool computePrev,CMSat::SATSolver* solver0);
 void* JaccardOneThread();
