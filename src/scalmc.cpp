@@ -2120,9 +2120,17 @@ bool CUSP::ScalApproxMC(SATCount& count)
                   << currentNumSolutions << endl;
 
         //Din't find at least pivotApproxMC+1
-        if (currentNumSolutions <= pivotApproxMC) {
-            count.cellSolCount = currentNumSolutions;
-            count.hashCount = 0;
+		if (currentNumSolutions <= pivotApproxMC) {
+			count.cellSolCount = currentNumSolutions;
+			count.hashCount = 0;
+			std::ofstream  f;
+			std::ostringstream filename("");
+
+			filename<<"count_"<<specifiedOb<<"_t"<<omp_get_thread_num();
+			f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+			f<<currentNumSolutions<<"*2^"<<0<<"\n";
+			f.close();
+
             return true;
         }
         hashCount++;
