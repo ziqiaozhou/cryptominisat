@@ -2341,19 +2341,26 @@ bool CUSP::ScalApproxMC(SATCount& count)
     if (numHashList.size() == 0) {
         //UNSAT
         return true;
-    }
+	}
 
-    auto minHash = findMin(numHashList);
-    auto cnt_it = numCountList.begin();
-    for (auto hash_it = numHashList.begin()
-        ; hash_it != numHashList.end() && cnt_it != numCountList.end()
+	auto minHash = findMin(numHashList);
+	auto cnt_it = numCountList.begin();
+	std::ofstream  f;
+		std::ostringstream filename("");
+
+	filename<<"count_"<<specifiedOb<<"_t"<<omp_get_thread_num();
+	f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+	for (auto hash_it = numHashList.begin()
+				; hash_it != numHashList.end() && cnt_it != numCountList.end()
         ; hash_it++, cnt_it++
     ) {
+		f<<*cnt_it<<"*2^"<<*hash_it<<"\n";
         *cnt_it *= pow(2, (*hash_it) - minHash);
     }
     int medSolCount = findMedian(numCountList);
-
+		f<<medSolCount<<"*2^"<<minHash<<"\n";
+	f.close();
     count.cellSolCount = medSolCount;
-    count.hashCount = minHash;
-    return true;
+	count.hashCount = minHash;
+	return true;
 }
