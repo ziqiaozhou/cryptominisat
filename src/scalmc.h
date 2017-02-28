@@ -190,7 +190,7 @@ void trimVar(std::vector<uint32_t>&);
 	double xorRate=0.5;
 	std::vector<XorClause> jaccardXorClause;
 	int jaccardXorMax=600;
-	
+	std::string specifiedOb;
 	int XorMax=1000;
 	bool Parallel=false;
     double   loopTimeout = 300;

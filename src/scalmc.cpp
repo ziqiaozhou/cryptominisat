@@ -122,7 +122,7 @@ void CUSP::add_approxmc_options()
 	 ,"default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
 	("JaccardXorRate", po::value(&jaccardXorRate)->default_value(jaccardXorRate)
 	 ,"default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
-	
+	("specify-ob",po::value(&specifiedOb)->default_value(""),"default("")")
 	("printXor",po::value(&printXor)->default_value(0),"default(false)")
 	("trimOnly",po::value(&trimOnly)->default_value(0),"default(false)")
     ("tApproxMC", po::value(&tApproxMC)->default_value(tApproxMC)
@@ -1692,6 +1692,16 @@ void CUSP::solver_init(){
 	parseInAllFiles(solver);
 	if(original_independent_vars.size()>0)
 	  independent_vars=original_independent_vars;
+	int pos=0;
+	
+	if(jaccard_vars.size()==specifiedOb.size()){
+	for(auto var : jaccard_vars){
+		vector<Lit> assume;
+		assume.push_back(Lit(var,(specifiedOb[pos]=='1')?false:true));
+		solver->add_clause(assume);
+		pos++;
+	}
+	}
 }
 int CUSP::solve()
 {
@@ -1807,8 +1817,7 @@ int main(int argc, char** argv)
               << "Refusing to run. Please reconfigure and then re-compile." << endl;
     exit(-1);
     #else
-
-    CUSP main(argc, argv);
+	    CUSP main(argc, argv);
     main.conf.verbStats = 1;
     main.parseCommandLine();
     return main.solve();
