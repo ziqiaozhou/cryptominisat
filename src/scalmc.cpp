@@ -115,7 +115,7 @@ void CUSP::add_approxmc_options()
     ("pivotAC", po::value(&pivotApproxMC)->default_value(pivotApproxMC)
         , "Number of solutions to check for")
 	("mode", po::value(&searchMode)->default_value(searchMode)
-	 ,"Seach mode. ApproxMX = 0, JaccardMC=1,ScalMC = 2")
+	 ,"Seach mode. ApproxMX = 0, JaccardMC=1,ScalMC = 2,print sol only=3")
 	("JaccardXorMax", po::value(&jaccardXorMax)->default_value(jaccardXorMax)
 	 ,"default =600, if xor is eceed this value, trim the xor by change the ratio for randombits")
 	("XorMax", po::value(&XorMax)->default_value(XorMax)
@@ -131,7 +131,6 @@ void CUSP::add_approxmc_options()
         , "Number of measurements for jaccard hash")
     ("startIteration", po::value(&startIteration)->default_value(startIteration), "")
 	("lowerFib",po::value(&LowerFib)->default_value(0),"")
-
 	("UpperFib",po::value(&UpperFib)->default_value(0),"")
     ("lowest Jaccard Index ", po::value(&endJaccardIndex)->default_value(1), "")
     ("looptout", po::value(&loopTimeout)->default_value(loopTimeout)
@@ -410,6 +409,101 @@ void CUSP::cache_clear(){
 	independent_samples.clear();
 
 }
+static void print_sol(std::vector<Lit> vars){
+	std::ofstream  ff;
+	std::ostringstream filename("");
+	filename<<"sol.txt";
+	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
+	for (size_t i = 1; i < vars.size(); i++) {
+        ff << vars[i].sign()?"0":"1";
+    }
+	ff<<"\n";
+	ff.close();
+}
+int64_t CUSP::BoundedSATCount_print(uint32_t maxSolutions, const vector<Lit>& assumps,SATSolver * solver)
+{
+	// cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
+	//Set up things for adding clauses that can later be removed
+#if PARALLEL 
+//	SATSolver *solver=solvers[omp_get_thread_num()];
+#endif
+	solver->new_var();
+    uint32_t act_var = solver->nVars()-1;
+    vector<Lit> new_assumps(assumps);
+    new_assumps.push_back(Lit(act_var, true));
+
+    double start_time = cpuTime();
+    uint64_t solutions = 0;
+	lbool ret;
+	bool firstRound=true;
+	int nAddedClause=0;
+	while (solutions < maxSolutions) {
+		//solver->set_max_confl(10*1000*1000);
+		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
+		if(solutions>maxSolutions/2 && this_iter_timeout<loopTimeout/5){
+				this_iter_timeout=loopTimeout/4;
+		}
+		solver->set_timeout_all_calls(this_iter_timeout);
+		ret = solver->solve(&new_assumps);
+		/*if(firstround){
+			for (const uint32_t i: dependent_vars) {
+				vector<lit> eqlits;
+				bool value=(rand()%2==1);
+				eqlits.push_back(lit(act_var,false));
+				eqlits.push_back(lit(i,solver->get_model()[i]==l_false));
+				solver->add_clause(eqlits);
+				naddedclause++;
+			}
+			firstround=false;
+		}*/
+
+		if (ret != l_True)
+		  break;
+
+		size_t num_undef = 0;
+		if (solutions < maxSolutions) {
+			vector<Lit> lits;
+			lits.push_back(Lit(act_var, false));
+			for (const uint32_t var: independent_vars) {
+				if (solver->get_model()[var] != l_Undef) {
+					lits.push_back(Lit(var, solver->get_model()[var] == l_True));
+				} else {
+					num_undef++;
+				}
+			}
+			solver->add_clause(lits);
+			nAddedClause++;
+			print_sol(lits);
+		}
+
+		if (num_undef) {
+			cout << "WOW Num undef:" << num_undef << endl;
+		}
+
+		//Try not to be crazy, 2**30 solutions is enough
+		if (num_undef <= 30) {
+			solutions += 1U << num_undef;
+		} else {
+			solutions += 1U << 30;
+            cout << "WARNING, in this cut there are > 2**30 solutions indicated by the solver!" << endl;
+        }
+    }
+    if (solutions > maxSolutions) {
+        solutions = maxSolutions;
+    }
+    //Remove clauses added
+    vector<Lit> cl_that_removes;
+    cl_that_removes.push_back(Lit(act_var, false));
+    solver->add_clause(cl_that_removes);
+    //Timeout
+    if (ret == l_Undef) {
+        must_interrupt.store(false, std::memory_order_relaxed);
+		std::cout<<"explored count="<<solutions;
+		return -1;
+    }
+	return solutions;
+}
+
 int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,SATSolver * solver)
 {
 	// cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
@@ -1778,9 +1872,14 @@ int CUSP::solve()
 		if (conf.verbosity) {
 			solver->print_stats();
 		}
-	}else{
+	}else if(searchMode==2){
 		finished = ScalApproxMC(solCount);
-    }
+    }else{
+		vector<Lit>assume;
+		assume.clear();
+		uint32_t max=10000;
+		BoundedSATCount_print(max,assume,solver);
+	}
     cout << "ApproxMC finished in " << (cpuTimeTotal() - startTime) << " s" << endl;
     if (!finished) {
         cout << " (TIMED OUT)" << endl;
