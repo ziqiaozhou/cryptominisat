@@ -106,6 +106,7 @@ string CUSP::GenerateRandomBits_prob(uint32_t size,double prob)
 		randomBits+=x;
     }
 	std::reverse(randomBits.begin(), randomBits.end());
+	std::cout<<"randomBits="<<randomBits<<"\n";
     return randomBits;
 }
 
