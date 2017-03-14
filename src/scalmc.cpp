@@ -622,7 +622,7 @@ void SATCount::summarize(){
 			s[0]=currentNumSolutions;
 			s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
 			cout<<"s[0]="<<s[0]<<",s[1]="<<s[1]<<"\n";
-			if(s[1]<=0||s[1]>pivotApproxMC*2){
+			if((s[1]<=0||s[0]<=0||s[1]>pivotApproxMC*2)&& !(s[1]+s[0]==0)){
 				//unbalanced jaccard sampling, giveup
 				return -1;
 			}
