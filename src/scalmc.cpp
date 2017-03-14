@@ -622,16 +622,16 @@ void SATCount::summarize(){
 			s[0]=currentNumSolutions;
 			s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
 			cout<<"s[0]="<<s[0]<<",s[1]="<<s[1]<<"\n";
-			if((s[1]<=0||s[0]<=0||s[1]>pivotApproxMC*2)&& !(s[1]+s[0]==0)){
+			if((s[1]<=0||s[0]<=0||s[1]>pivotApproxMC*2)){
 				//unbalanced jaccard sampling, giveup
-				return -1;
+				return RETRY_JACCARD_HASH;
 			}
 			s[2]=cachedSolutions.size();// BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
 			cache_clear();
 			if(s[2]<=0|| s[2]>(s[1]+s[0])){
 				//impossible reach
 			assert(0);
-			return -1;
+			return RETRY_JACCARD_HASH;
 			//goto resample;
 		}
 		for(int k=0;k<scounts.size();++k)
@@ -878,13 +878,13 @@ int64_t checkJaccard;
 
 				case RETRY_JACCARD_HASH:
 					 checkJaccard= BoundedSATCount(2,assumps,jaccardAssumps[0],solver);
-					if(checkJaccard>0){
+				/*	if(checkJaccard>0){
 						std::cout<<"there is solutions, but hashCount too large to find one";
 						assumps.clear();
 						hashVars.clear();
 						goto TOO_SMALL_ENTRY;
 						break;
-					}
+					}*/
 					assumps.clear();
 					hashVars.clear();
 					return -1;
