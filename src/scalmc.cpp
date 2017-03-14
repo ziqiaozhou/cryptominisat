@@ -106,7 +106,6 @@ string CUSP::GenerateRandomBits_prob(uint32_t size,double prob)
 		randomBits+=x;
     }
 	std::reverse(randomBits.begin(), randomBits.end());
-	std::cout<<"randomBits="<<randomBits<<"\n";
     return randomBits;
 }
 
@@ -1176,7 +1175,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		jaccardXorClause.clear();
 		jaccard_samples.clear();
 		//solver->simplify(&jaccardAssumps);
-		if((jaccard_vars.size()-jaccardHashCount)>4){	
+		if((jaccard_vars.size()-jaccardHashCount)>4 || notSampled){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
 			jaccardAssumps_two= jaccardAssumps_lastZero;
 			jaccardAssumps_two.pop_back();
