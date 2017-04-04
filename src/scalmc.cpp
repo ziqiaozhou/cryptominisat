@@ -551,10 +551,19 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 			for (const uint32_t var: independent_vars) {
 				if (solver->get_model()[var] != l_Undef) {
 					lits.push_back(Lit(var, solver->get_model()[var] == l_True));
+					if (conf.verbosity){
+						std::cout<< ((solver->get_model()[var] == l_True)?"":"-")<<var<<",";
+					}
+
 				} else {
 					num_undef++;
 				}
+
 			}
+			if (conf.verbosity){
+				std::cout<<"\n";
+			}
+
 			solver->add_clause(lits);
 			nAddedClause++;
 		}
@@ -1175,7 +1184,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		jaccardXorClause.clear();
 		jaccard_samples.clear();
 		//solver->simplify(&jaccardAssumps);
-	if((jaccard_vars.size()-jaccardHashCount)>4 || notSampled){	
+		if((jaccard_vars.size()-jaccardHashCount)>4 || notSampled){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
 			jaccardAssumps_two= jaccardAssumps_lastZero;
 			jaccardAssumps_two.pop_back();
@@ -1202,7 +1211,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		vector<SATCount>scounts={scount0,scount1,scount2};
 		int ret=OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev  ,jaccard3Assumps, scounts,solver);
 		if(ret==-1){
-			cout<<"delete solver";
+			cout<<"delete solver due to ret==-1";
 			delete solver;
 			cout<<"end delete";
 			solver = new SATSolver((void*)&conf, &must_interrupt);
@@ -1260,7 +1269,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 	this->solver=solver;
 	//solver->log_to_file("mydump.cnf");
 	//check_num_threads_sanity(num_threads);
-solver_init();
+	solver_init();
 	cout<<"end delete";
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
@@ -1637,12 +1646,12 @@ cout<<"================end computation\n";
 			ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
 			ff<<"c ind ";
 			for(auto var : independent_vars){
-				ff<<var<<" ";
+				ff<<var+1<<" ";
 			}
 			ff.close();
 			exit(0);
 		}
-		//trimVar(&jaccard_vars);
+	//	trimVar(&jaccard_vars);
 		for(unsigned j = 0; j < tJaccardMC; j++) {
 			/*	if(j==0)	{
 				JaccardOneRound(0,&results[id],false,solvers[id]);
