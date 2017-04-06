@@ -132,6 +132,8 @@ void CUSP::add_approxmc_options()
     ("startIteration", po::value(&startIteration)->default_value(startIteration), "")
 	("lowerFib",po::value(&LowerFib)->default_value(0),"")
 	("UpperFib",po::value(&UpperFib)->default_value(0),"")
+
+	("startHashCount",po::value(&startHashCount)->default_value(1),"")
     ("lowest Jaccard Index ", po::value(&endJaccardIndex)->default_value(1), "")
     ("looptout", po::value(&loopTimeout)->default_value(loopTimeout)
         , "Timeout for one measurement, consisting of finding pivotAC solutions")
@@ -841,8 +843,8 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		}
 		hashCount=ret;
 		UpperFib=UpperFib?UpperFib:independent_vars.size();
-			hashCount=(LowerFib+UpperFib)/2;
-			std::cout<<"starter hashcount="<<hashCount<<"\n";
+		hashCount=startHashCount;
+		std::cout<<"starter hashcount="<<hashCount<<"\n";
 	}
 
 	//	hashCount=startIteration;

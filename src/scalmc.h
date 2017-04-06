@@ -184,6 +184,7 @@ void trimVar(std::vector<uint32_t>&);
 	int trimOnly=0;
 	uint32_t LowerFib = 0;
 	uint32_t UpperFib = 0;
+	uint32_t startHashCount=1;
 	uint32_t tApproxMC = 37;
 	uint32_t tJaccardMC = 16;
     uint32_t searchMode = 1;
