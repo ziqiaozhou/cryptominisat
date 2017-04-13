@@ -198,7 +198,7 @@ void trimVar(std::vector<uint32_t>&);
     double   loopTimeout = 300;
     int      unset_vars = 1;
 	int Parity=1;
-	int notSampled=0;
+	int notSampled=1;
 	int originalPC_size;
     std::ofstream cusp_logf;
 	std::random_device random_dev;

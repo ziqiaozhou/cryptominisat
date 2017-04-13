@@ -320,6 +320,21 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 
 	return solutions;
 }
+
+void pushlit2Sols(vector<string> &sols,string c){
+	int len=sols.size();
+	if(c=="*"){
+
+		for(int i=0;i<len;i++){
+			sols.push_back(sols[i]+"0");
+			sols[i]=sols[i]+"1";
+		}
+	}else{
+		for(int i=0;i<len;i++){
+			sols[i]=sols[i]+c;
+		}
+	}
+}
 int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,SATSolver* solver)
 {
 //    cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
@@ -354,25 +369,25 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 		  break;
 
 		size_t num_undef = 0;
+
+		vector<string> sols={""};
 		if (solutions < maxSolutions) {
 			vector<Lit> lits;
 			lits.push_back(Lit(act_var, false));
 			for (int i=0;i<independent_vars.size();++i) {
 				uint32_t var=independent_vars[i];
 				if (solver->get_model()[var] != l_Undef) {
-					lits.push_back(Lit(var, solver->get_model()[var] == l_True));
+					bool isTrue=(solver->get_model()[var] == l_True);
+					lits.push_back(Lit(var,isTrue ));
+					pushlit2Sols(sols,isTrue?"0":"1");
 				} else {
+					pushlit2Sols(sols,"*");
 					num_undef++;
 				}
 			}
-
 			solver->add_clause(lits);
-			string sol="";
-			for(int i=1;i<lits.size();i++){
-				sol+=lits[i].sign()?"1":"0";
-			}
-			if(cachedSolutions.count(sol)==0)
-			  cachedSolutions.insert(sol);
+			for(auto one : sols) 
+			  cachedSolutions.insert(one);
 		}
 		if (num_undef) {
 			cout << "WOW Num undef:" << num_undef << endl;
