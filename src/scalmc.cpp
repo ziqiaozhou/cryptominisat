@@ -840,6 +840,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 {
 	//	solver->simplify(&jaccardAssumps);
 	uint64_t& hashCount=result->hashCount[jaccardHashCount];
+	uint64_t initialHashCount=0;
 	bool& searched=result->searched[jaccardHashCount];
 	vector<Lit> assumps;
 	double myTime = cpuTimeTotal();
@@ -849,7 +850,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		solver=this->solver;
 	}
 	//	hashCount=startIteration;
-	if (hashCount == 0) {
+	if (initialHashCount == 0) {
 		int ret=OneRoundFor3NoHash(jaccardAssumps,scounts,solver);
 		if(ret==0)
 		  return 0;
@@ -858,7 +859,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		}
 		hashCount=ret;
 		UpperFib=UpperFib?UpperFib:independent_vars.size();
-		hashCount=startHashCount;
+		hashCount=hashCount?hashCount:startHashCount;
 		std::cout<<"starter hashcount="<<hashCount<<"\n";
 	}
 
