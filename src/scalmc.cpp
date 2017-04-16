@@ -857,7 +857,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		if(ret<0){
 			return -1;
 		}
-		hashCount=ret;
+	//	hashCount=ret;
 		UpperFib=UpperFib?UpperFib:independent_vars.size();
 		hashCount=hashCount?hashCount:startHashCount;
 		std::cout<<"starter hashcount="<<hashCount<<"\n";
