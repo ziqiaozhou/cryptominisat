@@ -858,10 +858,11 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	if (initialHashCount == 0) {
 		int ret=OneRoundFor3NoHash(jaccardAssumps,scounts,solver);
 		if(ret==0)
-		  return 0;
+		  return -1;
 		if(ret<0){
 			return -1;
 		}
+		std::cout<<"nohash count="<<ret<<"\n";
 	//	hashCount=ret;
 		UpperFib=UpperFib?UpperFib:independent_vars.size();
 		hashCount=hashCount?hashCount:startHashCount;
@@ -1228,7 +1229,8 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		map<uint64_t,uint32_t> succRecord;
 		map<uint64_t,Lit> hashVars; //map assumption var to XOR hash
 
-		//	int64_t currentNumSolutions_lastZero = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps_lastZero);
+	//	int64_t checkSAT = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps);
+		
 		SATCount scount0,scount1,scount2;
 		JaccardResult result0,result1;
 		vector<SATCount>scounts={scount0,scount1,scount2};
