@@ -646,8 +646,13 @@ void SATCount::summarize(){
 		//Din't find at least pivotApproxMC+1
 		if(currentNumSolutions<pivotApproxMC+1){
 			s[0]=currentNumSolutions;
+			if(s[0]<=0){
+				//unbalanced jaccard sampling, giveup
+				return RETRY_JACCARD_HASH;
+			}
+
 			s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
-			cout<<"s[0]="<<s[0]<<",s[1]="<<s[1]<<"\n";
+			cout<<"not found one solution"<<s[0]<<"\n";
 			if((s[1]<=0||s[0]<=0||s[1]>pivotApproxMC*2)){
 				//unbalanced jaccard sampling, giveup
 				return RETRY_JACCARD_HASH;
@@ -1304,6 +1309,8 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	uint64_t mPrev = 0;
 	vector<Lit >jaccardAssumps,jaccardAssumps_lastZero;
 	int ret;
+
+
 	while(true){
 		jaccardAssumps.clear();
 		jaccardAssumps_lastZero.clear();
@@ -1492,6 +1499,10 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 	jaccardHashCount=singleIndex;
 	double myTime = cpuTimeTotal();
 
+	int64_t checkSAT = BoundedSATCount(pivotApproxMC+1,assumps,solver);
+	if(checkSAT<=0){
+		return 0;
+	}
 	//	cout<<"save_state to "<<conf.saved_state_file.c_str()<<endl;
 	//	solver->save_state(conf.saved_state_file.c_str(), l_True);
 	//	return true;
