@@ -1208,7 +1208,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		jaccardXorClause.clear();
 		jaccard_samples.clear();
 		//solver->simplify(&jaccardAssumps);
-		if((jaccard_vars.size()-jaccardHashCount)>4 || notSampled){	
+		if((jaccard_vars.size()-jaccardHashCount)>2 || notSampled){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
 			jaccardAssumps_two= jaccardAssumps_lastZero;
 			jaccardAssumps_two.pop_back();
