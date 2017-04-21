@@ -141,6 +141,10 @@ void CUSP::add_approxmc_options()
     ("unset", po::value(&unset_vars)->default_value(unset_vars),
      "Try to ask the solver to unset some independent variables, thereby"
      "finding more than one solution at a time")
+("notSample", po::value(&notSampled)->default_value(notSampled),
+     "not sample?"
+     "default True, not sample")
+
  ("Parallel", po::value(&Parallel)->default_value(Parallel),
      "parallel"
      "findingmore than one solution at a time")
