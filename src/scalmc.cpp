@@ -2013,11 +2013,12 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<Xor
 				cout<<"-"<<act_var<<" 0"<<endl;
 				}
 				*/
-		solver->add_xor_clause(vars, rhs);
 		if (conf.verbosity||printXor ) {
 			print_xor(vars, rhs,"jaccard");
 		}
-		XorClause xc(vars, rhs);
+
+		solver->add_xor_clause(vars, rhs);
+				XorClause xc(vars, rhs);
 		jaccardXorClause.push_back(xc);
 
 	}
