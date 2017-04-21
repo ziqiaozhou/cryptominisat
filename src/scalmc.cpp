@@ -167,12 +167,13 @@ void CUSP::add_supported_options()
     add_approxmc_options();
 }
 
-void print_xor(const vector<uint32_t>& vars, const uint32_t rhs)
+void print_xor(const vector<uint32_t>& vars, const uint32_t rhs,char* text)
 {
 	std::ofstream  ff;
 	std::ostringstream filename("");
 	filename<<"xor.txt";
 	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
+	ff<<text<<"\n";
 	ff<<"x";
 	for (size_t i = 1; i < vars.size(); i++) {
         ff << vars[i]+1;
@@ -253,7 +254,7 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 	}
 	solver->add_xor_clause(vars, rhs);
 	if (conf.verbosity||printXor) {
-		print_xor(vars, rhs);
+		print_xor(vars, rhs,"count");
 	}
 }
 return true;
@@ -2014,7 +2015,7 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<Xor
 				*/
 		solver->add_xor_clause(vars, rhs);
 		if (conf.verbosity||printXor ) {
-			print_xor(vars, rhs);
+			print_xor(vars, rhs,"jaccard");
 		}
 		XorClause xc(vars, rhs);
 		jaccardXorClause.push_back(xc);
