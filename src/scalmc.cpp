@@ -167,7 +167,7 @@ void CUSP::add_supported_options()
     add_approxmc_options();
 }
 
-void print_xor(const vector<uint32_t>& vars, const uint32_t rhs,char* text)
+void print_xor(const vector<uint32_t>& vars, const uint32_t rhs,const char* text)
 {
 	std::ofstream  ff;
 	std::ostringstream filename("");
@@ -295,7 +295,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 	int64_t solutions=-2;
 
 	uint64_t samplelog=(size-assumps.size());
-	if(samplelog<=log2(maxSolutions)){
+	if((samplelog<=log2(maxSolutions))&& (notSampled==0)){
 
 	uint64_t sampleSize=(1<<(size-assumps.size()));
 		while(independent_samples.size()<sampleSize){
@@ -381,6 +381,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 			lits.push_back(Lit(act_var, false));
 			for (int i=0;i<independent_vars.size();++i) {
 				uint32_t var=independent_vars[i];
+				std::cout<<"getmodel of "<<var;
 				if (solver->get_model()[var] != l_Undef) {
 					bool isTrue=(solver->get_model()[var] == l_True);
 					lits.push_back(Lit(var,isTrue ));
@@ -691,8 +692,8 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 		int64_t s[3];
 		double myTime = cpuTimeTotal();
 		cache_clear();
-		if(printXor)
-		  exit(0);
+	/*	if(printXor)
+		  exit(0);*/
 
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps[0],solver);
 		s[0]=currentNumSolutions;
@@ -2004,7 +2005,7 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<Xor
 		for (uint32_t k = 0; k < var_size; k++) {
 			if (randomBits[var_size * i + k] == '1') {
 				vars.push_back(jaccard_vars[k]);
-				//	cout<<jaccard_vars[j]<<" ";
+				cout<<jaccard_vars[k]<<" ";
 			}
 		}
 		/*		if(rhs){
@@ -2014,11 +2015,12 @@ bool  CUSP::AddJaccardHash( uint32_t num_xor_cls,vector<Lit>& assumps,vector<Xor
 				}
 				*/
 		if (conf.verbosity||printXor ) {
-			print_xor(vars, rhs,"jaccard");
+			string text="jaccard"+randomBits;
+			print_xor(vars, rhs,text.c_str());
 		}
-
-		solver->add_xor_clause(vars, rhs);
-				XorClause xc(vars, rhs);
+		if(vars.size())
+		  solver->add_xor_clause(vars, rhs);
+		XorClause xc(vars, rhs);
 		jaccardXorClause.push_back(xc);
 
 	}
