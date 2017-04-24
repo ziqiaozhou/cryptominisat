@@ -381,7 +381,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 			lits.push_back(Lit(act_var, false));
 			for (int i=0;i<independent_vars.size();++i) {
 				uint32_t var=independent_vars[i];
-				std::cout<<"getmodel of "<<var;
+				//std::cout<<"getmodel of "<<var;
 				if (solver->get_model()[var] != l_Undef) {
 					bool isTrue=(solver->get_model()[var] == l_True);
 					lits.push_back(Lit(var,isTrue ));
@@ -658,8 +658,11 @@ void SATCount::summarize(){
 			}
 
 			s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
-			cout<<"not found one solution"<<s[0]<<"\n";
+
+			cout<<"solution s[0]"<<s[0]<<"s[1]"<<s[1]<<"\n";
 			if((s[1]<=0||s[0]<=0||s[1]>pivotApproxMC*2)){
+
+			cout<<"not found one solution"<<s[0]<<"\n";
 				//unbalanced jaccard sampling, giveup
 				return RETRY_JACCARD_HASH;
 			}
@@ -864,7 +867,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	if (initialHashCount == 0) {
 		int ret=OneRoundFor3NoHash(jaccardAssumps,scounts,solver);
 		if(ret==0)
-		  return -1;
+		  return 0;
 		if(ret<0){
 			return -1;
 		}
@@ -903,7 +906,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			std::cout<<"\n------------------------\n";
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,solver);
 			printFor3(ret);
-int64_t checkJaccard;
+			int64_t checkJaccard;
 			switch(ret){
 				case TIMEOUT:
 					assumps.clear();
@@ -1504,6 +1507,7 @@ bool CUSP::JaccardApproxMC(map<uint64_t,SATCount>& count)
 	uint64_t jaccardHashCount,jaccardPrev=0;
 	if(singleIndex<0)
 	  singleIndex=jaccard_vars.size();
+	assert(singleIndex<=jaccard_vars.size());
 	jaccardHashCount=singleIndex;
 	double myTime = cpuTimeTotal();
 
