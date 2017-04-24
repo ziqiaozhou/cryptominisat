@@ -295,7 +295,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 	int64_t solutions=-2;
 
 	uint64_t samplelog=(size-assumps.size());
-	if((samplelog<=log2(maxSolutions))&& (notSampled==0)){
+	if((samplelog<=log2(maxSolutions))&& false&&(notSampled==0)){
 
 	uint64_t sampleSize=(1<<(size-assumps.size()));
 		while(independent_samples.size()<sampleSize){
