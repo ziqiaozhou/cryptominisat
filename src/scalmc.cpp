@@ -125,6 +125,8 @@ void CUSP::add_approxmc_options()
 	("specify-ob",po::value(&specifiedOb)->default_value(""),"default("")")
 	("printXor",po::value(&printXor)->default_value(0),"default(false)")
 	("trimOnly",po::value(&trimOnly)->default_value(0),"default(false)")
+
+	("onlyOne",po::value(&onlyOne)->default_value(0),"only count one subset default(false)")
     ("tApproxMC", po::value(&tApproxMC)->default_value(tApproxMC)
         , "Number of measurements")
   ("tJaccardMC", po::value(&tJaccardMC)->default_value(tJaccardMC)
@@ -662,10 +664,16 @@ void SATCount::summarize(){
 				return RETRY_JACCARD_HASH;
 			}
 
-			s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+			if(onlyOne){
+				s[1]=s[0];
+			}else
+			  s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
 
 			cout<<"solution s[0]"<<s[0]<<"s[1]"<<s[1]<<"\n";
-			if((s[1]<=0||s[0]<=0||s[1]>pivotApproxMC*2)){
+			if(s[1]>pivotApproxMC*2){
+
+			}
+			if((s[1]<=0||s[0]<=0)){
 
 			cout<<"not found one solution"<<s[0]<<"\n";
 				//unbalanced jaccard sampling, giveup
@@ -741,7 +749,10 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 					return RETRY_IND_HASH;
 				}
 				double myTime1 = cpuTimeTotal();
-				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
+				if(onlyOne){
+					s[1]=s[0];
+				}else
+				  s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 				if(s[1]<0||s[1]>pivotApproxMC*2){
 					//unbalanced sampling, giveup
@@ -785,10 +796,14 @@ withhashresample:
 				double myTime1=cpuTimeTotal();
 				cache_clear();
 				cachedSolutions.insert(nextCount.begin(),nextCount.end());
+				
 				s[0]=nextCount.size();
 
 				//s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
-				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
+				if(onlyOne){
+					s[1]=s[0];
+				}else
+				  s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
 				if(s[1]<=0){
@@ -1229,10 +1244,14 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		jaccardXorClause.clear();
 		jaccard_samples.clear();
 		//solver->simplify(&jaccardAssumps);
+
 		if((jaccard_vars.size()-jaccardHashCount)>2 || notSampled){	
-			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
-			jaccardAssumps_two= jaccardAssumps_lastZero;
-			jaccardAssumps_two.pop_back();
+			if(jaccardHashCount)
+			{
+				SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
+				jaccardAssumps_two= jaccardAssumps_lastZero;
+				jaccardAssumps_two.pop_back();
+			}
 			jaccard3Assumps.push_back(jaccardAssumps);
 			jaccard3Assumps.push_back(jaccardAssumps_lastZero);
 			jaccard3Assumps.push_back(jaccardAssumps_two);
@@ -1687,12 +1706,12 @@ cout<<"================end computation\n";
 			}
 		}
 		//warn up
-			//solver->log_to_file("mydump.cnf");
+		//solver->log_to_file("mydump.cnf");
 		//check_num_threads_sanity(num_threads);
 		//after warm up
 
 		if(trimOnly){
-		trimVar(independent_vars);
+			trimVar(independent_vars);
 			std::ofstream  ff;
 			std::ostringstream filename("");
 			filename<<"trimed.txt";
@@ -1704,7 +1723,7 @@ cout<<"================end computation\n";
 			ff.close();
 			exit(0);
 		}
-	//	trimVar(&jaccard_vars);
+		//	trimVar(&jaccard_vars);
 		for(unsigned j = 0; j < tJaccardMC; j++) {
 			/*	if(j==0)	{
 				JaccardOneRound(0,&results[id],false,solvers[id]);
@@ -1717,6 +1736,9 @@ cout<<"================end computation\n";
 				std::ofstream  f;
 				std::ostringstream filename("");
 				filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
+				if(singleIndex==0){
+					onlyOne=true;
+				}
 				JaccardOneRoundFor3(singleIndex,&results[0],true,solver);
 				computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
 				computeCountFromList(singleIndex-1,results[0].numHashList,results[0].numCountList,results[0].count);

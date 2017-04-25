@@ -182,6 +182,7 @@ void trimVar(std::vector<uint32_t>&);
 	
 	int printXor=0;
 	int trimOnly=0;
+	int onlyOne=0;
 	uint32_t LowerFib = 0;
 	uint32_t UpperFib = 0;
 	uint32_t startHashCount=1;
