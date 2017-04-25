@@ -232,7 +232,6 @@ inline T findMin(vector<T>& numList)
 }
 bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 {
-	cout<<"solver="<<solver;
 	double ratio=xorRate;
 	string randomBits = GenerateRandomBits_prob((independent_vars.size()) * num_xor_cls,ratio);
 	string randomBits_rhs=GenerateRandomBits(num_xor_cls);
@@ -243,7 +242,7 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 		//new activation variable
 		solver->new_var();
 		uint32_t act_var = solver->nVars()-1;
-        assumps.push_back(Lit(act_var, true));
+		assumps.push_back(Lit(act_var, true));
 
 		vars.clear();
 		vars.push_back(act_var);
@@ -251,13 +250,13 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 		for (uint32_t j = 0; j < independent_vars.size(); j++) {
 			if(randomBits[i*independent_vars.size()+j]=='1')    
 			  vars.push_back(independent_vars[j]);
+		}
+		solver->add_xor_clause(vars, rhs);
+		if (conf.verbosity||printXor) {
+			print_xor(vars, rhs,"count");
+		}
 	}
-	solver->add_xor_clause(vars, rhs);
-	if (conf.verbosity||printXor) {
-		print_xor(vars, rhs,"count");
-	}
-}
-return true;
+	return true;
 }
 
 void CUSP::trimVar(vector<uint32_t> &vars){
@@ -920,7 +919,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 				case RETRY_IND_HASH:
 					assumps.clear();
 					hashVars.clear();
-					solver->simplify(&assumps);
+				//	solver->simplify(&assumps);
 					break;
 
 				case RETRY_JACCARD_HASH:
