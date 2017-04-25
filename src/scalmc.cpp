@@ -732,6 +732,9 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev) {
+				if(currentNumSolutions==0){
+					return RETRY_IND_HASH;
+				}
 				double myTime1 = cpuTimeTotal();
 				s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
@@ -919,7 +922,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					break;
 
 				case RETRY_JACCARD_HASH:
-					 checkJaccard= BoundedSATCount(2,assumps,jaccardAssumps[0],solver);
+					// checkJaccard= BoundedSATCount(2,assumps,jaccardAssumps[0],solver);
 				/*	if(checkJaccard>0){
 						std::cout<<"there is solutions, but hashCount too large to find one";
 						assumps.clear();
@@ -986,6 +989,7 @@ TOO_SMALL_ENTRY:
 			std::cout<<"\n===================="<<"\n";
 		}
 		assumps.clear();
+		hashVars.clear();
 		solver->simplify(&assumps);
 		hashCount =mPrev;
 	}
