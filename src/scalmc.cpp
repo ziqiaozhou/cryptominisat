@@ -897,8 +897,10 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			uint64_t swapVar = hashCount;
 			//cout<<"change the size to "<<solver->get_Nclause();
 			//solver->simp:lify(&assumps);
-			
 			bool readyPrev=((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
+			if(hashCount==1){
+				readyPrev=true;
+			}
 		//	bool readyPrev=searched?true:((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
 			bool readyNext=((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
 			//bool readyNext=searched?true:((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
@@ -961,6 +963,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					break;
 				default:
 				//case NEAR_RESULT:
+
 					numExplored = lowerFib+independent_vars.size()-hashCount;
 					succRecord[hashCount] = 0;
 					assert(ret==cachedSolutions.size());
