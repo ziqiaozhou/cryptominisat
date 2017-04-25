@@ -167,22 +167,28 @@ void CUSP::add_supported_options()
     add_approxmc_options();
 }
 
-void print_xor(const vector<uint32_t>& vars, const uint32_t rhs,const char* text)
+void print_xor(const vector<uint32_t>& vars, const uint32_t rhs,string text)
 {
-	std::ofstream  ff;
+
+#if false
+	std::ostream  ff=cout;
+
 	std::ostringstream filename("");
 	filename<<"xor.txt";
 	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
-	ff<<text<<"\n";
-	ff<<"x";
+#endif
+	cout<<text<<"\n";
+	cout<<"x";
 	for (size_t i = 1; i < vars.size(); i++) {
-        ff << vars[i]+1;
+        cout << vars[i]+1;
         if (i < vars.size()-1) {
-            ff << " ";
+            cout << " ";
         }
     }
-    ff<< " " << (rhs ? "1" : "0") << endl;
+    cout<< " " << (rhs ? "1" : "0") << endl;
+#if false
 	ff.close();
+#endif
 }
 
 bool CUSP::openLogFile()
@@ -237,7 +243,7 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 	string randomBits_rhs=GenerateRandomBits(num_xor_cls);
 	bool rhs = true;
 	vector<uint32_t> vars;
-
+	
 	for (uint32_t i = 0; i < num_xor_cls; i++) {
 		//new activation variable
 		solver->new_var();
@@ -253,7 +259,7 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 		}
 		solver->add_xor_clause(vars, rhs);
 		if (conf.verbosity||printXor) {
-			print_xor(vars, rhs,"count");
+			print_xor(vars, rhs,"num_xor_cls="+std::to_string(num_xor_cls)+"AddHash");
 		}
 	}
 	return true;
