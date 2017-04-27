@@ -948,7 +948,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					return -1;
 				case GOT_RESULT_LOWER:
 					if(hashCount==0){
-						numExplored= independent_vars.size()-1;
+						numExplored= independent_vars.size()+1;
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
 					}
@@ -981,9 +981,8 @@ reset_for_next_count:
 				default:
 					//case NEAR_RESULT:
 					if(hashCount==0){
-						numExplored=independent_vars.size()-1;
+						numExplored=independent_vars.size()+1;
 						mPrev=0;
-
 						resultIndex=(resultIndex+1)%3;
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
@@ -1014,6 +1013,7 @@ TOO_SMALL_ENTRY:
 			std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
 			std::cout<<"\n===================="<<"\n";
 		}
+		std::cout<<"\n-=-=-=-=-=-=-=-=-=-=\n";
 		assumps.clear();
 		hashVars.clear();
 		solver->simplify(&assumps);
