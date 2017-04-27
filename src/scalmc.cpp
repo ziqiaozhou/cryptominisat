@@ -440,15 +440,19 @@ void CUSP::cache_clear(){
 
 }
 static void print_sol(std::vector<Lit> vars){
+#if 0
 	std::ofstream  ff;
 	std::ostringstream filename("");
 	filename<<"sol.txt";
 	ff.open(filename.str(),std::ofstream::out|std::ofstream::app);
+#endif
 	for (size_t i = 1; i < vars.size(); i++) {
-        ff << vars[i].sign()?"0":"1";
+        cout << vars[i].sign()?"0":"1";
     }
-	ff<<"\n";
+	cout<<"\n";
+#if 0
 	ff.close();
+#endif
 }
 int64_t CUSP::BoundedSATCount_print(uint32_t maxSolutions, const vector<Lit>& assumps,SATSolver * solver)
 {
@@ -654,7 +658,8 @@ void SATCount::summarize(){
 
 		double start_time = cpuTime();
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[resultIndex],solver);
-
+		cout<<"jaccardAssumps[resultIndex]"<<resultIdex;
+		print_sol(jaccardAssumps[resultIndex]);
 		cout<<"\ncost time:"<<cpuTime()-start_time<<"\n"<<"count="<<currentNumSolutions;
 		//Din't find at least pivotApproxMC+1
 		if(currentNumSolutions<pivotApproxMC+1){
