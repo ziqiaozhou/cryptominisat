@@ -1017,7 +1017,7 @@ TOO_SMALL_ENTRY:
 		assumps.clear();
 		hashVars.clear();
 		solver->simplify(&assumps);
-		if(hashCount==0&& resultIndex==2){
+		if(hashCount==0&& resultIndex==0){
 			break;
 		}
 		hashCount =mPrev;
