@@ -710,10 +710,7 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 			return -1;
 		}
 		std::cout<<"nohash count="<<ret<<"\n";
-
 		return TOO_MUCH;
-
-
 	}
 
 	while(true){
@@ -976,7 +973,11 @@ reset_for_next_count:
 						hashCount = (lowerFib+upperFib)/2;
 					} else {
 						//printf("hashPrev:%d hashCount:%d\n",hashPrev, hashCount);
+						if(hashCount)
 						hashCount = lowerFib + (hashCount -lowerFib)*2;
+						else
+						  hashCount++;
+
 					}
 					hashPrev = swapVar;
 					break;
