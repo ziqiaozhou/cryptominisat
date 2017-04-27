@@ -949,9 +949,10 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 				case GOT_RESULT_LOWER:
 					if(hashCount==0){
 						numExplored= independent_vars.size()+1;
-					}else
-					  numExplored = lowerFib+independent_vars.size()-hashCount;
-					std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
+					}else{
+						numExplored = lowerFib+independent_vars.size()-hashCount;
+						std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
+					}
 					mPrev = hashCount;
 					goto reset_for_next_count;
 					break;
@@ -979,29 +980,33 @@ reset_for_next_count:
 					hashPrev = swapVar;
 					break;
 				default:
-				//case NEAR_RESULT:
-
-					numExplored = lowerFib+independent_vars.size()-hashCount;
-					succRecord[hashCount] = 0;
-					assert(ret==cachedSolutions.size());
-					countRecord[hashCount] =cachedSolutions;					
+					//case NEAR_RESULT:
+					if(hashCount==0){
+						numExplored=independent_vars.size()+1;
+						mPrev=0;
+					}else{
+						numExplored = lowerFib+independent_vars.size()-hashCount;
+						succRecord[hashCount] = 0;
+						assert(ret==cachedSolutions.size());
+						countRecord[hashCount] =cachedSolutions;					
 TOO_SMALL_ENTRY:
-					if (searched||(abs(hashCount-mPrev) <= 2 && mPrev != 0)) {
-						upperFib = hashCount;
-						hashCount--;
-					} else {
-						if (hashPrev > hashCount) {
-							hashPrev = 0;
+						if (searched||(abs(hashCount-mPrev) <= 2 && mPrev != 0)) {
+							upperFib = hashCount;
+							hashCount--;
+						} else {
+							if (hashPrev > hashCount) {
+								hashPrev = 0;
+							}
+							//int delta=log2((pivotApproxMC+1)/ret);
+							upperFib = hashCount;
+							if (hashPrev > lowerFib) {
+								lowerFib = hashPrev;
+							}
+							//	uint64_t tmp=hashCount-2*delta;
+							//	lowerFib=(lowerFib>tmp)?lowerFib:tmp;
+							hashCount = (upperFib+lowerFib)/2;
+							std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
 						}
-						//int delta=log2((pivotApproxMC+1)/ret);
-						upperFib = hashCount;
-						if (hashPrev > lowerFib) {
-							lowerFib = hashPrev;
-						}
-					//	uint64_t tmp=hashCount-2*delta;
-					//	lowerFib=(lowerFib>tmp)?lowerFib:tmp;
-						hashCount = (upperFib+lowerFib)/2;
-						std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
 					}
 					break;
 			}
