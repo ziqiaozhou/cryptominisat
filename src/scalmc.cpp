@@ -882,7 +882,6 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	double myTime = cpuTimeTotal();
 	uint64_t jaccardIndex=jaccardHashCount;
 	bool less=false,more=false;
-	int resultIndex=0;
 	if(solver==NULL){
 		solver=this->solver;
 	}
@@ -903,8 +902,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	}
 #endif
 	hashCount=hashCount?hashCount:initialHashCount;
-
-		int resultIndex=0;
+	int resultIndex=0;
 	for (uint32_t j = 0; j < tApproxMC*3; j++) {
 		map<uint64_t,std::set<std::string> > countRecord;
 		map<uint64_t,uint32_t> succRecord;
