@@ -903,6 +903,8 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	}
 #endif
 	hashCount=hashCount?hashCount:initialHashCount;
+
+		int resultIndex=0;
 	for (uint32_t j = 0; j < tApproxMC*3; j++) {
 		map<uint64_t,std::set<std::string> > countRecord;
 		map<uint64_t,uint32_t> succRecord;
@@ -913,7 +915,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		//	uint64_t lowerFib = searched?(hashCount-2):0, upperFib = searched?(hashCount+2):independent_vars.size();
 		//
 		uint64_t lowerFib = LowerFib, upperFib = UpperFib?UpperFib:independent_vars.size();
-		int resultIndex=0;
+
 		while (numExplored < independent_vars.size()) {
 			myTime = cpuTimeTotal();
 			uint64_t swapVar = hashCount;
