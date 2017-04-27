@@ -658,7 +658,7 @@ void SATCount::summarize(){
 
 		double start_time = cpuTime();
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[resultIndex],solver);
-		cout<<"jaccardAssumps[resultIndex]"<<resultIdex;
+		cout<<"jaccardAssumps[resultIndex]"<<resultIndex;
 		print_sol(jaccardAssumps[resultIndex]);
 		cout<<"\ncost time:"<<cpuTime()-start_time<<"\n"<<"count="<<currentNumSolutions;
 		//Din't find at least pivotApproxMC+1
