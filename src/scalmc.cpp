@@ -928,7 +928,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			if(succRecord.find(hashCount+1) != succRecord.end()){
 				nextCount=countRecord[hashCount+1];
 			}
-			std::cout<<"\n------------------------\n";
+			std::cout<<"\n------------------------resultIndex=%d\n",resultIndex;
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,resultIndex,solver);
 			printFor3(ret);
 			int64_t checkJaccard;
@@ -948,10 +948,9 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					return -1;
 				case GOT_RESULT_LOWER:
 					if(hashCount==0){
-						numExplored= independent_vars.size()+1;
+						numExplored= independent_vars.size()-1;
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
-						std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
 					}
 					mPrev = hashCount;
 					goto reset_for_next_count;
@@ -982,7 +981,7 @@ reset_for_next_count:
 				default:
 					//case NEAR_RESULT:
 					if(hashCount==0){
-						numExplored=independent_vars.size()+1;
+						numExplored=independent_vars.size()-1;
 						mPrev=0;
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
