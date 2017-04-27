@@ -983,6 +983,8 @@ reset_for_next_count:
 					if(hashCount==0){
 						numExplored=independent_vars.size()-1;
 						mPrev=0;
+
+						resultIndex=(resultIndex+1)%3;
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
 						succRecord[hashCount] = 0;
