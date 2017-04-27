@@ -680,7 +680,7 @@ void SATCount::summarize(){
 			}
 			if((s[1]<=0||s[0]<=0)){
 
-			cout<<"not found one solution"<<s[0]<<"\n";
+				cout<<"not found one solution"<<s[0]<<"\n";
 				//unbalanced jaccard sampling, giveup
 				return RETRY_JACCARD_HASH;
 			}
@@ -688,17 +688,16 @@ void SATCount::summarize(){
 			cache_clear();
 			if(s[2]<=0|| s[2]>(s[1]+s[0])){
 				//impossible reach
-			assert(0);
-			return RETRY_JACCARD_HASH;
-			//goto resample;
+				assert(0);
+				return RETRY_JACCARD_HASH;
+				//goto resample;
 			}
 			scounts[resultIndex].numHashList.push_back(hashCount);
 			scounts[resultIndex].numCountList.push_back(s[0]);
 			scounts[resultIndex].summarize();
-
-		return 0;
-	}else
-	  hashCount++;
+			return 0;
+		}else
+		  hashCount++;
 	return hashCount;
 }
 int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::string> nextCount,uint64_t &hashCount,map<uint64_t,Lit>& hashVars,vector<Lit>assumps ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,int resultIndex,SATSolver * solver=NULL){
@@ -706,16 +705,14 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 	if(hashCount==0){
 		int ret=OneRoundFor3NoHash(jaccardAssumps,scounts,resultIndex,solver);
 		if(ret==0)
-		  return 0;
+		  return GOT_RESULT_LOWER;
 		if(ret<0){
 			return -1;
 		}
 		std::cout<<"nohash count="<<ret<<"\n";
-		if(ret>pivotApproxMC)
-		  return TOO_MUCH;
-		scounts[resultIndex].numHashList.push_back(hashCount);
-		scounts[resultIndex].numCountList.push_back(ret);
-		return GOT_RESULT_LOWER;
+
+		return TOO_MUCH;
+
 
 	}
 
