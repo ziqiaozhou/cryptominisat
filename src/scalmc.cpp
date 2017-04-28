@@ -745,13 +745,7 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 			}
 			continue;
 		}
-	/*	if(currentNumSolutions==0){
-			lbool ret=solver->solve(&assumps);
-			if(ret=lTrue){
-				return RETRY_JACCARD_HASH;
-			}
 
-		}*/
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev|| currentNumSolutions>(pivotApproxMC + 1)*4/7 ) {
@@ -946,15 +940,16 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 					hashVars.clear();
 					return -1;
 				case GOT_RESULT_LOWER:
-					if(hashCount==0){
+				//	if(hashCount==0){
 						numExplored= independent_vars.size()+1;
-					}else{
-						numExplored = lowerFib+independent_vars.size()-hashCount;
-					}
+				//	}else{
+					//	numExplored = lowerFib+independent_vars.size()-hashCount;
+				//	}
 					mPrev = hashCount;
 					goto reset_for_next_count;
 					break;
 				case GOT_RESULT_UPPER:
+				//		numExplored= independent_vars.size()+1;
 					numExplored = independent_vars.size()+hashCount-upperFib;
 					std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
 					mPrev = hashCount;
