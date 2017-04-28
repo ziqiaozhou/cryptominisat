@@ -913,9 +913,6 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			//cout<<"change the size to "<<solver->get_Nclause();
 			//solver->simp:lify(&assumps);
 			bool readyPrev=((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
-			if(hashCount==1){
-				readyPrev=true;
-			}
 			bool readyNext=((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
 			std::set<std::string> nextCount;
 			if(succRecord.find(hashCount+1) != succRecord.end()){
@@ -982,6 +979,9 @@ reset_for_next_count:
 						numExplored=independent_vars.size()+1;
 						mPrev=0;
 						resultIndex=(resultIndex+1)%3;
+						succRecord[hashCount] = 0;
+						assert(ret==cachedSolutions.size());
+						countRecord[hashCount] =cachedSolutions;	
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
 						succRecord[hashCount] = 0;
