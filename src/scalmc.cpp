@@ -1015,9 +1015,11 @@ TOO_SMALL_ENTRY:
 			std::cout<<"\n===================="<<"\n";
 		}
 		std::cout<<"\n-=-=-=-=-=-=-=-=-=-=\n";
-		assumps.clear();
-		hashVars.clear();
-		solver->simplify(&assumps);
+		if(resultIndex==0){
+			assumps.clear();
+			hashVars.clear();
+			solver->simplify(&assumps);
+		}
 		if(hashCount==0&& resultIndex==0){
 			break;
 		}
