@@ -710,6 +710,7 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 			return RETRY_JACCARD_HASH;
 		}
 		std::cout<<"nohash count="<<ret<<"\n";
+		hashCount=ret;
 		return TOO_MUCH;
 	}
 
