@@ -875,6 +875,8 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	uint64_t initialHashCount=0;
 	bool& searched=result->searched[jaccardHashCount];
 	vector<Lit> assumps;
+
+		map<uint64_t,Lit> hashVars; //map assumption var to XOR hash
 	double myTime = cpuTimeTotal();
 	uint64_t jaccardIndex=jaccardHashCount;
 	bool less=false,more=false;
@@ -902,7 +904,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	for (uint32_t j = 0; j < tApproxMC*3; j++) {
 		map<uint64_t,std::set<std::string> > countRecord;
 		map<uint64_t,uint32_t> succRecord;
-		map<uint64_t,Lit> hashVars; //map assumption var to XOR hash
+
 
 		uint32_t repeatTry = 0;
 		uint64_t numExplored = 1;
