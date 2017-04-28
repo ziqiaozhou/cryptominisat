@@ -749,7 +749,9 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev|| currentNumSolutions>(pivotApproxMC + 1)*4/7 ) {
-				if(currentNumSolutions==0&& hashCount>0){
+				if(currentNumSOlutions==0 && hashCount==0)
+				  return RETRY_JACCARD_HASH;
+				if((currentNumSolutions==0)&& (hashCount>0)){
 					return RETRY_IND_HASH;
 				}
 				double myTime1 = cpuTimeTotal();
