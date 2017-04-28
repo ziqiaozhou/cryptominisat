@@ -707,7 +707,7 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 		if(ret==0)
 		  return GOT_RESULT_LOWER;
 		if(ret<0){
-			return -1;
+			return RETRY_JACCARD_HASH;
 		}
 		std::cout<<"nohash count="<<ret<<"\n";
 		return TOO_MUCH;
@@ -749,7 +749,7 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 		if (currentNumSolutions < pivotApproxMC + 1) {
 
 			if (readyPrev|| currentNumSolutions>(pivotApproxMC + 1)*4/7 ) {
-				if(currentNumSolutions==0 && hashCount==0)
+				if((currentNumSolutions==0) && (hashCount==0))
 				  return RETRY_JACCARD_HASH;
 				if((currentNumSolutions==0)&& (hashCount>0)){
 					return RETRY_IND_HASH;
