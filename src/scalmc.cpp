@@ -893,7 +893,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 	if(solver==NULL){
 		solver=this->solver;
 	}
-	//	hashCount=startIteration;
+	hashCount=hashCount?hashCount:startIteration;
 #if 0 
 	if (initialHashCount == 0) {
 		int ret=OneRoundFor3NoHash(jaccardAssumps,scounts,0,solver);
