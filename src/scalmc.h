@@ -33,8 +33,8 @@
 #include "cryptominisat5/cryptominisat.h"
 #define PARALLEL 0
 #define TIMEOUT -64
-#define RETRY_IND_HASH -1
-#define RETRY_JACCARD_HASH -2
+#define RETRY_IND_HASH -2
+#define RETRY_JACCARD_HASH -1
 #define NEAR_RESULT -4
 #define GOT_RESULT_UPPER -16
 #define GOT_RESULT_LOWER -32

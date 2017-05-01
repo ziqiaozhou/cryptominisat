@@ -1272,6 +1272,13 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 			jaccard3Assumps.push_back(jaccardAssumps_lastZero);
 			jaccard3Assumps.push_back(jaccardAssumps_two);
 			SetSampledJaccardHash(jaccardHashCount,jaccardHashVars,jaccard3Assumps,solver);
+			cout<<"!!!!!!!!!\n";
+			for(int i=0;i<3;i++){
+				cout<<"i="<<i<<"\n";
+				print_sol(jaccard3Assumps[i]);
+			}
+			cout<<"##########|n"
+
 			cout<<"sampled jaccard";
 		}
 		//	solver->simplify(&jaccardAssumps);
