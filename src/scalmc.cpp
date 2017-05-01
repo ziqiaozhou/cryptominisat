@@ -365,13 +365,13 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 	lbool ret;
 	bool firstRound=true;
 	cout<<solver->nVars();
-	solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
+	/*solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
 	if(solutions==-2)
 	  solutions=0;
 	else{
 		std::cout<<"sampled solu:"<<solutions<<"\n";
 		return solutions;
-	}
+	}*/
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
@@ -424,6 +424,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     //Remove clauses added
     vector<Lit> cl_that_removes;
     cl_that_removes.push_back(Lit(act_var, false));
+
     solver->add_clause(cl_that_removes);
 
     //Timeout
@@ -656,8 +657,10 @@ void SATCount::summarize(){
 		vector<Lit> assumps;
 		int64_t hashCount=0;
 		cache_clear();
-
+		assumps.clear();
 		double start_time = cpuTime();
+		int64_t check= BoundedSATCount(pivotApproxMC+1,jaccardAssumps[resultIndex],solver);
+		cout<<"check="<<check;
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[resultIndex],solver);
 		cout<<"jaccardAssumps[resultIndex]"<<resultIndex<<"\n";
 		//print_sol(jaccardAssumps[resultIndex]);
@@ -808,7 +811,7 @@ withhashresample:
 				}else
 				  s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
-					cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
+				cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
 				if(s[1]<=0){
 					//unbalanced sampling, giveup
 					assumps.clear();
