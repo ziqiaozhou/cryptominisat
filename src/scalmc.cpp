@@ -2128,6 +2128,7 @@ void CUSP::SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hash
 
 		vector<Lit> orVars;
 		orVars.push_back(Lit(act_var,true));
+		orVars.push_back(Lit(two_var,true))
 		for(int i=0;i<sampleSize;++i){
 			sampleOne=*sampleit;
 			vector<Lit> vars;
