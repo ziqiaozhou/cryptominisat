@@ -2119,16 +2119,17 @@ void CUSP::SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hash
 	}
 	solver->new_var();
 	uint32_t two_var = solver->nVars()-1;
-
+	vector<Lit> out_var;
 	for(int i=0;i<3;++i)
 	  assumps[i].push_back(Lit(two_var,false));
+	out_var.push_back(Lit(two_var,true));
 	std::set<string>::iterator sampleit=jaccard_samples.begin();
 	for(int t=0;t<2;++t){
 		sampleOne=*sampleit;
 		solver->new_var();
 		uint32_t act_var = solver->nVars()-1;
 		assumps[t].push_back(Lit(act_var,false));
-
+		out_var.push_back(Lit(act_var,false));
 		vector<Lit> orVars;
 		orVars.push_back(Lit(act_var,true));
 		orVars.push_back(Lit(two_var,true));
@@ -2154,6 +2155,7 @@ void CUSP::SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hash
 		printVars(orVars);	
 		solver->add_clause(orVars);
 	}
+solver->add_clause(orVars);
 
 }
 void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,vector<Lit>& assumps,vector<Lit>& assumps2,SATSolver* solver )
