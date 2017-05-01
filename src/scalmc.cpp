@@ -658,8 +658,13 @@ void SATCount::summarize(){
 
 		double start_time = cpuTime();
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[resultIndex],solver);
-		cout<<"jaccardAssumps[resultIndex]"<<resultIndex;
-		print_sol(jaccardAssumps[resultIndex]);
+		cout<<"jaccardAssumps[resultIndex]"<<resultIndex<<"\n";
+		//print_sol(jaccardAssumps[resultIndex]);
+		std::stringstream ss;
+		for(auto cl: jaccard3Assumps[resultIndex]) {
+			ss << cl << " ";
+		}
+		cout<<ss.str()<<"\n";
 		cout<<"\ncost time:"<<cpuTime()-start_time<<"\n"<<"count="<<currentNumSolutions;
 		//Din't find at least pivotApproxMC+1
 		if(currentNumSolutions<pivotApproxMC+1){
@@ -675,9 +680,7 @@ void SATCount::summarize(){
 			  s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);
 
 			cout<<"solution s[0]"<<s[0]<<"s[1]"<<s[1]<<"\n";
-			if(s[1]>pivotApproxMC*2){
-
-			}
+			
 			if((s[1]<=0||s[0]<=0)){
 
 				cout<<"not found one solution"<<s[0]<<"\n";
