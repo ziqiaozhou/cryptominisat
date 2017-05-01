@@ -364,7 +364,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     uint64_t solutions = 0;
 	lbool ret;
 	bool firstRound=true;
-	cout<<solver->nVars();
+//	cout<<solver->nVars();
 	solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
 	if(solutions==-2)
 	  solutions=0;
@@ -400,9 +400,9 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 				}
 			}
 			solver->add_clause(lits);
-			cout<<"sol=\n";
+		//	cout<<"sol=\n";
 			for(auto one : sols){ 
-				cout<<one<<"\n";
+			//	cout<<one<<"\n";
 			  cachedSolutions.insert(one);
 			}
 		}
@@ -662,8 +662,8 @@ void SATCount::summarize(){
 		cache_clear();
 		assumps.clear();
 		double start_time = cpuTime();
-		int64_t check= BoundedSATCount(pivotApproxMC+1,jaccardAssumps[0],solver);
-		cout<<"check="<<check;
+	/*	int64_t check= BoundedSATCount(pivotApproxMC+1,jaccardAssumps[0],solver);
+		cout<<"check="<<check;*/
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[resultIndex],solver);
 		cout<<"jaccardAssumps[resultIndex]"<<resultIndex<<"\n";
 		//print_sol(jaccardAssumps[resultIndex]);
