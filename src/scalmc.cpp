@@ -400,8 +400,11 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 				}
 			}
 			solver->add_clause(lits);
-			for(auto one : sols) 
+			cout<<"sol=\n";
+			for(auto one : sols){ 
+				cout<<one<<"\n";
 			  cachedSolutions.insert(one);
+			}
 		}
 		if (num_undef) {
 			cout << "WOW Num undef:" << num_undef << endl;
