@@ -1259,6 +1259,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		jaccardHashVars.clear();
 		jaccardXorClause.clear();
 		jaccard_samples.clear();
+		jaccard3Assumps.clear();
 		//solver->simplify(&jaccardAssumps);
 
 		if((jaccard_vars.size()-jaccardHashCount)>2 || notSampled){	
@@ -1282,7 +1283,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 				std::stringstream ss;
 				for(auto cl: jaccard3Assumps[i]) {
 					ss << cl << " ";
-				}
+				
 				cout<<ss.str()<<"\n";
 			}
 			cout<<"\n##########\n";
