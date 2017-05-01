@@ -302,7 +302,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 	int64_t solutions=-2;
 
 	uint64_t samplelog=(size-assumps.size());
-	if((samplelog<=log2(maxSolutions))&& false&&(notSampled==0)){
+	if((samplelog<=log2(maxSolutions))&&(notSampled==0)){
 
 	uint64_t sampleSize=(1<<(size-assumps.size()));
 		while(independent_samples.size()<sampleSize){
@@ -313,7 +313,7 @@ int64_t CUSP::SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& a
 		solutions=0;
 		for(int i=0;i<sampleSize;++i){
 			sampleOne=*sampleit;
-			vector<Lit> new_assumps(jassumps);
+			vector<Lit> new_assumps(assumps);
 			for(int j=0;j<size;++j){
 				assert(sampleOne.size()>j);
 				assert(independent_vars.size()>j);
@@ -365,13 +365,13 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 	lbool ret;
 	bool firstRound=true;
 	cout<<solver->nVars();
-	/*solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
+	solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
 	if(solutions==-2)
 	  solutions=0;
 	else{
 		std::cout<<"sampled solu:"<<solutions<<"\n";
 		return solutions;
-	}*/
+	}
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
