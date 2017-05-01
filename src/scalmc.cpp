@@ -712,6 +712,7 @@ void SATCount::summarize(){
 }
 int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::string> nextCount,uint64_t &hashCount,map<uint64_t,Lit>& hashVars,vector<Lit>assumps ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,int resultIndex,SATSolver * solver=NULL){
 	int repeatTry=0;
+	uint32_t pivotApproxMC0=pivotApproxMC;
 	if(hashCount==0){
 		int ret=OneRoundFor3NoHash(jaccardAssumps,scounts,resultIndex,solver);
 		if(ret==0)
@@ -730,13 +731,18 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 		int64_t s[3];
 		double myTime = cpuTimeTotal();
 		cache_clear();
-	/*	if(printXor)
-		  exit(0);*/
-		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps,jaccardAssumps[resultIndex],solver);
+		/*	if(printXor)
+			exit(0);*/
+		if(resultIndex==2){
+			pivotApproxMC0*=2;
+		}
+		int64_t  currentNumSolutions= BoundedSATCount(pivotApproxMC0 + 1, assumps,jaccardAssumps[resultIndex],solver);
+
+
 		s[0]=currentNumSolutions;
 		cout	<<"solver->nvar()="<<solver->nVars()
 			<< "Number of XOR hashes active: " << hashCount << endl
-			<< currentNumSolutions << ", " << pivotApproxMC
+			<< currentNumSolutions << ", " << pivotApproxMC0
 			<<",time="<<(cpuTimeTotal() - myTime) <<endl;
 
 		if (currentNumSolutions < 0) {
@@ -757,9 +763,9 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 			continue;
 		}
 
-		if (currentNumSolutions < pivotApproxMC + 1) {
+		if (currentNumSolutions < pivotApproxMC0 + 1) {
 
-			if (readyPrev|| currentNumSolutions>(pivotApproxMC + 1)*4/7 ) {
+			if (readyPrev|| currentNumSolutions>(pivotApproxMC0 + 1)*4/7 ) {
 				if((currentNumSolutions==0) && (hashCount==0))
 				  return RETRY_JACCARD_HASH;
 				if((currentNumSolutions==0)&& (hashCount>0)){
@@ -812,7 +818,7 @@ withhashresample:
 				if(onlyOne){
 					s[1]=s[0];
 				}else
-				  s[1] = BoundedSATCount(pivotApproxMC*2+1, assumps,jaccardAssumps[1],solver);				
+				  s[1] = BoundedSATCount(pivotApproxMC0*2+1, assumps,jaccardAssumps[1],solver);				
 				std::cout<<"s[1]"<<s[1]<<",time:"<<cpuTimeTotal()-myTime1<<"\n";
 				cout<<"s[0]="<<s[0]<<"s[1]"<<s[1];
 				if(s[1]<=0){
@@ -822,7 +828,7 @@ withhashresample:
 					solver->simplify(&assumps);
 					return RETRY_JACCARD_HASH;
 				}
-				if(s[1]>pivotApproxMC*2+1){
+				if(s[1]>pivotApproxMC0*2+1){
 					return RETRY_JACCARD_HASH;
 				}
 				myTime1=cpuTimeTotal();
@@ -841,7 +847,7 @@ withhashresample:
 				return GOT_RESULT_UPPER;
 			}
 
-			assert(currentNumSolutions == pivotApproxMC+1);
+			assert(currentNumSolutions == pivotApproxMC0+1);
 			return TOO_MUCH;
 		}
 	}
