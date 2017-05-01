@@ -1283,14 +1283,15 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 				std::stringstream ss;
 				for(auto cl: jaccard3Assumps[i]) {
 					ss << cl << " ";
-				
-				cout<<ss.str()<<"\n";
-			}
-			cout<<"\n##########\n";
 
-			cout<<"sampled jaccard";
+					cout<<ss.str()<<"\n";
+				}
+				cout<<"\n##########\n";
+
+				cout<<"sampled jaccard";
+			}
 		}
-		//	solver->simplify(&jaccardAssumps);
+			//	solver->simplify(&jaccardAssumps);
 		uint64_t hashPrev = LowerFib;
 		addKey2Map(jaccardHashCount,numHashList,numCountList,count);
 		map<uint64_t,int64_t> countRecord;
