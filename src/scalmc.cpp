@@ -364,6 +364,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
     uint64_t solutions = 0;
 	lbool ret;
 	bool firstRound=true;
+	cout<<solver->nVars();
 	solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
 	if(solutions==-2)
 	  solutions=0;
