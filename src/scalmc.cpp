@@ -2155,7 +2155,7 @@ void CUSP::SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hash
 		printVars(orVars);	
 		solver->add_clause(orVars);
 	}
-solver->add_clause(out_vars);
+solver->add_clause(out_var);
 
 }
 void CUSP::SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,vector<Lit>& assumps,vector<Lit>& assumps2,SATSolver* solver )
