@@ -1279,6 +1279,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 				for(auto cl: jaccard3Assumps[i]) {
 					ss << cl << " ";
 				}
+				cout<<ss.str()<<"\n";
 			}
 			cout<<"\n##########\n";
 
