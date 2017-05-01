@@ -661,7 +661,7 @@ void SATCount::summarize(){
 		cout<<"jaccardAssumps[resultIndex]"<<resultIndex<<"\n";
 		//print_sol(jaccardAssumps[resultIndex]);
 		std::stringstream ss;
-		for(auto cl: jaccard3Assumps[resultIndex]) {
+		for(auto cl: jaccardAssumps[resultIndex]) {
 			ss << cl << " ";
 		}
 		cout<<ss.str()<<"\n";
