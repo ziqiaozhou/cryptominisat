@@ -659,7 +659,7 @@ void SATCount::summarize(){
 		cache_clear();
 		assumps.clear();
 		double start_time = cpuTime();
-		int64_t check= BoundedSATCount(pivotApproxMC+1,jaccardAssumps[resultIndex],solver);
+		int64_t check= BoundedSATCount(pivotApproxMC+1,jaccardAssumps[0],solver);
 		cout<<"check="<<check;
 		int64_t currentNumSolutions = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[resultIndex],solver);
 		cout<<"jaccardAssumps[resultIndex]"<<resultIndex<<"\n";
