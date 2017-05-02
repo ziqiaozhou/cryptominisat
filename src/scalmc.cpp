@@ -365,13 +365,14 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 	lbool ret;
 	bool firstRound=true;
 //	cout<<solver->nVars();
-	solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
+	/*solutions=SampledBoundedSATCount(maxSolutions,assumps,jassumps,solver);
 	if(solutions==-2)
 	  solutions=0;
 	else{
 		std::cout<<"sampled solu:"<<solutions<<"\n";
 		return solutions;
 	}
+	*/
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
@@ -665,7 +666,7 @@ void SATCount::summarize(){
 		/*	int64_t check= BoundedSATCount(pivotApproxMC+1,jaccardAssumps[0],solver);
 			cout<<"check="<<check;*/
 		if(resultIndex==1){
-			int64_t check = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[resultIndex],solver);
+			int64_t check = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps[0],solver);
 			if(check<=0){
 				return RETRY_JACCARD_HASH;
 			}
@@ -941,12 +942,14 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			//solver->simp:lify(&assumps);
 			bool readyPrev=((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
 			bool readyNext=((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
+			if(resultIndex==2)
+			  readyPrev=true;
 			std::set<std::string> nextCount;
 			if(succRecord.find(hashCount+1) != succRecord.end()){
 				nextCount=countRecord[hashCount+1];
 			}
-			std::cout<<"\n------------------------resultIndex="<<resultIndex<<"\n";
-			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,resultIndex,solver);
+				std::cout<<"\n------------------------resultIndex="<<resultIndex<<"\n";
+				int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,resultIndex,solver);
 			printFor3(ret);
 			int64_t checkJaccard;
 			switch(ret){
