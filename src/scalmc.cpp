@@ -934,13 +934,14 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		//	uint64_t lowerFib = searched?(hashCount-2):0, upperFib = searched?(hashCount+2):independent_vars.size();
 		//
 		uint64_t lowerFib = LowerFib, upperFib = UpperFib?UpperFib:independent_vars.size();
-
+		int oldResultIndex=0;
 		while (numExplored < independent_vars.size()) {
 			myTime = cpuTimeTotal();
 			uint64_t swapVar = hashCount;
 			//cout<<"change the size to "<<solver->get_Nclause();
 			//solver->simp:lify(&assumps);
-			bool readyPrev=((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==0));
+			oldResultIndex=resultIndex;
+			bool readyPrev=((succRecord.find(hashCount-1)!=succRecord.end())&&(succRecord[hashCount-1] ==1));
 			bool readyNext=((succRecord.find(hashCount+1) != succRecord.end())&&(succRecord[hashCount+1]==0));
 			if(resultIndex==2)
 			  readyPrev=true;
@@ -948,8 +949,8 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 			if(succRecord.find(hashCount+1) != succRecord.end()){
 				nextCount=countRecord[hashCount+1];
 			}
-				std::cout<<"\n------------------------resultIndex="<<resultIndex<<"\n";
-				int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,resultIndex,solver);
+			std::cout<<"\n------------------------resultIndex="<<resultIndex<<"\n";
+			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,resultIndex,solver);
 			printFor3(ret);
 			int64_t checkJaccard;
 			switch(ret){
@@ -1042,10 +1043,10 @@ TOO_SMALL_ENTRY:
 			std::cout<<"\n===================="<<"\n";
 		}
 		std::cout<<"\n-=-=-=-=-=-=-=-=-=-=\n";
-		if(resultIndex==0){
+		if(resultIndex==0 && oldResultIndex==2){
 			assumps.clear();
 			hashVars.clear();
-			solver->simplify(&assumps);
+		//	solver->simplify(&assumps);
 		}
 		if(hashCount==0&& resultIndex==0){
 			break;
