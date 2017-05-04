@@ -1080,8 +1080,8 @@ TOO_SMALL_ENTRY:
 			std::sort(l.begin(), l.end());
 					std::sort(r.begin(), r.end());
 
-			std::cout<<"r sorted:\n";
-			for( const auto& str : l ) std::cout << str << '\n' ;
+		//	std::cout<<"r sorted:\n";
+	//		for( const auto& str : l ) std::cout << str << '\n' ;
 			it=std::set_intersection (l.begin(), l.end(), r.begin(), r.end(), intersection.begin());
 			intersection.resize(it-intersection.begin());
 
@@ -1090,11 +1090,11 @@ TOO_SMALL_ENTRY:
 			std::vector<string>symmetric_diff(pivotApproxMC*2);
 			it=std::set_symmetric_difference (l.begin(), l.end(), r.begin(), r.end(), symmetric_diff.begin());
 			symmetric_diff.resize(it-symmetric_diff.begin()); 
-				std::cout<<"inter sorted:\n";
-			for( const auto& str : intersection ) std::cout << str << '\n' ;
+			//	std::cout<<"inter sorted:\n";
+			//for( const auto& str : intersection ) std::cout << str << '\n' ;
 
-				std::cout<<"diff sorted:\n";
-			for( const auto& str : symmetric_diff ) std::cout << str << '\n' ;
+		//		std::cout<<"diff sorted:\n";
+		//	for( const auto& str : symmetric_diff ) std::cout << str << '\n' ;
 			int ndiff=getAttackNum(nattack,symmetric_diff);
 			scounts[3].numCountList.push_back(ninter);
 			scounts[4].numCountList.push_back(ndiff);
