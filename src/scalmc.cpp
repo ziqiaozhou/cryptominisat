@@ -394,7 +394,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 				if (solver->get_model()[var] != l_Undef) {
 					bool isTrue=(solver->get_model()[var] == l_True);
 					lits.push_back(Lit(var,isTrue ));
-					pushlit2Sols(sols,isTrue?"0":"1");
+					pushlit2Sols(sols,isTrue?std::to_string(var):"-"+std::to_string(var));
 				} else {
 					pushlit2Sols(sols,"*");
 					num_undef++;
