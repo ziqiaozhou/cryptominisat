@@ -345,7 +345,7 @@ void pushlit2Sols(vector<string> &sols,string c){
 		}
 	}
 }
-int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,int resultIndex=0,SATSolver* solver=NULL)
+int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,int resultIndex,SATSolver* solver=NULL)
 {
 //    cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
     //Set up things for adding clauses that can later be removed
@@ -455,7 +455,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 }
 void CUSP::cache_clear(){
 	cachedSolutions.clear();
-	independent_samples.clear();
+	//independent_samples.clear();
 }
 static void print_sol(std::vector<Lit> vars){
 #if 0
@@ -832,7 +832,10 @@ withhashresample:
 				double myTime1=cpuTimeTotal();
 				cache_clear();
 				cachedSolutions.insert(nextCount.begin(),nextCount.end());
-				
+				cachedSubSolutions[resultIndex].clear();
+				for(auto one :cachedSolutions){
+					cachedSubSolutions[resultIndex].push_back(one);
+				}
 				s[0]=nextCount.size();
 
 				//s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
@@ -1032,12 +1035,12 @@ reset_for_next_count:
 						mPrev=0;
 						resultIndex=(resultIndex+1)%3;
 						succRecord[hashCount] = 0;
-						assert(ret==cachedSolutions.size());
+					//	assert(ret==cachedSolutions.size());
 						countRecord[hashCount] =cachedSolutions;	
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
 						succRecord[hashCount] = 0;
-						assert(ret==cachedSolutions.size());
+					//	assert(ret==cachedSolutions.size());
 						countRecord[hashCount] =cachedSolutions;					
 TOO_SMALL_ENTRY:
 						if (searched||(abs(hashCount-mPrev) <= 2 && mPrev != 0)) {
@@ -1069,19 +1072,29 @@ TOO_SMALL_ENTRY:
 			assumps.clear();
 			hashVars.clear();
 			/*get count of attack */
-			std::vector<string>intersection(pivotApproxMC*2);
+			vector<string> l=cachedSubSolutions[0],r=cachedSubSolutions[1];
+			std::vector<string>intersection(l.size()+r.size());
 			std::vector<string>::iterator it;
-			std::sort(cachedSubSolutions[0].begin(), cachedSubSolutions[0].end());
 
-			std::sort(cachedSubSolutions[1].begin(), cachedSubSolutions[1].end());
-			it=std::set_intersection (cachedSubSolutions[0].begin(), cachedSubSolutions[0].end(), cachedSubSolutions[1].begin(), cachedSubSolutions[1].end(), intersection.begin());
+
+			std::sort(l.begin(), l.end());
+					std::sort(r.begin(), r.end());
+
+			std::cout<<"r sorted:\n";
+			for( const auto& str : l ) std::cout << str << '\n' ;
+			it=std::set_intersection (l.begin(), l.end(), r.begin(), r.end(), intersection.begin());
 			intersection.resize(it-intersection.begin());
+
 			int nattack=attack_vars.size();
 			int ninter=getAttackNum(nattack,intersection);
 			std::vector<string>symmetric_diff(pivotApproxMC*2);
-			it=std::set_symmetric_difference (cachedSubSolutions[0].begin(), cachedSubSolutions[0].end(), cachedSubSolutions[1].begin(), cachedSubSolutions[1].end(), symmetric_diff.begin());
+			it=std::set_symmetric_difference (l.begin(), l.end(), r.begin(), r.end(), symmetric_diff.begin());
 			symmetric_diff.resize(it-symmetric_diff.begin()); 
-			
+				std::cout<<"inter sorted:\n";
+			for( const auto& str : intersection ) std::cout << str << '\n' ;
+
+				std::cout<<"diff sorted:\n";
+			for( const auto& str : symmetric_diff ) std::cout << str << '\n' ;
 			int ndiff=getAttackNum(nattack,symmetric_diff);
 			scounts[3].numCountList.push_back(ninter);
 			scounts[4].numCountList.push_back(ndiff);

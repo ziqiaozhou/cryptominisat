@@ -124,7 +124,7 @@ class CUSP: public Main {
 private:
 
 		std::set<std::string> cachedSolutions;
-		std::vector<std::string> cachedSubSolutions[2];
+		std::vector<std::string> cachedSubSolutions[3];
 
 		std::set<std::string> independent_samples;
 		std::set<std::string> jaccard_samples;
