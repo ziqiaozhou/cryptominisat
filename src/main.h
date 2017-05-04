@@ -122,6 +122,8 @@ class Main
         string sqlDatabase;
         vector<uint32_t> independent_vars;
 
+        vector<uint32_t> attack_vars;
+		vector<uint32_t> ob_vars;
         vector<uint32_t> jaccard_vars;
         vector<uint32_t> dependent_vars;
         //Files to read & write

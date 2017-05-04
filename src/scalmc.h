@@ -124,6 +124,8 @@ class CUSP: public Main {
 private:
 
 		std::set<std::string> cachedSolutions;
+		std::vector<std::string> cachedSubSolutions[2];
+
 		std::set<std::string> independent_samples;
 		std::set<std::string> jaccard_samples;
 		void add_approxmc_options();
@@ -141,7 +143,7 @@ int64_t SampledBoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps
 void SetSampledJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars,vector<vector<Lit>>& assumps,SATSolver* solver );
 void cache_clear();
 	void SetJaccardHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<Lit>& assumps, vector<Lit>& assumps2, CMSat::SATSolver* solver);
-	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,CMSat::SATSolver * solver);
+	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps, const vector<Lit>& jassumps,int resultIndex,CMSat::SATSolver * solver);
 
 int64_t BoundedSATCount_print(uint32_t maxSolutions, const vector<Lit>& assumps,CMSat::SATSolver * solver);
 	int64_t BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,CMSat::SATSolver * solver);

@@ -49,6 +49,8 @@ class DimacsParser
         vector<uint32_t> independent_vars;
         vector<uint32_t> dependent_vars;
         vector<uint32_t> jaccard_vars;
+		vector<uint32_t> attack_vars;
+		vector<uint32_t> ob_vars;
 		const std::string dimacs_spec = "http://www.satcompetition.org/2009/format-benchmarks2009.html";
         const std::string please_read_dimacs = "\nPlease read DIMACS specification at http://www.satcompetition.org/2009/format-benchmarks2009.html";
 
@@ -65,6 +67,8 @@ class DimacsParser
         void write_solution_to_debuglib_file(const lbool ret) const;
         bool parseIndependentSet(C& in);
         
+        bool parseAttackSet(C& in);
+        bool parseObSet(C& in);
 
         bool parseJaccardSet(C& in);
         bool parseDependentSet(C& in);
@@ -348,7 +352,7 @@ bool DimacsParser<C>::parseComments(C& in, const std::string& str)
         if (!parseIndependentSet(in)) {
             return false;
         }
-    } else if (str=="dep"){
+    } else if (str=="dep"){//ziqiao
 		if(!parseDependentSet(in)){
 			return false;
 		}
@@ -356,7 +360,16 @@ bool DimacsParser<C>::parseComments(C& in, const std::string& str)
 		if(!parseJaccardSet(in)){
 			return false;
 		}
+	}else if (str=="attack"){
+		if(!parseAttackSet(in)){
+			return false;
+		}
+	}else if (str=="ob"){
+		if(!parseObSet(in)){
+			return false;
+		}
 	}
+
 
 	else {
         if (verbosity >= 6) {
@@ -532,6 +545,40 @@ bool DimacsParser<C>::parseIndependentSet(C& in)
             break;
         }
         uint32_t var = std::abs(parsed_lit) - 1;
+        independent_vars.push_back(var);
+    }
+    return true;
+}
+template <class C>
+bool DimacsParser<C>::parseAttackSet(C& in)
+{
+    int32_t parsed_lit;
+    for (;;) {
+		if (!in.parseInt(parsed_lit, lineNum)) {
+			return false;
+		}
+		if (parsed_lit == 0) {
+			break;
+		}
+		uint32_t var = std::abs(parsed_lit) - 1;
+		independent_vars.push_back(var);
+		attack_vars.push_back(var);
+	}
+	return true;
+}
+template <class C>
+bool DimacsParser<C>::parseObSet(C& in)
+{
+    int32_t parsed_lit;
+    for (;;) {
+        if (!in.parseInt(parsed_lit, lineNum)) {
+            return false;
+        }
+        if (parsed_lit == 0) {
+            break;
+        }
+        uint32_t var = std::abs(parsed_lit) - 1;
+		ob_vars.push_back(var);
         independent_vars.push_back(var);
     }
     return true;

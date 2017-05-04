@@ -142,6 +142,9 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
     }
 	dependent_vars.swap(parser.dependent_vars);
    jaccard_vars.swap(parser.jaccard_vars);
+   attack_vars.swap(parser.attack_vars);
+
+   ob_vars.swap(parser.ob_vars);
     independent_vars.swap(parser.independent_vars);
     call_after_parse();
 
