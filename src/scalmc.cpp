@@ -1035,7 +1035,10 @@ reset_for_next_count:
 						mPrev=hashCount;
 						resultIndex=(resultIndex+1)%3;
 						succRecord[hashCount] = 0;
-					//	assert(ret==cachedSolutions.size());
+						scounts[resultIndex].numHashList.push_back(hashCount);
+						scounts[resultIndex].numCountList.push_back(ret);
+
+						//	assert(ret==cachedSolutions.size());
 						countRecord[hashCount] =cachedSolutions;	
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
