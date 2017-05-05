@@ -387,7 +387,7 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 		if (solutions < maxSolutions) {
 			vector<Lit> lits;
 			lits.push_back(Lit(act_var, false));
-			
+		if(attack_vars.size()+ob_vars.size()>0){	
 			for (int i=0;i<attack_vars.size();++i) {
 				uint32_t var=attack_vars[i];
 				//std::cout<<"getmodel of "<<var;
@@ -412,6 +412,21 @@ int64_t CUSP::BoundedSATCount(uint32_t maxSolutions, const vector<Lit>& assumps,
 					num_undef++;
 				}
 			}
+		}else{
+			for (int i=0;i<independent_vars.size();++i) {
+				uint32_t var=independent_vars[i];
+				//std::cout<<"getmodel of "<<var;
+				if (solver->get_model()[var] != l_Undef) {
+					bool isTrue=(solver->get_model()[var] == l_True);
+					lits.push_back(Lit(var,isTrue ));
+					pushlit2Sols(sols,isTrue?"1":"0");
+				} else {
+					//	pushlit2Sols(sols,"*");
+					num_undef++;
+				}
+			}
+
+		}
 			solver->add_clause(lits);
 		//	cout<<"sol=\n";
 			for(auto one : sols){ 
