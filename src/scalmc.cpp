@@ -2265,6 +2265,9 @@ void CUSP::SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<L
 {
 	double ratio=0.5;
 	int parity=Parity;
+	if(clausNum<attack_vars.size()){
+		independent_vars=attack_vars;
+	}
 	int var_size=independent_vars.size();
 	if(parity<=1){
 		if(clausNum*var_size>(XorMax)){//don't allow too many xor
