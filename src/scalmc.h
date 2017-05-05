@@ -201,6 +201,7 @@ void trimVar(std::vector<uint32_t>&);
 	bool Parallel=false;
     double   loopTimeout = 300;
     int      unset_vars = 1;
+	int test_func=0;
 	int Parity=1;
 	int notSampled=0;
 	int originalPC_size;
