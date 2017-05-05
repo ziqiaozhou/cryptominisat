@@ -154,7 +154,7 @@ void CUSP::add_approxmc_options()
  ("JaccardIndex",po::value(&singleIndex)->default_value(singleIndex),
   "jaccard index"
   "choose one otherwise use max")
-("test",pos::value(&test_func)->default_value(0),"test new feature, 0->default, 1-> hash attack first then ob")
+("test",po::value(&test_func)->default_value(0),"test new feature, 0->default, 1-> hash attack first then ob")
     ;
 
     help_options_simple.add(approxMCOptions);
