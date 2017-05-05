@@ -239,7 +239,7 @@ inline T findMin(vector<T>& numList)
 bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 {
 	double ratio=xorRate;
-	string randomBits = GenerateRandomBits_prob((independent_vars.size()) * num_xor_cls,ratio);
+	string randomBits = GenerateRandomBits_prob((independent_vars0.size()) * num_xor_cls,ratio);
 	string randomBits_rhs=GenerateRandomBits(num_xor_cls);
 	bool rhs = true;
 	vector<uint32_t> vars;
@@ -253,9 +253,9 @@ bool CUSP::AddHash(uint32_t num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 		vars.clear();
 		vars.push_back(act_var);
 		rhs = (randomBits_rhs[i] == '1');
-		for (uint32_t j = 0; j < independent_vars.size(); j++) {
-			if(randomBits[i*independent_vars.size()+j]=='1')    
-			  vars.push_back(independent_vars[j]);
+		for (uint32_t j = 0; j < independent_vars0.size(); j++) {
+			if(randomBits[i*independent_vars0.size()+j]=='1')    
+			  vars.push_back(independent_vars0[j]);
 		}
 		solver->add_xor_clause(vars, rhs);
 		if (conf.verbosity||printXor) {
@@ -2270,12 +2270,11 @@ void CUSP::SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<L
 	double ratio=0.5;
 	int parity=Parity;
 	if(clausNum<attack_vars.size()-4){
-		independent_vars=attack_vars;
+		independent_vars0=attack_vars;
 	}else{
-		independent_vars=attack_vars;
-		independent_vars.insert(independent_vars.begin(),ob_vars.begin(),ob_vars.end());
+		independent_vars0=independent_vars;
 	}
-	int var_size=independent_vars.size();
+	int var_size=independent_vars0.size();
 	if(parity<=1){
 		if(clausNum*var_size>(XorMax)){//don't allow too many xor
 			ratio=(1.0*XorMax)/(clausNum*var_size);
