@@ -1033,11 +1033,12 @@ reset_for_next_count:
 					if(hashCount==0||resultIndex>0){
 						numExplored=independent_vars.size()+1;
 						mPrev=hashCount;
-						resultIndex=(resultIndex+1)%3;
+
 						succRecord[hashCount] = 0;
 						scounts[resultIndex].numHashList.push_back(hashCount);
 						scounts[resultIndex].numCountList.push_back(ret);
 
+						resultIndex=(resultIndex+1)%3;
 						//	assert(ret==cachedSolutions.size());
 						countRecord[hashCount] =cachedSolutions;	
 					}else{
