@@ -1032,7 +1032,7 @@ reset_for_next_count:
 					//case NEAR_RESULT:
 					if(hashCount==0||resultIndex>0){
 						numExplored=independent_vars.size()+1;
-						mPrev=0;
+						mPrev=hashCount;
 						resultIndex=(resultIndex+1)%3;
 						succRecord[hashCount] = 0;
 					//	assert(ret==cachedSolutions.size());
