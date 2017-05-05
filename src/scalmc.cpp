@@ -2300,7 +2300,7 @@ void CUSP::SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<L
 			}
 		}
 		if (clausNum > hashVars.size()) {
-			for (uint32_t n=1;n<=clauseNum-hashVars.size();n++){
+			for (uint32_t n=1;n<=clausNum-hashVars.size();n++){
 				if(n+hashVars.size()<attack_vars.size()-3){
 					independent_vars0=attack_vars;
 				}else{
