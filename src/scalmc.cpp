@@ -2297,15 +2297,22 @@ void CUSP::SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<L
         if (clausNum > assumps.size() && assumps.size() < hashVars.size()) {
             for (uint32_t i = assumps.size(); i< hashVars.size() && i < clausNum; i++) {
                 assumps.push_back(hashVars[i]);
-            }
-        }
-        if (clausNum > hashVars.size()) {
-            AddHash(clausNum-hashVars.size(),assumps,solver);
-            for (uint64_t i = hashVars.size(); i < clausNum; i++) {
-                hashVars[i] = assumps[i];
-            }
-        }
-    }
+			}
+		}
+		if (clausNum > hashVars.size()) {
+			for (uint32_t n=1;n<=clauseNum-hashVars.size();n++){
+				if(n+hashVars.size()<attack_vars.size()-3){
+					independent_vars0=attack_vars;
+				}else{
+					independent_vars0=independent_vars;
+				}
+				AddHash(1,assumps,solver);
+			}
+			for (uint64_t i = hashVars.size(); i < clausNum; i++) {
+				hashVars[i] = assumps[i];
+			}
+		}
+	}
 }
 //For ScalApproxMC only
 bool CUSP::ScalApproxMC(SATCount& count)
