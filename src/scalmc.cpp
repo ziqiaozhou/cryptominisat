@@ -754,7 +754,7 @@ int CUSP::OneRoundFor3WithHash(bool readyPrev,bool readyNext,std::set<std::strin
 		  cache_clear();
 		/*	if(printXor)
 			exit(0);*/
-		if(resultIndex==2){
+		if(resultIndex>0){
 			pivotApproxMC0*=2;
 		}
 		int64_t  currentNumSolutions= BoundedSATCount(pivotApproxMC0 + 1, assumps,jaccardAssumps[resultIndex],resultIndex,solver);
@@ -1030,7 +1030,7 @@ reset_for_next_count:
 					break;
 				default:
 					//case NEAR_RESULT:
-					if(hashCount==0){
+					if(hashCount==0||resultIndex>0){
 						numExplored=independent_vars.size()+1;
 						mPrev=0;
 						resultIndex=(resultIndex+1)%3;
@@ -2265,8 +2265,10 @@ void CUSP::SetHash(uint32_t clausNum, std::map<uint64_t,Lit>& hashVars, vector<L
 {
 	double ratio=0.5;
 	int parity=Parity;
-	if(clausNum<attack_vars.size()){
+	if(clausNum<attack_vars.size()-4){
 		independent_vars=attack_vars;
+	}else{
+		independent_vars.insert(ob_vars.begin(),ob_vars.end());
 	}
 	int var_size=independent_vars.size();
 	if(parity<=1){
