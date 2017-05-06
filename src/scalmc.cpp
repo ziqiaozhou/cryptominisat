@@ -769,7 +769,7 @@
 			  cache_clear();
 			/*	if(printXor)
 				exit(0);*/
-			if(resultIndex>0){
+			if(resultIndex>1){
 				pivotApproxMC0*=2;
 			}
 			int64_t  currentNumSolutions= BoundedSATCount(pivotApproxMC0 + 1, assumps,jaccardAssumps[resultIndex],resultIndex,solver);
@@ -1109,11 +1109,11 @@ TOO_SMALL_ENTRY:
 			std::vector<string>symmetric_diff(pivotApproxMC*2);
 			it=std::set_symmetric_difference (l.begin(), l.end(), r.begin(), r.end(), symmetric_diff.begin());
 			symmetric_diff.resize(it-symmetric_diff.begin()); 
-				std::cout<<"inter sorted:\n";
+			/*	std::cout<<"inter sorted:\n";
 			for( const auto& str : intersection ) std::cout << str << '\n' ;
 
 				std::cout<<"diff sorted:\n";
-			for( const auto& str : symmetric_diff ) std::cout << str << '\n' ;
+			for( const auto& str : symmetric_diff ) std::cout << str << '\n' ;*/
 			int ndiff=getAttackNum(nattack,symmetric_diff);
 			
 			scounts[3].numCountList.push_back(ninter);
