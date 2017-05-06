@@ -387,7 +387,7 @@
 			if (solutions < maxSolutions) {
 				vector<Lit> lits;
 				lits.push_back(Lit(act_var, false));
-			if(attack_vars.size()+ob_vars.size()>0){	
+			if(test_func&& (attack_vars.size()+ob_vars.size()>0)){	
 				for (int i=0;i<attack_vars.size();++i) {
 					uint32_t var=attack_vars[i];
 					//std::cout<<"getmodel of "<<var;
