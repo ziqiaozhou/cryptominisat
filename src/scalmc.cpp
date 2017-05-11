@@ -353,6 +353,7 @@
 	//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
 		cachedSubSolutions[resultIndex].clear();
+		cache_clear();
 		solver->new_var();
 		uint32_t act_var = solver->nVars()-1;
 		vector<Lit> new_assumps(assumps);
