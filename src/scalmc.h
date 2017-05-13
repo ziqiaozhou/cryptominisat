@@ -78,6 +78,10 @@ class SATCount {
 		out<<cellSolCount<<"*2^"<<hashCount;
 		return out.str();
 	}
+	void pop_back(){
+		numHashList.pop_back();
+		numCountList.pop_back();
+	}
 	uint32_t hashCount = 0;
 	double cellSolCount = 0;
 	vector<uint64_t> numHashList;//for output
