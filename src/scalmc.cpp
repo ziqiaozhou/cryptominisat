@@ -997,15 +997,30 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 				case TIMEOUT:
 					assumps.clear();
 					hashVars.clear();
+					for(int i=0;i<resultIndex;++i){
+						scounts[i].pop_back();
+					}
+					resultIndex=0;
+
 					break;
 				case RETRY_IND_HASH:
 					assumps.clear();
 					hashVars.clear();
+					for(int i=0;i<resultIndex;++i){
+						scounts[i].pop_back();
+					}
+					resultIndex=0;
+
 					break;
 
 				case RETRY_JACCARD_HASH:
 					assumps.clear();
 					hashVars.clear();
+					for(int i=0;i<resultIndex;++i){
+						scounts[i].pop_back();
+					}
+					resultIndex=0;
+
 					return -1;
 				case GOT_RESULT_LOWER:
 				//	if(hashCount==0){
