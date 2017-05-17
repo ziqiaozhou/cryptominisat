@@ -63,7 +63,7 @@
 	using boost::lexical_cast;
 	using std::list;
 	using std::map;
-
+#define DELETE_SOLVER 0
 #define PARALLEL 0
 	string binary(unsigned x, uint32_t length)
 	{
@@ -1416,6 +1416,8 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		vector<SATCount>scounts={scount0,scount1,scount2,scount3,scount4,scount5};
 		int ret=OneRoundFor3( jaccardHashCount,result,mPrev,hashPrev,jaccard3Assumps, scounts,solver);
 		if(ret==-1){
+
+#if DELETE_SOLVER 
 			cout<<"delete solver due to ret==-1";
 			delete solver;
 			cout<<"end delete";
@@ -1424,6 +1426,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 			solver_init();
 			cout<<"end delete";
 
+#endif
 			continue;
 		}
 		std::ofstream  f;
@@ -1467,6 +1470,8 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 	
 		break;
 	}
+
+#if DELETE_SOLVER 
 	cout<<"delete solver";
 	delete solver;
 	cout<<"end delete";
@@ -1476,6 +1481,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 	//check_num_threads_sanity(num_threads);
 	solver_init();
 	cout<<"end delete";
+#endif
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
 
@@ -1584,6 +1590,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	
 		break;
 	}
+#if DELETE_SOLVER 
 	cout<<"delete solver";
 	delete solver;
 	cout<<"end delete";
@@ -1593,6 +1600,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 	//check_num_threads_sanity(num_threads);
 	solver_init();
 	cout<<"end delete";
+#endif
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
 void CUSP::computeCountFromList(uint64_t jaccardHashCount, map<uint64_t,vector<uint64_t>> &numHashList,map<uint64_t,vector<int64_t>>& numCountList,map<uint64_t,SATCount>& count){
