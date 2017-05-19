@@ -130,6 +130,7 @@ private:
 		std::set<std::string> cachedSolutions;
 		std::vector<std::string> cachedSubSolutions[3];
 
+		std::vector<std::string> cachedFullSolutions[3];
 		std::vector<uint32_t> independent_vars0;
 		std::set<std::string> independent_samples;
 		std::set<std::string> jaccard_samples;
@@ -212,6 +213,7 @@ void trimVar(std::vector<uint32_t>&);
     std::ofstream cusp_logf;
 	std::random_device random_dev;
     std::mt19937 randomEngine;
+	int nCounterExamples=0;
 };
 
 

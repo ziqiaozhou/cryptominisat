@@ -65,6 +65,7 @@
 	using std::map;
 #define DELETE_SOLVER 0
 #define PARALLEL 0
+#define MAX_EXAMPLES 4
 	string binary(unsigned x, uint32_t length)
 	{
 		uint32_t logSize = (x == 0 ? 1 : log2(x) + 1);
@@ -353,6 +354,7 @@
 	//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
 		cachedSubSolutions[resultIndex].clear();
+		cachedFullSolutions[resultIndex].clear();
 		cache_clear();
 		solver->new_var();
 		uint32_t act_var = solver->nVars()-1;
@@ -385,6 +387,7 @@
 			size_t num_undef = 0;
 
 			vector<string> sols={""};
+			vector<string >fullsols={""};
 			if (solutions < maxSolutions) {
 				vector<Lit> lits;
 				lits.push_back(Lit(act_var, false));
@@ -421,6 +424,21 @@
 						bool isTrue=(solver->get_model()[var] == l_True);
 						lits.push_back(Lit(var,isTrue ));
 						pushlit2Sols(sols,isTrue?"1":"0");
+						pushlit2Sols(fullsols,isTrue?"1":"0");
+					} else {
+						//	pushlit2Sols(sols,"*");
+						num_undef++;
+					}
+				}
+
+			}
+			if(nCounterExamples<MAX_EXAMPLES){
+				for (int i=0;i<jaccard_vars.size();++i) {
+					uint32_t var=jaccard_vars[i];
+					//std::cout<<"getmodel of "<<var;
+					if (solver->get_model()[var] != l_Undef) {
+						bool isTrue=(solver->get_model()[var] == l_True);
+						pushlit2Sols(fullsols,isTrue?"1":"0");
 					} else {
 						//	pushlit2Sols(sols,"*");
 						num_undef++;
@@ -434,7 +452,12 @@
 				//	cout<<one<<"\n";
 				  cachedSolutions.insert(one);
 				  cachedSubSolutions[resultIndex].push_back(one);
+
 				}
+				for(auto one : fullsols){ 
+					cachedFullSolutions[resultIndex].push_back(one);
+				}
+
 			}
 			if (num_undef) {
 				cout << "WOW Num undef:" << num_undef << endl;
@@ -849,8 +872,11 @@
 					cache_clear();
 					cachedSolutions.insert(nextCount.begin(),nextCount.end());
 					cachedSubSolutions[resultIndex].clear();
+
+						cachedFullSolutions[resultIndex].clear();
 					for(auto one :cachedSolutions){
-						cachedSubSolutions[resultIndex].push_back(one);
+						cachedSubSolutions[resultIndex].push_back(one.substr(0,independent_vars.size()));
+						cachedFullSolutions[resultIndex].push_back(one);
 					}
 					s[0]=nextCount.size();
 
@@ -929,6 +955,16 @@ int getAttackNum(int nattack,vector<string>all){
 		attack.insert(one.substr(0,nattack));
 	}
 	return attack.size();
+}
+
+string str2hex(string s){
+	char * end;
+	std::stringstream ss("");
+	for(int i=0;i<s.size()/8;++i){
+		long int value = strtol(s.substr(i*8,8).c_str(),&end,2);
+		ss<<std::hex<<value;
+	}
+	return ss.str()+"\t"+s;
 }
 
 int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL)
@@ -1071,12 +1107,15 @@ reset_for_next_count:
 
 						resultIndex=(resultIndex+1)%3;
 						//	assert(ret==cachedSolutions.size());
-						countRecord[hashCount] =cachedSolutions;	
+						std::set<std::string> s(cachedFullSolutions[resultIndex].begin(),cachedFullSolutions[resultIndex].end()) ;	
+						countRecord[hashCount] =s;
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
 						succRecord[hashCount] = 0;
 					//	assert(ret==cachedSolutions.size());
-						countRecord[hashCount] =cachedSolutions;					
+	std::set<std::string> s(cachedFullSolutions[resultIndex].begin(),cachedFullSolutions[resultIndex].end()) ;	
+						countRecord[hashCount] =s;
+
 TOO_SMALL_ENTRY:
 						if (searched||(abs(hashCount-mPrev) <= 2 && mPrev != 0)) {
 							upperFib = hashCount;
@@ -1113,9 +1152,9 @@ TOO_SMALL_ENTRY:
 
 
 			std::sort(l.begin(), l.end());
-					std::sort(r.begin(), r.end());
-
-		//	std::cout<<"r sorted:\n";
+			std::sort(r.begin(), r.end());
+			
+			//	std::cout<<"r sorted:\n";
 	//		for( const auto& str : l ) std::cout << str << '\n' ;
 			it=std::set_intersection (l.begin(), l.end(), r.begin(), r.end(), intersection.begin());
 			intersection.resize(it-intersection.begin());
@@ -1124,7 +1163,48 @@ TOO_SMALL_ENTRY:
 			int ninter=getAttackNum(nattack,intersection);
 			std::vector<string>symmetric_diff(pivotApproxMC*2);
 			it=std::set_symmetric_difference (l.begin(), l.end(), r.begin(), r.end(), symmetric_diff.begin());
-			symmetric_diff.resize(it-symmetric_diff.begin()); 
+			symmetric_diff.resize(it-symmetric_diff.begin());
+			if(symmetric_diff.size()>0&& nCounterExamples<MAX_EXAMPLES){
+				nCounterExamples+=symmetric_diff.size();
+				int lindex,rindex;
+				lindex=rindex=0;
+				std::ostringstream filename("");
+				filename<<jaccardIndex<<"_diff_examples.txt";
+
+				std::ofstream  f;
+				f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+				while(lindex<l.size()&& rindex<r.size()){
+					if(l[lindex]==r[rindex]){
+						lindex++;
+						rindex++;
+					}else if( l[lindex]<r[rindex]){
+						
+						cout<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
+						f<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
+						lindex++;
+					}else{
+
+						cout<<str2hex(cachedFullSolutions[1][lindex])<<"\n";
+						f<<str2hex(cachedFullSolutions[1][rindex])<<"\n";
+						rindex++;
+					}
+
+				}
+				while(lindex<l.size())
+				{
+					cout<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
+					f<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
+					lindex++;
+				}
+				while(rindex<r.size())
+				{
+
+					cout<<str2hex(cachedFullSolutions[1][lindex])<<"\n";
+					f<<str2hex(cachedFullSolutions[1][rindex])<<"\n";
+					rindex++;
+				}
+				f.close();
+			}
 			/*	std::cout<<"inter sorted:\n";
 			for( const auto& str : intersection ) std::cout << str << '\n' ;
 
