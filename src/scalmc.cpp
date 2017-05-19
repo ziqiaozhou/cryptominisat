@@ -65,7 +65,7 @@
 	using std::map;
 #define DELETE_SOLVER 0
 #define PARALLEL 0
-#define MAX_EXAMPLES 4
+#define MAX_EXAMPLES -1
 	string binary(unsigned x, uint32_t length)
 	{
 		uint32_t logSize = (x == 0 ? 1 : log2(x) + 1);
@@ -956,17 +956,32 @@ int getAttackNum(int nattack,vector<string>all){
 	}
 	return attack.size();
 }
+vector<size_t> sort_indexes(const vector<string> &v) {
+
+	// initialize original index locations
+	vector<size_t> idx(v.size());
+	iota(idx.begin(), idx.end(), 0);
+
+	//       // sort indexes based on comparing values in v
+	sort(idx.begin(), idx.end(),
+				[&v](size_t i1, size_t i2) {return v[i1] < v[i2];});
+
+	return idx;
+}
 
 string str2hex(string s){
 	char * end;
+	
 	std::stringstream ss("");
 	for(int i=0;i<s.size()/8;++i){
-		long int value = strtol(s.substr(i*8,8).c_str(),&end,2);
-		ss<<std::hex<<value;
+		string sub=s.substr(i*8,8);
+		std::reverse(sub.begin(), sub.end());
+		long int value = strtol(sub.c_str(),&end,2);
+		char c=value;
+		ss<<value<<"("<<c<<")";
 	}
 	return ss.str()+"\t"+s;
 }
-
 int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t &mPrev,uint64_t &hashPrev  ,vector<vector<Lit>> jaccardAssumps,vector<SATCount>& scounts,SATSolver * solver=NULL)
 {
 	//	solver->simplify(&jaccardAssumps);
@@ -1151,8 +1166,8 @@ TOO_SMALL_ENTRY:
 			std::vector<string>::iterator it;
 
 
-			std::sort(l.begin(), l.end());
-			std::sort(r.begin(), r.end());
+			vector<size_t>oindexL=sort_indexes(l);
+			vector<size_t>oindexR=sort_indexes(r);
 			
 			//	std::cout<<"r sorted:\n";
 	//		for( const auto& str : l ) std::cout << str << '\n' ;
@@ -1173,36 +1188,38 @@ TOO_SMALL_ENTRY:
 
 				std::ofstream  f;
 				f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+				f<<"----\n";
 				while(lindex<l.size()&& rindex<r.size()){
-					if(l[lindex]==r[rindex]){
+					if(l[oindexL[lindex]]==r[oindexL[lindex]]){
+						cout<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
+						f<<"c "<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
 						lindex++;
 						rindex++;
-					}else if( l[lindex]<r[rindex]){
-						
-						cout<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
-						f<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
+					}else if( l[oindexL[lindex]]<r[oindexL[lindex]]){
+						cout<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
+						f<<"l "<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
 						lindex++;
 					}else{
-
-						cout<<str2hex(cachedFullSolutions[1][lindex])<<"\n";
-						f<<str2hex(cachedFullSolutions[1][rindex])<<"\n";
+						cout<<str2hex(cachedFullSolutions[1][oindexR[rindex]])<<"\n";
+						f<<"r "<<str2hex(cachedFullSolutions[1][oindexR[rindex]])<<"\n";
 						rindex++;
 					}
 
 				}
 				while(lindex<l.size())
 				{
-					cout<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
-					f<<str2hex(cachedFullSolutions[0][lindex])<<"\n";
+					cout<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
+					f<<"l "<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
 					lindex++;
 				}
 				while(rindex<r.size())
 				{
 
-					cout<<str2hex(cachedFullSolutions[1][lindex])<<"\n";
-					f<<str2hex(cachedFullSolutions[1][rindex])<<"\n";
+					cout<<str2hex(cachedFullSolutions[1][oindexR[rindex]])<<"\n";
+					f<<"r "<<str2hex(cachedFullSolutions[1][oindexR[rindex]])<<"\n";
 					rindex++;
 				}
+				f<<"========\n";
 				f.close();
 			}
 			/*	std::cout<<"inter sorted:\n";
