@@ -49,6 +49,8 @@ class DimacsParser
         vector<uint32_t> independent_vars;
         vector<uint32_t> dependent_vars;
         vector<uint32_t> jaccard_vars;
+
+        vector<uint32_t> jaccard_vars2;
 		vector<uint32_t> attack_vars;
 		vector<uint32_t> ob_vars;
 		const std::string dimacs_spec = "http://www.satcompetition.org/2009/format-benchmarks2009.html";
@@ -360,7 +362,12 @@ bool DimacsParser<C>::parseComments(C& in, const std::string& str)
 		if(!parseJaccardSet(in)){
 			return false;
 		}
-	}else if (str=="attack"){
+	}else if (str=="jac2"){
+		if(!parseJaccard2Set(in)){
+			return false;
+		}
+	}
+	else if (str=="attack"){
 		if(!parseAttackSet(in)){
 			return false;
 		}
@@ -513,6 +520,23 @@ bool DimacsParser<C>::parseJaccardSet(C& in)
         }
         uint32_t var = std::abs(parsed_lit) - 1;
         jaccard_vars.push_back(var);
+    }
+    return true;
+}
+
+template <class C>
+bool DimacsParser<C>::parseJaccard2Set(C& in)
+{
+    int32_t parsed_lit;
+    for (;;) {
+        if (!in.parseInt(parsed_lit, lineNum)) {
+            return false;
+        }
+        if (parsed_lit == 0) {
+            break;
+        }
+        uint32_t var = std::abs(parsed_lit) - 1;
+        jaccard_vars2.push_back(var);
     }
     return true;
 }

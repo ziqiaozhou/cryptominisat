@@ -65,7 +65,7 @@
 	using std::map;
 #define DELETE_SOLVER 0
 #define PARALLEL 0
-#define MAX_EXAMPLES -1
+#define MAX_EXAMPLES 1
 	string binary(unsigned x, uint32_t length)
 	{
 		uint32_t logSize = (x == 0 ? 1 : log2(x) + 1);
@@ -391,72 +391,71 @@
 			if (solutions < maxSolutions) {
 				vector<Lit> lits;
 				lits.push_back(Lit(act_var, false));
-			if(test_func&& (attack_vars.size()+ob_vars.size()>0)){	
-				for (int i=0;i<attack_vars.size();++i) {
-					uint32_t var=attack_vars[i];
-					//std::cout<<"getmodel of "<<var;
-					if (solver->get_model()[var] != l_Undef) {
-						bool isTrue=(solver->get_model()[var] == l_True);
-						lits.push_back(Lit(var,isTrue ));
-						pushlit2Sols(sols,isTrue?"1":"0");
-					} else {
-					//	pushlit2Sols(sols,"*");
-						num_undef++;
+				if(test_func&& (attack_vars.size()+ob_vars.size()>0)){	
+					for (int i=0;i<attack_vars.size();++i) {
+						uint32_t var=attack_vars[i];
+						//std::cout<<"getmodel of "<<var;
+						if (solver->get_model()[var] != l_Undef) {
+							bool isTrue=(solver->get_model()[var] == l_True);
+							lits.push_back(Lit(var,isTrue ));
+							pushlit2Sols(sols,isTrue?"1":"0");
+						} else {
+							//	pushlit2Sols(sols,"*");
+							num_undef++;
+						}
 					}
-				}
-				for (int i=0;i<ob_vars.size();++i) {
-					uint32_t var=ob_vars[i];
-					//std::cout<<"getmodel of "<<var;
-					if (solver->get_model()[var] != l_Undef) {
-						bool isTrue=(solver->get_model()[var] == l_True);
-						lits.push_back(Lit(var,isTrue ));
-						pushlit2Sols(sols,isTrue?"1":"0");
-					} else {
-					//	pushlit2Sols(sols,"*");
-						num_undef++;
+					for (int i=0;i<ob_vars.size();++i) {
+						uint32_t var=ob_vars[i];
+						//std::cout<<"getmodel of "<<var;
+						if (solver->get_model()[var] != l_Undef) {
+							bool isTrue=(solver->get_model()[var] == l_True);
+							lits.push_back(Lit(var,isTrue ));
+							pushlit2Sols(sols,isTrue?"1":"0");
+						} else {
+							//	pushlit2Sols(sols,"*");
+							num_undef++;
+						}
 					}
+				}else{
+					for (int i=0;i<independent_vars.size();++i) {
+						uint32_t var=independent_vars[i];
+						//std::cout<<"getmodel of "<<var;
+						if (solver->get_model()[var] != l_Undef) {
+							bool isTrue=(solver->get_model()[var] == l_True);
+							lits.push_back(Lit(var,isTrue ));
+							pushlit2Sols(sols,isTrue?"1":"0");
+							pushlit2Sols(fullsols,isTrue?"1":"0");
+						} else {
+							pushlit2Sols(sols,"*");
+							num_undef++;
+						}
+					}
+
 				}
-			}else{
-				for (int i=0;i<independent_vars.size();++i) {
-					uint32_t var=independent_vars[i];
+				if(nCounterExamples<MAX_EXAMPLES){
+					for (int i=0;i<jaccard_vars.size();++i) {
+						uint32_t var=jaccard_vars[i];
 					//std::cout<<"getmodel of "<<var;
 					if (solver->get_model()[var] != l_Undef) {
 						bool isTrue=(solver->get_model()[var] == l_True);
-						lits.push_back(Lit(var,isTrue ));
-						pushlit2Sols(sols,isTrue?"1":"0");
 						pushlit2Sols(fullsols,isTrue?"1":"0");
 					} else {
-						//	pushlit2Sols(sols,"*");
+						pushlit2Sols(fullsols,"*");
 						num_undef++;
 					}
 				}
-
 			}
-			if(nCounterExamples<MAX_EXAMPLES){
-				for (int i=0;i<jaccard_vars.size();++i) {
-					uint32_t var=jaccard_vars[i];
-					//std::cout<<"getmodel of "<<var;
-					if (solver->get_model()[var] != l_Undef) {
-						bool isTrue=(solver->get_model()[var] == l_True);
-						pushlit2Sols(fullsols,isTrue?"1":"0");
-					} else {
-						//	pushlit2Sols(sols,"*");
-						num_undef++;
-					}
-				}
-
-			}
-				solver->add_clause(lits);
+			solver->add_clause(lits);
 			//	cout<<"sol=\n";
-				for(auto one : sols){ 
+			for(auto one : sols){ 
 				//	cout<<one<<"\n";
-				  cachedSolutions.insert(one);
-				  cachedSubSolutions[resultIndex].push_back(one);
+				cachedSolutions.insert(one);
+				cachedSubSolutions[resultIndex].push_back(one);
 
-				}
-				for(auto one : fullsols){ 
-					cachedFullSolutions[resultIndex].push_back(one);
-				}
+			}
+			for(auto one : fullsols){ 
+				cachedFullSolutions[resultIndex].push_back(one);
+			}
 
 			}
 			if (num_undef) {
@@ -1011,7 +1010,7 @@ int CUSP::OneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result, uint64_t
 		UpperFib=UpperFib?UpperFib:independent_vars.size();
 		hashCount=hashCount?hashCount:startHashCount;
 		std::cout<<"starter hashcount="<<hashCount<<"\n";
-	}
+	}€>€>€>€>€>€>€>€>€>
 #endif
 	hashCount=hashCount?hashCount:initialHashCount;
 	int resultIndex=0;
@@ -1156,6 +1155,7 @@ TOO_SMALL_ENTRY:
 			std::cout<<"\n===================="<<"\n";
 		}
 		std::cout<<"\n-=-=-=-=-=-=-=-=-=-=\n";
+		int nattack=attack_vars.size();
 		if(resultIndex==0 && oldResultIndex==2){
 
 			assumps.clear();
@@ -1168,43 +1168,53 @@ TOO_SMALL_ENTRY:
 
 			vector<size_t>oindexL=sort_indexes(l);
 			vector<size_t>oindexR=sort_indexes(r);
-			
-			//	std::cout<<"r sorted:\n";
-	//		for( const auto& str : l ) std::cout << str << '\n' ;
-			it=std::set_intersection (l.begin(), l.end(), r.begin(), r.end(), intersection.begin());
-			intersection.resize(it-intersection.begin());
+			for(auto ll : l){
+				std::cout<<"L="<<ll<<"\n";
+			}
+			for(auto ll : r){
+				std::cout<<"R="<<ll<<"\n";
+			}
 
-			int nattack=attack_vars.size();
-			int ninter=getAttackNum(nattack,intersection);
+			//	std::cout<<"r sorted:\n";
+			//		for( const auto& str : l ) std::cout << str << '\n' ;
+
 			std::vector<string>symmetric_diff(pivotApproxMC*2);
 			it=std::set_symmetric_difference (l.begin(), l.end(), r.begin(), r.end(), symmetric_diff.begin());
-			symmetric_diff.resize(it-symmetric_diff.begin());
+			if(it !=  symmetric_diff.begin()){
+				symmetric_diff.resize(it-symmetric_diff.begin());
+
+				for(auto sym : symmetric_diff){
+					std::cout<<"sym="<<sym<<"\n";
+				}
+			}else{
+				symmetric_diff.clear();
+			}
 			if(symmetric_diff.size()>0&& nCounterExamples<MAX_EXAMPLES){
+				cout<<"size of l="<<l.size()<<"size of r"<<r.size()<<"\n";
 				nCounterExamples+=symmetric_diff.size();
 				int lindex,rindex;
 				lindex=rindex=0;
 				std::ostringstream filename("");
 				filename<<jaccardIndex<<"_diff_examples.txt";
-
 				std::ofstream  f;
 				f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 				f<<"----\n";
 				while(lindex<l.size()&& rindex<r.size()){
-					if(l[oindexL[lindex]]==r[oindexL[lindex]]){
-						cout<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
+					if(l[lindex]==r[lindex]){
+					
+						cout<<"l:"<< str2hex(l[lindex])<<"r:"<<str2hex(r[lindex])<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
 						f<<"c "<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
 						lindex++;
 						rindex++;
-					}else if( l[oindexL[lindex]]<r[oindexL[lindex]]){
-						cout<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
+					}else if( l[lindex]<r[lindex]){
+						cout<<"l:"<< str2hex(l[lindex])<<"r:"<<str2hex(r[lindex])<<"full l:"<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
 						f<<"l "<<str2hex(cachedFullSolutions[0][oindexL[lindex]])<<"\n";
 						lindex++;
 					}else{
-						cout<<str2hex(cachedFullSolutions[1][oindexR[rindex]])<<"\n";
+						cout<<"l:"<< str2hex(l[lindex])<<"r:"<<str2hex(r[lindex])<<"full r:"<<str2hex(cachedFullSolutions[1][oindexR[rindex]])<<"\n";
 						f<<"r "<<str2hex(cachedFullSolutions[1][oindexR[rindex]])<<"\n";
 						rindex++;
 					}
-
 				}
 				while(lindex<l.size())
 				{
@@ -1227,10 +1237,10 @@ TOO_SMALL_ENTRY:
 
 				std::cout<<"diff sorted:\n";
 			for( const auto& str : symmetric_diff ) std::cout << str << '\n' ;*/
-			int ndiff=getAttackNum(nattack,symmetric_diff);
+	//		int ndiff=getAttackNum(nattack,symmetric_diff);
 			
-			scounts[3].numCountList.push_back(ninter);
-			scounts[4].numCountList.push_back(ndiff);
+		//	scounts[3].numCountList.push_back(ninter);
+		//	scounts[4].numCountList.push_back(ndiff);
 
 		//	solver->simplify(&assumps);
 		}
@@ -1533,7 +1543,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		for(int j=0;j<3;++j)
 		  scounts[j].summarize();
 		for(int i=0;i<scounts[0].size()&& i<scounts[1].size()&& i<scounts[2].size();++i){
-			f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\t"<<scounts[3].numCountList[i]<<"\t"<<scounts[4].numCountList[i]<<"\n";
+			f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
 		}
 		//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
 		f.close();
