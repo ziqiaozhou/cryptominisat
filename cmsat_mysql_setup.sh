@@ -16,15 +16,14 @@ SETUP_DB="
 
 if [ $1 ]; then
     echo "Using password '$1' for root access to mysql"
-    echo "$DROP_USER" | mysql -u root 2> /dev/null
-    echo "$DROP_USER2" | mysql -u root 2> /dev/null
-
-    echo "$SETUP_DB" | mysql -u root -p "$1"
+  echo "$DROP_USER" | mysql -u root --password="$1" 2> /dev/null
+   echo "$DROP_USER2" | mysql -u root --password="$1" 2> /dev/null
+    echo "$SETUP_DB" | mysql -u root --password="$1"
     if [ $? -ne 0 ]; then
         echo "ERROR: Cannot create database! Maybe wrong password?";
         exit -1;
     fi
-    mysql -u root -p "$1" cmsat < cmsat_tablestructure.sql
+    mysql -u root --password="$1" cmsat < cmsat_tablestructure.sql
     if [ $? -ne 0 ]; then
         echo "ERROR: Cannot add tables to database!";
         exit -1;

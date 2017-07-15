@@ -73,6 +73,7 @@ class DimacsParser
         bool parseObSet(C& in);
 
         bool parseJaccardSet(C& in);
+        bool parseJaccard2Set(C& in);
         bool parseDependentSet(C& in);
 		std::string get_debuglib_fname() const;
 
