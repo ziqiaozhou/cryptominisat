@@ -118,7 +118,8 @@
 			, "Number of solutions to check for")
 ("std", po::value(&tStdError)->default_value(tStdError)
 			, "Number of solutions to check for")
-
+("outprefix",po::value(&outPrefix)->default_value(""),
+ "prefix for count_jx")
 		("mode", po::value(&searchMode)->default_value(searchMode)
 		 ,"Seach mode. ApproxMX = 0, JaccardMC=1,ScalMC = 2,print sol only=3")
 		("JaccardXorMax", po::value(&jaccardXorMax)->default_value(jaccardXorMax)
@@ -1549,7 +1550,7 @@ void CUSP::JaccardOneRoundFor3(uint64_t jaccardHashCount,JaccardResult* result ,
 		}
 		std::ofstream  f;
 		std::ostringstream filename("");
-		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 		for(int j=0;j<3;++j)
 		  scounts[j].summarize();
@@ -1648,7 +1649,7 @@ void CUSP::Jaccard2OneRound(uint64_t jaccardHashCount,JaccardResult* result ,boo
 
 		std::ofstream  f;
 		std::ostringstream filename("");
-		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		filename<<"outPrefix"<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 		for(int i=0;i<scount0.size();++i){
 			f<<scount0.str(i)<<"\n";
@@ -1754,7 +1755,7 @@ void CUSP::JaccardOneRound(uint64_t jaccardHashCount,JaccardResult* result ,bool
 		}
 		std::ofstream  f;
 		std::ostringstream filename("");
-		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 		for(int i=0;i<scount0.size()&& i<scount1.size()&& i<scount2.size();++i){
 			f<<scount0.str(i)<<"\t"<<scount1.str(i)<<"\t"<<scount2.str(i)<<"\n";
@@ -1797,7 +1798,7 @@ void CUSP::computeCountFromList(uint64_t jaccardHashCount, map<uint64_t,vector<u
 	}else{
 		std::ofstream  f;
 		std::ostringstream filename("");
-		filename<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 	//	f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 		auto minHash = findMin(numHashList[jaccardHashCount]);
 		vector<int64_t> numCountL=numCountList[jaccardHashCount];

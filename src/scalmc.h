@@ -226,6 +226,7 @@ class CUSP: public Main {
 		std::random_device random_dev;
 		std::mt19937 randomEngine;
 		int nCounterExamples=0;
+		std::string outPrefix="";
 };
 
 
