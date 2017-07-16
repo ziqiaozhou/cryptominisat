@@ -1106,6 +1106,7 @@ reset_for_next_count:
 				case TOO_MUCH:
 					numExplored = hashCount + independent_vars.size()-upperFib;
 					succRecord[hashCount] = 1;
+					searched=false;
 					if (searched||(abs(hashCount - mPrev) < 2 && mPrev!=0)) {
 						lowerFib = hashCount;
 						hashCount ++;
