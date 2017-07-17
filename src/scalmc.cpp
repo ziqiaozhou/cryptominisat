@@ -1650,7 +1650,7 @@ void CUSP::Jaccard2OneRound(uint64_t jaccardHashCount,JaccardResult* result ,boo
 
 		std::ofstream  f;
 		std::ostringstream filename("");
-		filename<<"outPrefix"<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
 		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 		for(int i=0;i<scount0.size();++i){
 			f<<scount0.str(i)<<"\n";
