@@ -474,11 +474,12 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 		}
 
 		//Try not to be crazy, 2**30 solutions is enough
-		if (num_undef <= 30) {
+		if (num_undef <= 20) {
 			solutions += 1U << num_undef;
 		} else {
-			solutions += 1U << 30;
-			cout << "WARNING, in this cut there are > 2**30 solutions indicated by the solver!" << endl;
+			solutions += 1U << 20;
+			cout << "WARNING, in this cut there are > 2**20 solutions indicated by the solver!" << endl;
+			break;
 		}
 	}
 
@@ -672,11 +673,12 @@ int CUSP::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps
 			}
 
 			//Try not to be crazy, 2**30 solutions is enough
-			if (num_undef <= 30) {
+			if (num_undef <= 20) {
 				solutions += 1U << num_undef;
 			} else {
-				solutions += 1U << 30;
+				solutions += 1U << 20;
 				cout << "WARNING, in this cut there are > 2**30 solutions indicated by the solver!" << endl;
+				break;
 			}
 		}
 		if (solutions > maxSolutions) {
