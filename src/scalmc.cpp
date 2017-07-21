@@ -482,18 +482,17 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 			break;
 		}
 	}
+	//Remove clauses added
+	vector<Lit> cl_that_removes;
+	cl_that_removes.push_back(Lit(act_var, false));
+	solver->add_clause(cl_that_removes);
 
 	//	cout<<"time in this loop :"<<(cpuTime()-start_time);
 	if (solutions > maxSolutions) {
 		solutions = maxSolutions;
 	}
-
-	//Remove clauses added
-	vector<Lit> cl_that_removes;
-	cl_that_removes.push_back(Lit(act_var, false));
-	solver->add_clause(cl_that_removes);
 	//Timeout
-	if (ret == l_Undef) {
+	else if (ret == l_Undef) {
 		must_interrupt.store(false, std::memory_order_relaxed);
 
 		std::cout<<"timeout,but explored count="<<solutions;
@@ -582,33 +581,34 @@ int CUSP::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps
 
 			//Try not to be crazy, 2**30 solutions is enough
 			if (num_undef <= 20) {
-				solutions += 1U << num_undef;
+				solutions += (unsigned)(1U << num_undef);
 			} else {
-				solutions += 1U << 20;
+				solutions += (unsigned) (1U << 20);
 				cout << "WARNING, in this cut there are > 2**20 solutions indicated by the solver!" << endl;
 				break;
 			}
-		}
-		if (solutions > maxSolutions) {
-			solutions = maxSolutions;
 		}
 		//Remove clauses added
 		vector<Lit> cl_that_removes;
 		cl_that_removes.push_back(Lit(act_var, false));
 		solver->add_clause(cl_that_removes);
+
+		if (solutions > maxSolutions) {
+			solutions = maxSolutions;
+		}
 		//Timeout
-		if (ret == l_Undef) {
+		else if(ret == l_Undef) {
 			must_interrupt.store(false, std::memory_order_relaxed);
 			std::cout<<"explored count="<<solutions;
 			return -1;
 		}
 		return solutions;
-	}
+}
 
-	int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSolver * solver)
-	{
-		// cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
-		//Set up things for adding clauses that can later be removed
+int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSolver * solver)
+{
+	// cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
+	//Set up things for adding clauses that can later be removed
 #if PARALLEL 
 	//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
@@ -677,19 +677,20 @@ int CUSP::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps
 				solutions += 1U << num_undef;
 			} else {
 				solutions += 1U << 20;
-				cout << "WARNING, in this cut there are > 2**30 solutions indicated by the solver!" << endl;
+				cout << "WARNING, in this cut there are > 2**20 solutions indicated by the solver!" << endl;
 				break;
 			}
 		}
-		if (solutions > maxSolutions) {
-			solutions = maxSolutions;
-		}
-		//Remove clauses added
 		vector<Lit> cl_that_removes;
 		cl_that_removes.push_back(Lit(act_var, false));
 		solver->add_clause(cl_that_removes);
+		if (solutions > maxSolutions) {
+			solutions = maxSolutions;
+			return solutions;
+		}
+		//Remove clauses added
 		//Timeout
-		if (ret == l_Undef) {
+		else if (ret == l_Undef) {
 			must_interrupt.store(false, std::memory_order_relaxed);
 			std::cout<<"explored count="<<solutions;
 			return -1;
