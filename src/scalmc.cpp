@@ -355,8 +355,7 @@ int CUSP::SampledBoundedSATCount(unsigned maxSolutions, const vector<Lit> assump
 
 	void pushlit2Sols(vector<string> &sols,string c){
 		int len=sols.size();
-		if(c=="*"){
-
+		if(c=="*"&&false){
 			for(int i=0;i<len;i++){
 				sols.push_back(sols[i]+"0");
 				sols[i]=sols[i]+"1";
@@ -456,7 +455,8 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 					}
 				}
 			}
-			solver->add_clause(lits);
+			if(lits.size()>1)
+			  solver->add_clause(lits);
 			//	cout<<"sol=\n";
 			for(auto one : sols){ 
 				//	cout<<one<<"\n";
@@ -664,8 +664,8 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSo
 				if (debug){
 					std::cout<<"\n";
 				}
-
-				solver->add_clause(lits);
+				if(lits.size()>1)
+				  solver->add_clause(lits);
 				nAddedClause++;
 			}
 			if (num_undef) {
@@ -690,7 +690,7 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSo
 		}
 		//Remove clauses added
 		//Timeout
-		else if (ret == l_Undef) {
+		if (ret == l_Undef) {
 			must_interrupt.store(false, std::memory_order_relaxed);
 			std::cout<<"explored count="<<solutions;
 			return -1;
