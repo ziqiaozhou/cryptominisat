@@ -1106,10 +1106,18 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			}
 		}
 		hashCount=lower;
-		if(notZero&&(nSol==0)){
-			assert(false);
-		}
 		nSol=nSols[hashCount];
+		if(notZero&&(nSol==0)){
+			for(auto one : nSols){
+				if(one.second>0){
+					if(one.first>nSol){
+						hashCount=one.second;
+						nSol=one.first;
+					}
+				}
+			}
+		}
+
 		if(debug>DEBUG_VAR_LEVEL)
 		  cout<<"get hashCount="<<hashCount<<"nSol="<<nSol<<"\n";
 		scounts.push_back(std::pair<unsigned,unsigned>(hashCount,nSol));
