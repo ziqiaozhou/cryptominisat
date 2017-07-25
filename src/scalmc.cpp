@@ -1021,6 +1021,11 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
+		if(onlyLast&& resultIndex<2){
+
+			scounts.push_back(std::pair<unsigned,unsigned>(0,1));
+			continue;
+		}
 		if(solver==NULL){
 			solver=this->solver;
 		}
