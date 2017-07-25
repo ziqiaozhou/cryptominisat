@@ -652,10 +652,6 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSo
 				for (const unsigned var: independent_vars) {
 					if (solver->get_model()[var] != l_Undef) {
 						lits.push_back(Lit(var, solver->get_model()[var] == l_True));
-						if (debug){
-							std::cout<< ((solver->get_model()[var] == l_True)?"":"-")<<var<<",";
-						}
-
 					} else {
 						num_undef++;
 					}

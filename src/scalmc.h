@@ -210,7 +210,7 @@ int OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, unsigne
 		unsigned UpperFib = 0;
 		unsigned startHashCount=1;
 		unsigned tApproxMC = 37;
-		unsigned tJaccardMC = 16;
+		unsigned tJaccardMC = 100;
 		unsigned searchMode = 1;
 		double jaccardXorRate=0.5;
 		double xorRate=0.5;
