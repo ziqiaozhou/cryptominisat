@@ -134,6 +134,7 @@ void CUSP::add_approxmc_options()
 		("printXor",po::value(&printXor)->default_value(0),"default(false)")
 		("trimOnly",po::value(&trimOnly)->default_value(0),"default(false)")
 		("onlyOne",po::value(&onlyOne)->default_value(1),"only count one subset default(false)")
+		("onlyLast",po::value(&onlyOne)->default_value(1),"only count one subset default(false)")
 		("tApproxMC", po::value(&tApproxMC)->default_value(tApproxMC)
 		 , "Number of measurements")
 		("tJaccardMC", po::value(&tJaccardMC)->default_value(tJaccardMC)
@@ -373,6 +374,9 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 #if PARALLEL 
 	//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
+	if(onlyLast&& resultIndex<2){
+		return 1;
+	}
 	cachedSubSolutions[resultIndex].clear();
 	cachedFullSolutions[resultIndex].clear();
 	cache_clear();
@@ -607,72 +611,52 @@ int CUSP::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps
 
 int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSolver * solver)
 {
-	// cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
-	//Set up things for adding clauses that can later be removed
-#if PARALLEL 
-	//	SATSolver *solver=solvers[omp_get_thread_num()];
-#endif
-		solver->new_var();
-		unsigned act_var = solver->nVars()-1;
-		vector<Lit> new_assumps(assumps);
-		new_assumps.push_back(Lit(act_var, true));
 
-		double start_time = cpuTime();
-		unsigned solutions = 0;
-		lbool ret;
-		bool firstRound=true;
-		int nAddedClause=0;
-		while (solutions < maxSolutions) {
-			//solver->set_max_confl(10*1000*1000);
-			double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
-			if(solutions>maxSolutions/2 && this_iter_timeout<loopTimeout/5){
-					this_iter_timeout=loopTimeout/4;
-			}
-			solver->set_timeout_all_calls(this_iter_timeout);
-			ret = solver->solve(&new_assumps);
-			/*if(firstround){
-				for (const unsigned i: dependent_vars) {
-					vector<lit> eqlits;
-					bool value=(rand()%2==1);
-					eqlits.push_back(lit(act_var,false));
-					eqlits.push_back(lit(i,solver->get_model()[i]==l_false));
-					solver->add_clause(eqlits);
-					naddedclause++;
+	solver->new_var();
+	unsigned act_var = solver->nVars()-1;
+	vector<Lit> new_assumps(assumps);
+	new_assumps.push_back(Lit(act_var, true));
+
+	double start_time = cpuTime();
+	unsigned solutions = 0;
+	lbool ret;
+	bool firstRound=true;
+	int nAddedClause=0;
+	while (solutions < maxSolutions) {
+		//solver->set_max_confl(10*1000*1000);
+		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
+		if(solutions>maxSolutions/2 && this_iter_timeout<loopTimeout/5){
+			this_iter_timeout=loopTimeout/4;
+		}
+		solver->set_timeout_all_calls(this_iter_timeout);
+		ret = solver->solve(&new_assumps);
+		if (ret != l_True)
+		  break;
+		size_t num_undef = 0;
+		if (solutions < maxSolutions) {
+			vector<Lit> lits;
+			lits.push_back(Lit(act_var, false));
+			for (const unsigned var: independent_vars) {
+				if (solver->get_model()[var] != l_Undef) {
+					lits.push_back(Lit(var, solver->get_model()[var] == l_True));
+				} else {
+					num_undef++;
 				}
-				firstround=false;
-			}*/
 
-			if (ret != l_True)
-			  break;
-
-			size_t num_undef = 0;
-			if (solutions < maxSolutions) {
-				vector<Lit> lits;
-				lits.push_back(Lit(act_var, false));
-				for (const unsigned var: independent_vars) {
-					if (solver->get_model()[var] != l_Undef) {
-						lits.push_back(Lit(var, solver->get_model()[var] == l_True));
-					} else {
-						num_undef++;
-					}
-
-				}
-				if (debug){
-					std::cout<<"\n";
-				}
-				if(lits.size()>1)
-				  solver->add_clause(lits);
-				nAddedClause++;
 			}
-			if (num_undef) {
-				cout << "WOW Num undef:" << num_undef << endl;
-			}
+			if(lits.size()>1)
+			  solver->add_clause(lits);
+			nAddedClause++;
+		}
+		if (num_undef) {
+			cout << "WOW Num undef:" << num_undef << endl;
+		}
 
-			//Try not to be crazy, 2**30 solutions is enough
-			if (num_undef <= 20) {
-				solutions += 1U << num_undef;
-			} else {
-				solutions += 1U << 20;
+		//Try not to be crazy, 2**30 solutions is enough
+		if (num_undef <= 20) {
+			solutions += 1U << num_undef;
+		} else {
+			solutions += 1U << 20;
 				cout << "WARNING, in this cut there are > 2**20 solutions indicated by the solver!" << endl;
 				break;
 			}
@@ -682,7 +666,6 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSo
 		solver->add_clause(cl_that_removes);
 		if (solutions > maxSolutions) {
 			solutions = maxSolutions;
-			return solutions;
 		}
 		//Remove clauses added
 		//Timeout
@@ -2004,11 +1987,13 @@ bool CUSP::Jaccard2ApproxMC(map<unsigned,SATCount>& count)
 	assert(singleIndex<=jaccard_vars.size());
 	jaccardHashCount=singleIndex;
 	double myTime = cpuTimeTotal();
-
-	int checkSAT = BoundedSATCount(pivotApproxMC+1,assumps,solver);
-	if(checkSAT<=0){
+	lbool checkSAT = solver->solve();
+	if(checkSAT!=l_True){
+		cerr<<"unsat, cannot counting";
 		return 0;
 	}
+	if(debug)
+	  cout<<"sat, continue counting";
 	int numCore=1;
 	JaccardResult * results=new JaccardResult[numCore];
 	for(int i=0;i<numCore;++i){
@@ -2806,16 +2791,13 @@ void CUSP::SetHash(unsigned clausNum, std::map<unsigned,Lit>& hashVars, vector<L
 		independent_vars0=independent_vars;
 	}
 	int var_size=independent_vars0.size();
-	if(parity<=1){
-		if(unsigned(clausNum*var_size)>unsigned(XorMax)){//don't allow too many xor
-			ratio=(1.0*XorMax)/(clausNum*var_size);
-			//ratio=(ratio<XorRate)?XorRate:0.5;
-			if(ratio<0.1){
-				std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax;
-			}
+	if(unsigned(clausNum*var_size)>unsigned(XorMax)){//don't allow too many xor
+		ratio=(1.0*XorMax)/(clausNum*var_size);
+		//ratio=(ratio<XorRate)?XorRate:0.5;
+		if(ratio<0.1){
+			std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax;
 		}
-	}else if(parity<var_size/2)
-	  ratio=(double)(parity)/var_size;
+	}
 	xorRate=(ratio>0.5)?0.5:ratio;
 	std::cout<<"xor ratio="<<ratio;
 
