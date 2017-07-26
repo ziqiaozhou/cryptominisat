@@ -2607,7 +2607,8 @@ bool  CUSP::AddJaccard2Hash( unsigned num_xor_cls,vector<Lit>& assumps, SATSolve
 		for (unsigned k = 0; k < var_size; k++) {
 			if (randomBits[var_size * i + k] == '1') {
 				vars.push_back(jaccard_vars[k]);
-				vars2.push_back(jaccard_vars2[k]);
+				if(jaccard_vars2.size())
+				  vars2.push_back(jaccard_vars2[k]);
 			}
 		}
 		if (conf.verbosity||printXor ) {
