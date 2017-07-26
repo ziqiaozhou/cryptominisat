@@ -206,7 +206,7 @@ int OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, unsigne
 		int printXor=0;
 		int trimOnly=0;
 		int onlyOne=0;
-		int onlyLast=1;
+		int onlyLast=0;
 		unsigned LowerFib = 0;
 		unsigned UpperFib = 0;
 		unsigned startHashCount=1;
