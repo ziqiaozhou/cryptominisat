@@ -1709,12 +1709,16 @@ void CUSP::JaccardOneRoundFor3(unsigned jaccardHashCount,JaccardResult* result ,
 
 void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another){
 	Lit it;
+	if(all.size()<=0||all.size()%2!=0){
+		one=all;
+		another=all;
+		return;
+	}
 	for (int i=0;i< all.size()/2;++i){
 		it=all[i*2];
 			one.push_back(it);
 			another.push_back(it);
 	}
-
 	another.pop_back();
 	another.push_back(~it);
 	assert(another.size()==one.size());
