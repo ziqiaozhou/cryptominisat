@@ -130,6 +130,8 @@ void CUSP::add_approxmc_options()
 		 ,"default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
 		("JaccardXorRate", po::value(&jaccardXorRate)->default_value(jaccardXorRate)
 		 ,"default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
+		("XorRate", po::value(&xorRate)->default_value(xorRate)
+		 ,"default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
 		("specify-ob",po::value(&specifiedOb)->default_value(""),"default("")")
 		("printXor",po::value(&printXor)->default_value(0),"default(false)")
 		("trimOnly",po::value(&trimOnly)->default_value(0),"default(false)")
@@ -1031,7 +1033,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			solver=this->solver;
 		}
 		hashCount=hashCount?hashCount:initialHashCount;
-		unsigned lower=0,upper=independent_vars.size();
+		unsigned lower=0,upper=independent_vars.size()-ceil(log(pivot)/log(2))+2;
 		int nSol=0;
 		if(debug>DEBUG_HASH_LEVEL)
 		  printVars(jaccardAssumps[resultIndex]);	
@@ -2810,8 +2812,8 @@ void CUSP::SetHash(unsigned clausNum, std::map<unsigned,Lit>& hashVars, vector<L
 			std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax;
 		}
 	}
-	xorRate=(ratio>0.5)?0.5:ratio;
-	std::cout<<"xor ratio="<<ratio;
+	xorRate=(ratio>xorRate)?xorRate:ratio;
+	std::cout<<"xor ratio="<<xorRate;
 
     if (clausNum < assumps.size()) {
         unsigned numberToRemove = assumps.size()- clausNum;
