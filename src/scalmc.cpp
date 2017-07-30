@@ -625,6 +625,7 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSo
 	while (solutions < maxSolutions) {
 		//solver->set_max_confl(10*1000*1000);
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
+		std::cerr<<"solutions";
 		if(solutions>maxSolutions/2 && this_iter_timeout<loopTimeout/5){
 			this_iter_timeout=loopTimeout/4;
 		}
@@ -1748,6 +1749,8 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		inJaccardAssumps.push_back(leftAssumps);
 		inJaccardAssumps.push_back(rightAssumps);
 		inJaccardAssumps.push_back(jaccardAssumps);
+		if(jaccardAssumps.size()==0)
+		  onlyLast=true;
 		//	solver->simplify(&jaccardAssumps);
 		unsigned hashPrev = LowerFib;
 		addKey2Map(jaccardHashCount,numHashList,numCountList,count);
@@ -1917,10 +1920,6 @@ void CUSP::computeCountFromList(unsigned jaccardHashCount, map<unsigned,vector<u
 		count[jaccardHashCount].cellSolCount = 0;
 		count[jaccardHashCount].hashCount = 0;
 	}else{
-		std::ofstream  f;
-		std::ostringstream filename("");
-		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
-	//	f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 		auto minHash = findMin(numHashList[jaccardHashCount]);
 		vector<int> numCountL=numCountList[jaccardHashCount];
 		vector<unsigned> numHashL=numHashList[jaccardHashCount];
@@ -1929,10 +1928,12 @@ void CUSP::computeCountFromList(unsigned jaccardHashCount, map<unsigned,vector<u
 					; hash_it != numHashL.end() && cnt_it != numCountL.end()
 					; hash_it++, cnt_it++
 			) {
-		//	f<<*cnt_it<<"\t2^"<<*hash_it<<"\n";
-			*cnt_it *= pow(2, (*hash_it) - minHash);
+			cout<<*hash_it<<"minhash="<<minHash;
+			if(*hash_it-minHash)
+			  *cnt_it *= pow(2, (*hash_it) - minHash);
+			else
+			  *cnt_it=1;
 		}
-	//	f.close();
 		int medSolCount = findMedian(numCountL);
 
 		count[jaccardHashCount].hashCount = minHash;
@@ -2848,6 +2849,11 @@ bool CUSP::ScalApproxMC(SATCount& count)
     count.clear();
     vector<unsigned> numHashList;
     vector<int> numCountList;
+	std::ofstream  f;
+		std::ostringstream filename("");
+
+	filename<<outPrefix<<"count_"<<specifiedOb<<"_t"<<omp_get_thread_num();
+
 
 
     unsigned hashCount = startIteration;
@@ -2870,7 +2876,7 @@ bool CUSP::ScalApproxMC(SATCount& count)
 			std::ofstream  f;
 			std::ostringstream filename("");
 
-			filename<<"count_"<<specifiedOb<<"_t"<<omp_get_thread_num();
+			f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 			f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 			f<<currentNumSolutions<<"*2^"<<0<<"\n";
 			f.close();
@@ -3087,9 +3093,13 @@ bool CUSP::ScalApproxMC(SATCount& count)
             hashPrev = swapVar;
         }
         assumps.clear();
-        solver->simplify(&assumps);
+		solver->simplify(&assumps);
 		hashCount =mPrev;
-    }
+		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		f<<numCountList.back()<<"*2^"<<numHashList.back()<<"\n";
+		f.close();
+
+	}
     if (numHashList.size() == 0) {
         //UNSAT
         return true;
@@ -3097,11 +3107,6 @@ bool CUSP::ScalApproxMC(SATCount& count)
 
 	auto minHash = findMin(numHashList);
 	auto cnt_it = numCountList.begin();
-	std::ofstream  f;
-		std::ostringstream filename("");
-
-	filename<<"count_"<<specifiedOb<<"_t"<<omp_get_thread_num();
-	f.open(filename.str(),std::ofstream::out|std::ofstream::app);
 	for (auto hash_it = numHashList.begin()
 				; hash_it != numHashList.end() && cnt_it != numCountList.end()
         ; hash_it++, cnt_it++
@@ -3110,7 +3115,7 @@ bool CUSP::ScalApproxMC(SATCount& count)
         *cnt_it *= pow(2, (*hash_it) - minHash);
     }
     int medSolCount = findMedian(numCountList);
-		f<<medSolCount<<"*2^"<<minHash<<"\n";
+	f<<medSolCount<<"*2^"<<minHash<<"\n";
 	f.close();
     count.cellSolCount = medSolCount;
 	count.hashCount = minHash;
