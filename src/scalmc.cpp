@@ -1994,7 +1994,7 @@ void CUSP::setDiffOb(){
 	for(int i=0;i<ob_vars.size();i++){
 		solver->new_var();
 		unsigned act_var = solver->nVars()-1;
-		assumps.push_back(Lit(act_var,false));
+		assumps.push_back(Lit(act_var,true));
 		vars.clear();
 		vars.push_back(Lit(act_var,false));
 		vars.push_back(Lit(ob_vars[i],true));
