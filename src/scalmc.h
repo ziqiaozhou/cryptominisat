@@ -137,13 +137,14 @@ class CUSP: public Main {
 
 		std::vector<std::string> cachedFullSolutions[3];
 		std::vector<unsigned> independent_vars0;
+		std::vector<unsigned> ob_vars2;
 		std::set<std::string> independent_samples;
 		std::set<std::string> jaccard_samples;
 		void add_approxmc_options();
 		void solver_init();
 		bool checkParity(int,string randomBits,int num_xor_cls,int size,int i,int j);
 		bool JaccardApproxMC(std::map<unsigned,SATCount>& count);
-
+		void setDiffOb();
 		bool Jaccard2ApproxMC(std::map<unsigned,SATCount>& count);
 		bool ScalApproxMC(SATCount& count);
 		bool ApproxMC(SATCount& count);
@@ -232,6 +233,7 @@ int OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, unsigne
 		std::mt19937 randomEngine;
 		int nCounterExamples=0;
 		std::string outPrefix="";
+		bool is_diff=false;
 };
 
 

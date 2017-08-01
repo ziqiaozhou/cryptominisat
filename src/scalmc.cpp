@@ -168,6 +168,7 @@ void CUSP::add_approxmc_options()
 		 "jaccard index"
 		 "choose one otherwise use max")
 		("test",po::value(&test_func)->default_value(0),"test new feature, 0->default, 1-> hash attack first then ob")
+		("diff",po::value(&is_diff)->default_value(0),"diff creation, let ob diff, ob is jac")
 		;
 
 	help_options_simple.add(approxMCOptions);
@@ -1986,6 +1987,27 @@ void * CUSP::JaccardOneThread(){
 	return (void*)result;*/
 	return NULL;
 }
+
+void CUSP::setDiffOb(){
+	vector<Lit> vars;
+	vector<Lit> assumps;
+	for(int i=0;i<ob_vars.size();i++){
+		solver->new_var();
+		unsigned act_var = solver->nVars()-1;
+		assumps.push_back(Lit(act_var,false));
+		vars.clear();
+		vars.push_back(Lit(act_var,false));
+		vars.push_back(Lit(ob_vars[i],true));
+		vars.push_back(Lit(ob_vars2[i],true));
+		solver->add_clause(vars);
+		vars.clear();
+		vars.push_back(Lit(act_var,false));
+		vars.push_back(Lit(ob_vars[i],false));
+		vars.push_back(Lit(ob_vars2[i],false));
+		solver->add_clause(vars);
+	}
+	solver->add_clause(assumps);
+}
 bool CUSP::Jaccard2ApproxMC(map<unsigned,SATCount>& count)
 {
 	count.clear();
@@ -2007,9 +2029,18 @@ bool CUSP::Jaccard2ApproxMC(map<unsigned,SATCount>& count)
 	lbool checkSAT = solver->solve();
 	if(checkSAT!=l_True){
 		cerr<<"unsat, cannot counting";
+		std::ofstream  f;
+		std::ostringstream filename("");
+		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		for(int i=0;i<3;++i){
+			f<<0<<"*2^"<<0<<"\t";
+		}
+		f<<"\n";
+		f.close();
 		return 0;
 	}
-	if(debug)
+		if(debug)
 	  cout<<"sat, continue counting";
 	int numCore=1;
 	JaccardResult * results=new JaccardResult[numCore];
@@ -2405,7 +2436,7 @@ void CUSP::solver_init(){
 #ifdef __GNUC__
 	solver->add_sql_tag("compiler", "gcc-" __VERSION__);
 #else
-							    solver->add_sql_tag("compiler", "non-gcc");
+	solver->add_sql_tag("compiler", "non-gcc");
 #endif
 	if (unset_vars) {
 		solver->set_greedy_undef();
@@ -2415,15 +2446,26 @@ void CUSP::solver_init(){
 	if(original_independent_vars.size()>0)
 	  independent_vars=original_independent_vars;
 	int pos=0;
-	
+
 	if(jaccard_vars.size()==specifiedOb.size()){
-	for(auto var : jaccard_vars){
-		vector<Lit> assume;
-		assume.push_back(Lit(var,(specifiedOb[pos]=='1')?false:true));
-		solver->add_clause(assume);
-		pos++;
+		for(auto var : jaccard_vars){
+			vector<Lit> assume;
+			assume.push_back(Lit(var,(specifiedOb[pos]=='1')?false:true));
+			solver->add_clause(assume);
+			pos++;
+		}
 	}
+	if(is_diff){
+		ob_vars=jaccard_vars;
+		ob_vars2=jaccard_vars2;
+		assert(ob_vars.size()==ob_vars2.size());
 	}
+
+	if(is_diff&& ob_vars.size()>0){
+		setDiffOb();
+	}
+
+
 }
 int CUSP::solve()
 {
@@ -2508,6 +2550,7 @@ int CUSP::solve()
 		map<unsigned,SATCount> solCounts;
 		finished = Jaccard2ApproxMC(solCounts);
 		if (!finished) {
+
 			cout << " (TIMED OUT)" << endl;
 			return 0;
 		}
