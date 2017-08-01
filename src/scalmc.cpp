@@ -1024,8 +1024,9 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
+		assumps.clear();
+		hashVars.clear();
 		if(onlyLast&& resultIndex<2){
-
 			scounts.push_back(std::pair<unsigned,unsigned>(0,1));
 			continue;
 		}
@@ -1079,6 +1080,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 				lower=hashCount+1;
 				next=hashCount*2;
 				next=(next>upper)?ceil(1.0*lower+upper)/2:next;
+				nSols.insert(std::pair<unsigned,unsigned>(hashCount,nSol));
 			}else{
 				if(nSol>0)
 				  notZero=true;
@@ -1104,11 +1106,16 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 				}
 			}
 		}
-
+		if(nSol==0){
+			cout<<"get zero count, error!! retry\n"<<"lower="<<lower<<"higher="<<upper<<"\n";
+			resultIndex--;
+			hashCount=lower+ceil(log(pivot)/log(2));
+			continue;
+		}
 		if(debug>DEBUG_VAR_LEVEL)
 		  cout<<"get hashCount="<<hashCount<<"nSol="<<nSol<<"\n";
 
-		if(nSol==0&&resultIndex<2){
+		if(nSol==0&&(resultIndex<2||onlyLast)){
 			return -1;
 		}
 		scounts.push_back(std::pair<unsigned,unsigned>(hashCount,nSol));
@@ -1740,7 +1747,6 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 	vector<Lit >jaccardAssumps,leftAssumps,rightAssumps;
 	int ret;
 	while(true){
-
 		inJaccardAssumps.clear();
 		jaccardAssumps.clear();
 		jaccardHashVars.clear();
@@ -1758,7 +1764,6 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		addKey2Map(jaccardHashCount,numHashList,numCountList,count);
 		map<unsigned,int> countRecord;
 		map<unsigned,unsigned> succRecord;
-		map<unsigned,Lit> hashVars; //map assumption var to XOR hash
 		vector<std::pair<unsigned,unsigned>>result3s;
 		result3s.clear();
 		int ret=OneRoundFor3_simple( jaccardHashCount,result,mPrev,hashPrev,inJaccardAssumps, result3s,solver);
@@ -1770,10 +1775,8 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		assert(result3s.size()==3);
 		numHashList[jaccardHashCount].push_back(result3s[2].first);
 		numCountList[jaccardHashCount].push_back(result3s[2].second);
-
-/*		merge(numHashList[jaccardHashCount],scount0.numHashList);
-
-		merge(numCountList[jaccardHashCount],scount0.numCountList);*/
+		/*		merge(numHashList[jaccardHashCount],scount0.numHashList);
+				merge(numCountList[jaccardHashCount],scount0.numCountList);*/
 		std::ofstream  f;
 		std::ostringstream filename("");
 		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
@@ -1783,6 +1786,7 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		}
 		f<<"\n";
 		f.close();
+
 		break;
 	}
 #if DELETE_SOLVER 
@@ -2040,9 +2044,6 @@ bool CUSP::Jaccard2ApproxMC(map<unsigned,SATCount>& count)
 		cout<<"Jaccard count="<<j;
 		int retryJaccardSingle=0;
 		while(true){
-			std::ofstream  f;
-			std::ostringstream filename("");
-			filename<<"info_j"<<singleIndex<<"_t"<<omp_get_thread_num();
 			if(singleIndex==0){
 				onlyOne=true;
 			}
@@ -2062,7 +2063,6 @@ bool CUSP::Jaccard2ApproxMC(map<unsigned,SATCount>& count)
 		}
 
 	}
-
 	return true;
 }
 
