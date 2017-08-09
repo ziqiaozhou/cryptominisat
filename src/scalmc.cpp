@@ -1061,8 +1061,10 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
+		if(resultIndex==0){
 		assumps.clear();
 		hashVars.clear();
+		}
 		if(onlyLast&& resultIndex<2){
 			scounts.push_back(std::pair<unsigned,unsigned>(0,1));
 			continue;
@@ -1767,8 +1769,10 @@ void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another){
 	}
 	for (int i=0;i< all.size()/2;++i){
 		one.push_back(all[i*2]);
-		another.push_back(all[i*2+1]);
+		another.push_back(all[i*2]);
 	}
+	one.pop_back();
+	another.pop_back();
 	assert(another.size()==one.size());
 }
 
