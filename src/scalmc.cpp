@@ -1086,7 +1086,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 				if(resultIndex<2)
 				  return -1;
 				else
-				{scounts.push_back(std::pair<unsigned,unsigned>(hashCount,nSol));
+				{
 					continue;
 				}
 			}
