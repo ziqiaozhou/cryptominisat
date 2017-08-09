@@ -188,6 +188,8 @@ int OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, unsigne
 		string GenerateRandomBits(unsigned size);
 		string GenerateRandomBits_prob(unsigned size,double prob);
 		void trimVar(std::vector<unsigned>&);
+		
+lbool solve_exclude( vector<Lit> assumps,int & count);
 		//config
 		std::string cuspLogFile = "cusp_log.txt";
 		unsigned singleIndex=0;
@@ -234,6 +236,8 @@ int OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, unsigne
 		int nCounterExamples=0;
 		std::string outPrefix="";
 		bool is_diff=false;
+		bool exclude=false;
+		bool same_set=false;
 };
 
 

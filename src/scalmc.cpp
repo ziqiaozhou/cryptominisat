@@ -169,6 +169,8 @@ void CUSP::add_approxmc_options()
 		 "choose one otherwise use max")
 		("test",po::value(&test_func)->default_value(0),"test new feature, 0->default, 1-> hash attack first then ob")
 		("diff",po::value(&is_diff)->default_value(0),"diff creation, let ob diff, ob is jac")
+		("exclude",po::value(&exclude)->default_value(0),"diff creation, let ob diff, ob is jac")
+		("same_set",po::value(&same_set)->default_value(0),"jac and jac2 use same set")
 		;
 
 	help_options_simple.add(approxMCOptions);
@@ -370,6 +372,36 @@ int CUSP::SampledBoundedSATCount(unsigned maxSolutions, const vector<Lit> assump
 			}
 		}
 	}
+
+lbool CUSP::solve_exclude( vector<Lit> assumps,int & count){
+	assert(unset_vars==false);
+	lbool ret;
+	while(true){
+		ret = solver->solve(&assumps);
+		count++;
+		cout<<"exclude count="<<count;
+		if (ret != l_True)
+		  return ret;
+		vector<Lit>lits;
+		vector<Lit> sols;
+		int var1,var2;
+		for(auto var:independent_vars){
+			lits.push_back(Lit(var,solver->get_model()[var] == l_False ));
+			sols.push_back(Lit(var,solver->get_model()[var] == l_True ));
+		}
+		for(int index=0;index< ob_vars.size();++index){
+			var1=ob_vars[index];
+			var2=ob_vars[index];
+			lits.push_back(Lit(var1,solver->get_model()[var2] == l_False ));
+			lits.push_back(Lit(var2,solver->get_model()[var1] == l_False ));
+		}
+		if(solver->solve(&lits)==l_True){
+			solver->add_clause(sols);
+		}else{
+			break;
+		}
+	}
+}
 int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, const vector<Lit> jassumps,int resultIndex,SATSolver* solver=NULL)
 {
 	//    cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
@@ -395,14 +427,17 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 	unsigned solutions = 0;
 	lbool ret;
 	bool firstRound=true;
+
+	int count_exclude=0;
 	while (solutions < maxSolutions) {
 		double this_iter_timeout = loopTimeout-(cpuTime()-start_time);
-
 		solver->set_timeout_all_calls(this_iter_timeout);
+		if(exclude)
+		ret=solve_exclude(new_assumps,count_exclude);
+		else
 		ret = solver->solve(&new_assumps);
 		if (ret != l_True)
 		  break;
-
 		size_t num_undef = 0;
 		vector<string> sols={""};
 		vector<string >fullsols={""};
@@ -614,8 +649,10 @@ int CUSP::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps
 
 int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSolver * solver)
 {
+	vector<Lit> jassumps;
+	return BoundedSATCount(maxSolutions,assumps,jassumps,0,solver);
 
-	solver->new_var();
+/*	solver->new_var();
 	unsigned act_var = solver->nVars()-1;
 	vector<Lit> new_assumps(assumps);
 	new_assumps.push_back(Lit(act_var, true));
@@ -646,7 +683,6 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSo
 				} else {
 					num_undef++;
 				}
-
 			}
 			if(lits.size()>1)
 			  solver->add_clause(lits);
@@ -678,7 +714,7 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,SATSo
 			std::cout<<"explored count="<<solutions;
 			return -1;
 		}
-		return solutions;
+		return solutions;*/
 	}
 
 double getSTD(vector<int>cnt_list,vector<unsigned>list){
@@ -1048,7 +1084,9 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 				if(resultIndex<2)
 				  return -1;
 				else
-				  continue;
+				{scounts.push_back(std::pair<unsigned,unsigned>(hashCount,nSol));
+					continue;
+				}
 			}
 			if(nSol>pivot)
 			  hashCount++;
@@ -1111,7 +1149,9 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			cout<<"get zero count, error!! retry\n"<<"lower="<<lower<<"higher="<<upper<<"\n";
 			resultIndex--;
 			hashCount=lower+ceil(log(pivot)/log(2));
-			continue;
+			if(hashCount==0){
+				return -1;
+			}
 		}
 		if(debug>DEBUG_VAR_LEVEL)
 		  cout<<"get hashCount="<<hashCount<<"nSol="<<nSol<<"\n";
@@ -1726,12 +1766,9 @@ void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another){
 		return;
 	}
 	for (int i=0;i< all.size()/2;++i){
-		it=all[i*2];
-			one.push_back(it);
-			another.push_back(it);
+		one.push_back(all[i*2]);
+		another.push_back(all[i*2+1]);
 	}
-	another.pop_back();
-	another.push_back(~it);
 	assert(another.size()==one.size());
 }
 
@@ -2673,7 +2710,7 @@ bool  CUSP::AddJaccard2Hash( unsigned num_xor_cls,vector<Lit>& assumps, SATSolve
 			  cout<<one<<" ";
 			cout<<"\n";
 		}
-		if(i==num_xor_cls-1)
+		if(i==num_xor_cls-1&& (!same_set))
 		  rhs=!rhs;
 		if(vars2.size())
 		  solver->add_xor_clause(vars2, rhs);
@@ -2685,7 +2722,7 @@ bool  CUSP::AddJaccard2Hash( unsigned num_xor_cls,vector<Lit>& assumps, SATSolve
 		}
 
 	}
-return true;
+	return true;
 
 }
 
