@@ -1061,6 +1061,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
+		cout<<"resultIndex="<<resultIndex<<"\n";
 		if(resultIndex==0){
 		assumps.clear();
 		hashVars.clear();
@@ -1096,7 +1097,6 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 				scounts.push_back(std::pair<unsigned,unsigned>(hashCount,nSol));
 				continue;
 			}
-
 		}
 		unsigned prevHash=hashCount;
 		int prevCount=0;
@@ -1150,10 +1150,12 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 		if(nSol==0){
 			cout<<"get zero count, error!! retry\n"<<"lower="<<lower<<"higher="<<upper<<"\n";
 			resultIndex--;
-			hashCount=lower+ceil(log(pivot)/log(2));
+
 			if(hashCount==0){
 				return -1;
 			}
+
+			hashCount=lower+ceil(log(pivot)/log(2));
 		}
 		if(debug>DEBUG_VAR_LEVEL)
 		  cout<<"get hashCount="<<hashCount<<"nSol="<<nSol<<"\n";
@@ -2893,7 +2895,7 @@ void CUSP::SetHash(unsigned clausNum, std::map<unsigned,Lit>& hashVars, vector<L
 		ratio=(1.0*XorMax)/(clausNum*var_size);
 		//ratio=(ratio<XorRate)?XorRate:0.5;
 		if(ratio<0.1){
-			std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax;
+			std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax<<"\n";
 		}
 	}
 	xorRate=(ratio>xorRate)?xorRate:ratio;
