@@ -534,7 +534,7 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 		solutions = maxSolutions;
 	}
 	//Timeout
-	else if (ret == l_Undef) {
+	if(ret == l_Undef) {
 		must_interrupt.store(false, std::memory_order_relaxed);
 
 		std::cout<<"timeout,but explored count="<<solutions;
