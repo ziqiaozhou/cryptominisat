@@ -1780,11 +1780,6 @@ void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another){
 	}
 	one.pop_back();
 	another.pop_back();
-
-	if(!std::equal(all.begin(),all.end(),another.begin())){
-		one.push_back(all[i*2]);
-		another.push_back(all[i*2+1]);
-	}
 	assert(another.size()==one.size());
 }
 
@@ -1808,6 +1803,11 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		rightAssumps.clear();
 		SetJaccard2Hash(jaccardHashCount,jaccardHashVars,jaccardAssumps,solver);
 		seperate(jaccardAssumps,leftAssumps,rightAssumps);
+		if(jaccardHashCount==jaccard_vars.size()){
+			int i=jaccardAssumps.size();
+			leftAssumps.push_back(jaccardAssumps[i-1]);
+			rightAssumps.push_back(jaccardAssumps[i]);
+		}
 		inJaccardAssumps.push_back(leftAssumps);
 		inJaccardAssumps.push_back(rightAssumps);
 		inJaccardAssumps.push_back(jaccardAssumps);
