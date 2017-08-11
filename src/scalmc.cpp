@@ -1766,7 +1766,7 @@ void CUSP::JaccardOneRoundFor3(unsigned jaccardHashCount,JaccardResult* result ,
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
 
-void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another){
+void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another,bool single){
 	Lit it;
 	if(all.size()<=0||all.size()%2!=0){
 		one=all;
@@ -1776,10 +1776,15 @@ void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another){
 	int i;
 	for (i=0;i< all.size()/2;++i){
 		one.push_back(all[i*2]);
-		another.push_back(all[i*2+1]);
+		if(!single)
+		  another.push_back(all[i*2]);
+		else
+		  another.push_back(all[i*2+1]);
 	}
+	if(!single){
 	one.pop_back();
 	another.pop_back();
+	}
 	assert(another.size()==one.size());
 }
 
@@ -1802,13 +1807,8 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		leftAssumps.clear();
 		rightAssumps.clear();
 		SetJaccard2Hash(jaccardHashCount,jaccardHashVars,jaccardAssumps,solver);
-		seperate(jaccardAssumps,leftAssumps,rightAssumps);
-		if(jaccardHashCount==jaccard_vars.size()){
-			int i=jaccardAssumps.size();
-			leftAssumps.push_back(jaccardAssumps[i-1]);
-			rightAssumps.push_back(jaccardAssumps[i]);
-		}
-		inJaccardAssumps.push_back(leftAssumps);
+		seperate(jaccardAssumps,leftAssumps,rightAssumps,jaccardHashCount==jaccard_vars.size());
+			inJaccardAssumps.push_back(leftAssumps);
 		inJaccardAssumps.push_back(rightAssumps);
 		inJaccardAssumps.push_back(jaccardAssumps);
 		if(jaccardAssumps.size()==0)
