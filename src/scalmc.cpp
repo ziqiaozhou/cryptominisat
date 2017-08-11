@@ -1078,7 +1078,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			solver=this->solver;
 		}
 		hashCount=hashCount?hashCount:initialHashCount;
-		unsigned lower=lowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
+		unsigned lower=LowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
 		int nSol=0;
 		if(debug>DEBUG_HASH_LEVEL)
 		  printVars(jaccardAssumps[resultIndex]);	
