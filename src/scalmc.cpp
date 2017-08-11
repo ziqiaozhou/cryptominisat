@@ -1061,10 +1061,14 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
+		if(resultIndex==1 && std::equal(jaccardAssumps[1].begin(),jaccardAssumps[1].end(),jaccardAssumps[0].begin())){
+			scounts.push_back(scounts[0]);
+			continue;
+		}
 		cout<<"resultIndex="<<resultIndex<<"\n";
 		if(resultIndex==0){
-		assumps.clear();
-		hashVars.clear();
+			assumps.clear();
+			hashVars.clear();
 		}
 		if(onlyLast&& resultIndex<2){
 			scounts.push_back(std::pair<unsigned,unsigned>(0,1));
@@ -1769,12 +1773,18 @@ void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another){
 		another=all;
 		return;
 	}
-	for (int i=0;i< all.size()/2;++i){
+	int i;
+	for (i=0;i< all.size()/2;++i){
 		one.push_back(all[i*2]);
-		another.push_back(all[i*2]);
+		another.push_back(all[i*2+1]);
 	}
 	one.pop_back();
 	another.pop_back();
+
+	if(!std::equal(all.begin(),all.end(),another.begin())){
+		one.push_back(all[i*2]);
+		another.push_back(all[i*2+1]);
+	}
 	assert(another.size()==one.size());
 }
 
@@ -2681,6 +2691,16 @@ bool  CUSP::AddJaccard2Hash( unsigned num_xor_cls,vector<Lit>& assumps, SATSolve
 	
 
 	bool rhs = true;
+	if(num_xor_cls==jaccard_vars.size()){//select one specific value
+		string randomBits_rhs2 = GenerateRandomBits( num_xor_cls);
+		while(randomBits_rhs2==randomBits_rhs)
+			randomBits_rhs2 = GenerateRandomBits( num_xor_cls);
+		for(int i =0;i<jaccard_vars.size();++i){
+			assumps.push_back(Lit(jaccard_vars[i],randomBits_rhs[i]=='1'));
+			assumps.push_back(Lit(jaccard_vars2[i],randomBits_rhs2[i]=='1'));
+		}
+		return true;
+	}
 	vector<unsigned> vars,vars2;
 	for (unsigned i = 0; i < num_xor_cls; i++) {
 		//new activation variable
@@ -2697,6 +2717,7 @@ bool  CUSP::AddJaccard2Hash( unsigned num_xor_cls,vector<Lit>& assumps, SATSolve
 		vars2.push_back(act_var2);
 		rhs = (randomBits_rhs[i]== '1');
 		//		cout<<"x ";
+		
 		for (unsigned k = 0; k < var_size; k++) {
 			if (randomBits[var_size * i + k] == '1') {
 				vars.push_back(jaccard_vars[k]);
