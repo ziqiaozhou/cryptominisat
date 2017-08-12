@@ -1107,6 +1107,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 		unsigned next=hashCount;
 		map<unsigned,unsigned> nSols;
 		bool notZero=false;
+		int timeoutcount=0;
 		while(upper-lower>0){
 			if(next!=hashCount){
 				hashCount=next;
@@ -1119,7 +1120,16 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			}
 			if(debug>DEBUG_VAR_LEVEL)
 			  cout<<"hashCount="<<hashCount<<"nSol="<<nSol<<"\n";
-
+			if(nSol==-1){
+				cout<<"timeout";
+				timeoutcount++;
+				if(timeoutcount>2)//return -1 if timeout>=3 for one hashCount
+				  return -1;
+				assumps.clear();
+				hashVars.clear();
+				continue;
+			}
+			timeoutcount=0;
 			if(nSol>pivot){
 				notZero=true;
 				lower=hashCount+1;
