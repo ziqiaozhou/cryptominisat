@@ -2532,14 +2532,14 @@ void CUSP::solver_init(){
 }
 int CUSP::solve()
 {
-   /* conf.reconfigure_at = 0;
+    confereconfigure_at = 0;
     conf.reconfigure_val = 15;
     conf.gaussconf.max_matrix_rows = 3000;
     conf.gaussconf.decision_until = 3000;
     conf.gaussconf.max_num_matrixes = 1;
     conf.gaussconf.min_matrix_rows = 5;
     conf.gaussconf.autodisable = false;
-*/
+
     //set seed
     assert(vm.count("random"));
     unsigned int seed = vm["random"].as<unsigned int>();
@@ -2752,10 +2752,10 @@ bool  CUSP::AddJaccard2Hash( unsigned num_xor_cls,vector<Lit>& assumps, SATSolve
 		if(vars2.size())
 		  solver->add_xor_clause(vars2, rhs);
 		if(debug>DEBUG_HASH_LEVEL){
-			cout<<"vars2:"<<rhs<<"=";
+			cout<<"x "<<rhs<<"=";
 			for(auto one: vars2)
 			  cout<<one<<" ";
-			cout<<"\n";
+			cout<<"0\n";
 		}
 
 	}
