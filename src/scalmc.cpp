@@ -2532,7 +2532,7 @@ void CUSP::solver_init(){
 }
 int CUSP::solve()
 {
-    confereconfigure_at = 0;
+    conf.reconfigure_at = 0;
     conf.reconfigure_val = 15;
     conf.gaussconf.max_matrix_rows = 3000;
     conf.gaussconf.decision_until = 3000;
