@@ -1817,8 +1817,8 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		leftAssumps.clear();
 		rightAssumps.clear();
 		SetJaccard2Hash(jaccardHashCount,jaccardHashVars,jaccardAssumps,solver);
-		seperate(jaccardAssumps,leftAssumps,rightAssumps,jaccardHashCount==jaccard_vars.size());
-			inJaccardAssumps.push_back(leftAssumps);
+		seperate(jaccardAssumps,leftAssumps,rightAssumps,(jaccardHashCount==jaccard_vars.size()&&(!notSampled)));
+		inJaccardAssumps.push_back(leftAssumps);
 		inJaccardAssumps.push_back(rightAssumps);
 		inJaccardAssumps.push_back(jaccardAssumps);
 		if(jaccardAssumps.size()==0)
@@ -2701,7 +2701,7 @@ bool  CUSP::AddJaccard2Hash( unsigned num_xor_cls,vector<Lit>& assumps, SATSolve
 	
 
 	bool rhs = true;
-	if(num_xor_cls==jaccard_vars.size()){//select one specific value
+	if(num_xor_cls==jaccard_vars.size()&&(!notSampled)){//select one specific value
 		string randomBits_rhs2 = GenerateRandomBits( num_xor_cls);
 		while(randomBits_rhs2==randomBits_rhs)
 			randomBits_rhs2 = GenerateRandomBits( num_xor_cls);
