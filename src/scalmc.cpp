@@ -1162,7 +1162,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 				}
 			}
 		}
-		if(nSol==0){
+		if(nSol==0&& resultIndex<2){
 			cout<<"get zero count, error!! retry\n"<<"lower="<<lower<<"higher="<<upper<<"\n";
 			resultIndex--;
 
