@@ -499,7 +499,8 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 			}
 			if(lits.size()>1)
 			  solver->add_clause(lits);
-			//	cout<<"sol=\n";
+			if(debug>=5)
+			  cout<<"sol=\n";
 			for(auto one : sols){ 
 				//	cout<<one<<"\n";
 				cachedSolutions.insert(one);
@@ -2536,7 +2537,7 @@ int CUSP::solve()
     conf.reconfigure_val = 15;
     conf.gaussconf.max_matrix_rows = 3000;
     conf.gaussconf.decision_until = 3000;
-    conf.gaussconf.max_num_matrixes = 2;
+    conf.gaussconf.max_num_matrixes = 1;
     conf.gaussconf.min_matrix_rows = 5;
     conf.gaussconf.autodisable = false;
 

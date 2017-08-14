@@ -583,8 +583,8 @@ inline void orderLits(
         std::swap(lit2, lit3);
 
     //They are now ordered
-    assert(lit1 < lit2);
-    assert(lit2 < lit3);
+    assert(lit1 < lit2||lit1==lit2);
+    assert(lit2 < lit3||lit2 ==lit3);
 }
 
 inline vector<Lit> sortLits(const vector<Lit>& lits)
