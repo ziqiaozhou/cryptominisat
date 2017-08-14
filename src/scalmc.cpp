@@ -1115,7 +1115,10 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			}
 			if(nSols.find(hashCount)==nSols.end()){
 				SetHash(hashCount,hashVars,assumps,solver);
+				double myTime=cpuTimeTotal();
 				nSol=BoundedSATCount(pivot+1,assumps,jaccardAssumps[resultIndex],resultIndex,solver);
+				if(debug)
+				  cout<<",time="<<(cpuTimeTotal() - myTime) <<endl;
 			}else{
 				nSol=nSols[hashCount];
 			}
@@ -1257,16 +1260,16 @@ int CUSP::OneRoundFor3(unsigned jaccardHashCount,JaccardResult* result, unsigned
 
 					return -1;
 				case GOT_RESULT_LOWER:
-				//	if(hashCount==0){
-						numExplored= independent_vars.size()+1;
-				//	}else{
+					//	if(hashCount==0){
+					numExplored= independent_vars.size()+1;
+					//	}else{
 					//	numExplored = lowerFib+independent_vars.size()-hashCount;
-				//	}
+					//	}
 					mPrev = hashCount;
 					goto reset_for_next_count;
 					break;
 				case GOT_RESULT_UPPER:
-				//		numExplored= independent_vars.size()+1;
+					//		numExplored= independent_vars.size()+1;
 					numExplored = independent_vars.size()+hashCount-upperFib;
 					std::cout<<"numExplored="<<numExplored<<" lowerFib="<<lowerFib;
 					mPrev = hashCount;
@@ -1288,7 +1291,7 @@ reset_for_next_count:
 					} else {
 						//printf("hashPrev:%d hashCount:%d\n",hashPrev, hashCount);
 						if(hashCount)
-						hashCount = lowerFib + (hashCount -lowerFib)*2;
+						  hashCount = lowerFib + (hashCount -lowerFib)*2;
 						else
 						  hashCount++;
 
@@ -1312,7 +1315,7 @@ reset_for_next_count:
 					}else{
 						numExplored = lowerFib+independent_vars.size()-hashCount;
 						succRecord[hashCount] = 0;
-					//	assert(ret==cachedSolutions.size());
+						//	assert(ret==cachedSolutions.size());
 						std::set<std::string> s(cachedFullSolutions[resultIndex].begin(),cachedFullSolutions[resultIndex].end()) ;	
 						countRecord[hashCount] =s;
 
@@ -1334,13 +1337,22 @@ TOO_SMALL_ENTRY:
 					break;
 			}
 			if(debug>DEBUG_VAR_LEVEL){
-			std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
-			std::cout<<"\n===================="<<"\n";
+				std::cout<<"lowerFib="<<lowerFib<<"upperFib="<<upperFib<<"hashCount="<<hashCount;
+				std::cout<<"\n===================="<<"\n";
 			}
 		}
 		int nattack=attack_vars.size();
-		if((!onlyOne)&&resultIndex==0 && oldResultIndex==2){
+		std::ofstream  f;
+		std::ostringstream filename("");
+		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+		for(int i=0;i<scounts[0].size()&& i<scounts[1].size()&& i<scounts[2].size();++i){
+			f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
+		}
+		//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
+		f.close();
 
+		if((!onlyOne)&&resultIndex==0 && oldResultIndex==2&& debug>6){
 			assumps.clear();
 			hashVars.clear();
 			/*get count of attack */
@@ -1431,7 +1443,6 @@ TOO_SMALL_ENTRY:
 			break;
 		}
 		hashCount =mPrev;
-
 	}
 	std::cout<<"return from OneRoundFor3";
 	return 0;
@@ -1721,18 +1732,7 @@ void CUSP::JaccardOneRoundFor3(unsigned jaccardHashCount,JaccardResult* result ,
 #endif
 			continue;
 		}
-		std::ofstream  f;
-		std::ostringstream filename("");
-		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
-		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
-		for(int j=0;j<3;++j)
-		  scounts[j].summarize();
-		for(int i=0;i<scounts[0].size()&& i<scounts[1].size()&& i<scounts[2].size();++i){
-			f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
-		}
-		//	f<<scount0.str()<<"\t"<<scount1.str()<<"\t"<<scount2.str()<<"\n";
-		f.close();
-		if(scounts[0].cellSolCount<=0){
+				if(scounts[0].cellSolCount<=0){
 			cout<<"cellSolCount<=0,cntinue";
 			continue;
 		}else{
@@ -2927,7 +2927,7 @@ void CUSP::SetHash(unsigned clausNum, std::map<unsigned,Lit>& hashVars, vector<L
 		ratio=(1.0*XorMax)/(clausNum*var_size);
 		//ratio=(ratio<XorRate)?XorRate:0.5;
 		if(ratio<0.1){
-			std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<jaccardXorMax<<"\n";
+			std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<XorMax<<"\n";
 		}
 	}
 	xorRate=(ratio>xorRate)?xorRate:ratio;
