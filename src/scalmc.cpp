@@ -2455,9 +2455,10 @@ int CUSP::solve()
     conf.reconfigure_val = 15;
     conf.gaussconf.max_matrix_rows = 3000;
     conf.gaussconf.decision_until = 3000;
-    conf.gaussconf.max_num_matrixes = 4;
-    conf.gaussconf.min_matrix_rows = 5;
-    conf.gaussconf.autodisable = false;
+	conf.gaussconf.max_num_matrixes = 4;
+	conf.gaussconf.min_matrix_rows = 5;
+	if(searchMode==3 && conf.gaussconf.autodisable)
+	  conf.gaussconf.autodisable = false;
 
     //set seed
     assert(vm.count("random"));
