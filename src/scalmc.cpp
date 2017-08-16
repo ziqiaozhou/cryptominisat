@@ -1054,13 +1054,17 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	bool less=false,more=false;
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
+	lbool ret1 = solver->solve(&jaccardAssumps[0]);
+	lbool ret2 = solver->solve(&jaccardAssumps[1]);
+	if(ret1!=l_True|| ret2!=l_True)
+	  return -1;
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
 		if(resultIndex==1 && std::equal(jaccardAssumps[1].begin(),jaccardAssumps[1].end(),jaccardAssumps[0].begin())){
 			scounts.push_back(scounts[0]);
 			continue;
 		}
 		if(debug)
-		cout<<"resultIndex="<<resultIndex<<"\n";
+		  cout<<"resultIndex="<<resultIndex<<"\n";
 		if(resultIndex==0){
 			assumps.clear();
 			hashVars.clear();
@@ -1075,9 +1079,12 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 		hashCount=hashCount?hashCount:initialHashCount;
 		unsigned lower=LowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
 		int nSol=0;
+
+		
 		if(debug>DEBUG_HASH_LEVEL)
 		  printVars(jaccardAssumps[resultIndex]);	
 		if(hashCount==0){
+			SetHash(hashCount,hashVars,assumps,solver);
 			nSol=BoundedSATCount(pivot+1,assumps,jaccardAssumps[resultIndex],resultIndex,solver);
 			if(nSol==0){
 				scounts.push_back(std::pair<unsigned,unsigned>(hashCount,nSol));
@@ -1110,6 +1117,8 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			if(nSols.find(hashCount)==nSols.end()){
 				SetHash(hashCount,hashVars,assumps,solver);
 				double myTime=cpuTimeTotal();
+				if(debug)
+				 cout<<"hashCount"<<hashCount<<"assumps.size="<<assumps.size();
 				nSol=BoundedSATCount(pivot+1,assumps,jaccardAssumps[resultIndex],resultIndex,solver);
 				if(debug)
 				  cout<<",time="<<(cpuTimeTotal() - myTime) <<endl;
