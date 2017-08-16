@@ -171,6 +171,7 @@ void CUSP::add_approxmc_options()
 		("diff",po::value(&is_diff)->default_value(0),"diff creation, let ob diff, ob is jac")
 		("exclude",po::value(&exclude)->default_value(0),"diff creation, let ob diff, ob is jac")
 		("same_set",po::value(&same_set)->default_value(0),"jac and jac2 use same set")
+		("gauss_manual_setting",po::value(&gauss_manual)->default_value(0),"jac and jac2 use same set")
 		;
 
 	help_options_simple.add(approxMCOptions);
@@ -2470,14 +2471,16 @@ void CUSP::solver_init(){
 }
 int CUSP::solve()
 {
+	if(!gauss_manual){
     conf.reconfigure_at = 0;
     conf.reconfigure_val = 15;
     conf.gaussconf.max_matrix_rows = 3000;
     conf.gaussconf.decision_until = 3000;
 	conf.gaussconf.max_num_matrixes = 4;
 	conf.gaussconf.min_matrix_rows = 5;
-	if(searchMode==3 && conf.gaussconf.autodisable)
+	if(searchMode==3)
 	  conf.gaussconf.autodisable = false;
+	}
 
     //set seed
     assert(vm.count("random"));

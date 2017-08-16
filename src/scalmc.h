@@ -238,6 +238,7 @@ lbool solve_exclude( vector<Lit> assumps,int & count);
 		bool is_diff=false;
 		bool exclude=false;
 		bool same_set=false;
+		bool gauss_manual=false;
 };
 
 
