@@ -271,15 +271,17 @@ bool CUSP::AddHash(unsigned num_xor_cls, vector<Lit>& assumps,SATSolver* solver)
 	string randomBits_rhs=GenerateRandomBits(num_xor_cls);
 	bool rhs = true;
 	vector<unsigned> vars;
+	if(ratio<0.1){
+		std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<num_xor_cls<<"XorMax"<<XorMax<<"\n";
+	}
+		for (unsigned i = 0; i < num_xor_cls; i++) {
+			//new activation variable
+			solver->new_var();
+			unsigned act_var = solver->nVars()-1;
+			assumps.push_back(Lit(act_var, true));
 
-	for (unsigned i = 0; i < num_xor_cls; i++) {
-		//new activation variable
-		solver->new_var();
-		unsigned act_var = solver->nVars()-1;
-		assumps.push_back(Lit(act_var, true));
-
-		vars.clear();
-		vars.push_back(act_var);
+			vars.clear();
+			vars.push_back(act_var);
 		rhs = (randomBits_rhs[i] == '1');
 		for (unsigned j = 0; j < independent_vars0.size(); j++) {
 			if(randomBits[i*independent_vars0.size()+j]=='1')    
@@ -1732,7 +1734,7 @@ void CUSP::JaccardOneRoundFor3(unsigned jaccardHashCount,JaccardResult* result ,
 #endif
 			continue;
 		}
-				if(scounts[0].cellSolCount<=0){
+		if(scounts[0].cellSolCount<=0){
 			cout<<"cellSolCount<=0,cntinue";
 			continue;
 		}else{
@@ -1887,6 +1889,7 @@ void CUSP::JaccardOneRound(unsigned jaccardHashCount,JaccardResult* result ,bool
 		jaccardAssumps_lastZero.clear();
 		jaccardHashVars.clear();
 		jaccardXorClause.clear();
+		cout<<"new jaccard hash";
 		solver->simplify(&jaccardAssumps);
 		if(jaccardHashCount>0){	
 			SetJaccardHash(jaccardHashCount,jaccardHashVars,jaccardAssumps,jaccardAssumps_lastZero,solver);
@@ -2537,7 +2540,7 @@ int CUSP::solve()
     conf.reconfigure_val = 15;
     conf.gaussconf.max_matrix_rows = 3000;
     conf.gaussconf.decision_until = 3000;
-    conf.gaussconf.max_num_matrixes = 1;
+    conf.gaussconf.max_num_matrixes = 4;
     conf.gaussconf.min_matrix_rows = 5;
     conf.gaussconf.autodisable = false;
 
@@ -2926,12 +2929,9 @@ void CUSP::SetHash(unsigned clausNum, std::map<unsigned,Lit>& hashVars, vector<L
 	if(unsigned(clausNum*var_size)>unsigned(XorMax)){//don't allow too many xor
 		ratio=(1.0*XorMax)/(clausNum*var_size);
 		//ratio=(ratio<XorRate)?XorRate:0.5;
-		if(ratio<0.1){
-			std::cerr<<"too low ratio... too many xor"<<ratio<<"num_xor_cls="<<clausNum<<"var_size="<<var_size<<"jaccardXorMax"<<XorMax<<"\n";
-		}
-	}
+				}
 	xorRate=(ratio>xorRate)?xorRate:ratio;
-	std::cout<<"xor ratio="<<xorRate;
+
 
     if (clausNum < assumps.size()) {
         unsigned numberToRemove = assumps.size()- clausNum;
@@ -2955,6 +2955,7 @@ void CUSP::SetHash(unsigned clausNum, std::map<unsigned,Lit>& hashVars, vector<L
 					AddHash(1,assumps,solver);
 				}
 			}else{
+				cout<<"\nadd hash\n";
 				AddHash(clausNum-hashVars.size(),assumps,solver);
 			}
 			for (unsigned i = hashVars.size(); i < clausNum; i++) {
