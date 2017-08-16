@@ -1338,17 +1338,20 @@ TOO_SMALL_ENTRY:
 			}
 		}
 		int nattack=attack_vars.size();
-		std::ofstream  f;
-		std::ostringstream filename("");
-		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
-		f.open(filename.str(),std::ofstream::out|std::ofstream::app);
-		unsigned i=scounts[0].size();
-		assert( scounts[0].size()==scounts[1].size());
-		assert( scounts[2].size()==scounts[1].size());
-		f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
-
-		f.close();
-
+		if(resultIndex==0){
+			std::ofstream  f;
+			std::ostringstream filename("");
+			filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+			f.open(filename.str(),std::ofstream::out|std::ofstream::app);
+			unsigned i=scounts[0].size();
+			if(i>0){
+				i--;
+				assert( scounts[0].size()==scounts[1].size());
+				assert( scounts[2].size()==scounts[1].size());
+				f<<scounts[0].str(i)<<"\t"<<scounts[1].str(i)<<"\t"<<scounts[2].str(i)<<"\n";
+			}
+			f.close();
+		}
 		if((!onlyOne)&&resultIndex==0 && oldResultIndex==2&& debug>6){
 			assumps.clear();
 			hashVars.clear();
@@ -2861,7 +2864,6 @@ void CUSP::SetHash(unsigned clausNum, std::map<unsigned,Lit>& hashVars, vector<L
 					AddHash(1,assumps,solver);
 				}
 			}else{
-				cout<<"\nadd hash\n";
 				AddHash(clausNum-hashVars.size(),assumps,solver);
 			}
 			for (unsigned i = hashVars.size(); i < clausNum; i++) {
