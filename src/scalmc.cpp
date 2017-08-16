@@ -496,7 +496,7 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 			  solver->add_clause(lits);
 			if(debug>=5)
 			  cout<<"sol=\n";
-			if(mode==1){
+			if(searchMode==1){
 				for(auto one : sols){ 
 					//	cout<<one<<"\n";
 					cachedSolutions.insert(one);
@@ -544,12 +544,10 @@ void CUSP::cache_clear(){
 	//independent_samples.clear();
 }
 static void print_sol(std::vector<Lit> vars){
-	if(debug){
 		for (size_t i = 1; i < vars.size(); i++) {
 			cout << vars[i].sign()?"0":"1";
 		}
 		cout<<"\n";
-	}
 }
 int CUSP::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps,SATSolver * solver)
 {
@@ -604,6 +602,7 @@ int CUSP::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps
 				}
 				solver->add_clause(lits);
 				nAddedClause++;
+				if(debug)
 				print_sol(lits);
 			}
 
@@ -1006,7 +1005,6 @@ void printFor3(int ret){
 			str="NEAR_RESULT";
 			break;
 	}
-	if(debug)
 	std::cout<<str<<":"<<debug_info;
 	debug_info="";
 }
@@ -1225,7 +1223,8 @@ int CUSP::OneRoundFor3(unsigned jaccardHashCount,JaccardResult* result, unsigned
 			if(debug)
 			  std::cout<<"\n------------------------resultIndex="<<resultIndex<<"\n";
 			int ret=OneRoundFor3WithHash(readyPrev,readyNext,nextCount,hashCount,hashVars,assumps,jaccardAssumps,scounts,resultIndex,solver);
-			printFor3(ret);
+			if(debug)
+				printFor3(ret);
 			int checkJaccard;
 			switch(ret){
 				case TIMEOUT:
@@ -2078,7 +2077,7 @@ bool CUSP::Jaccard2ApproxMC(map<unsigned,SATCount>& count)
 		f.close();
 		return 0;
 	}
-		if(debug)
+	if(debug)
 	  cout<<"sat, continue counting";
 	int numCore=1;
 	JaccardResult * results=new JaccardResult[numCore];
@@ -2126,8 +2125,29 @@ bool CUSP::Jaccard2ApproxMC(map<unsigned,SATCount>& count)
 
 		if(j%10==0){
 			std_error=getSTD(results[0].numCountList[singleIndex],results[0].numHashList[singleIndex]);
-			if(debug)
-			  ount=singleIndex;
+		}
+	}
+	return true;
+}
+
+
+bool CUSP::JaccardApproxMC(map<unsigned,SATCount>& count)
+{
+	count.clear();
+	int currentNumSolutions = 0;
+	map<unsigned,vector<unsigned>> numHashList;
+	map<unsigned,vector<int>> numCountList;
+	JaccardResult result;
+	vector<Lit> assumps;
+	vector<Lit >jaccardAssumps,jaccardAssumps_lastZero;
+	unsigned hashCount = startIteration;
+	unsigned hashPrev = 0;
+	unsigned mPrev = 0;
+	unsigned jaccardHashCount,jaccardPrev=0;
+	if(singleIndex<0)
+	  singleIndex=jaccard_vars.size();
+	assert(singleIndex<=jaccard_vars.size());
+	jaccardHashCount=singleIndex;
 	double myTime = cpuTimeTotal();
 
 	int checkSAT = BoundedSATCount(pivotApproxMC+1,assumps,solver);
