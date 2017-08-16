@@ -1054,10 +1054,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	bool less=false,more=false;
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
-	lbool ret1 = solver->solve(&jaccardAssumps[0]);
-	lbool ret2 = solver->solve(&jaccardAssumps[1]);
-	if(ret1!=l_True|| ret2!=l_True)
-	  return -1;
+
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
 		if(resultIndex==1 && std::equal(jaccardAssumps[1].begin(),jaccardAssumps[1].end(),jaccardAssumps[0].begin())){
 			scounts.push_back(scounts[0]);
@@ -1785,10 +1782,7 @@ void seperate(vector<Lit> all, vector<Lit> &one,vector<Lit>&another,bool single)
 		else
 		  another.push_back(all[i*2+1]);
 	}
-	if(!single){
-	one.pop_back();
-	another.pop_back();
-	}
+
 	assert(another.size()==one.size());
 }
 
@@ -1811,10 +1805,26 @@ void CUSP::Jaccard2OneRound(unsigned jaccardHashCount,JaccardResult* result ,boo
 		leftAssumps.clear();
 		rightAssumps.clear();
 		SetJaccard2Hash(jaccardHashCount,jaccardHashVars,jaccardAssumps,solver);
-		seperate(jaccardAssumps,leftAssumps,rightAssumps,(jaccardHashCount==jaccard_vars.size()&&(!notSampled)));
+		bool is_single=(jaccardHashCount==jaccard_vars.size()&&(!notSampled));
+		seperate(jaccardAssumps,leftAssumps,rightAssumps,is_single);
+		lbool ret1 = solver->solve(&leftAssumps);
+		unsigned x =(rightAssumps.back().toInt()-1)/2;
+
+		rightAssumps.pop_back();
+
+		rightAssumps.push_back(Lit(x, false));
+		lbool ret2 = solver->solve(&rightAssumps);
+		if(ret1!=l_True|| ret2!=l_True)
+		  continue;
+
+		if(!is_single){
+			leftAssumps.pop_back();
+			rightAssumps.pop_back();
+		}
 		inJaccardAssumps.push_back(leftAssumps);
 		inJaccardAssumps.push_back(rightAssumps);
 		inJaccardAssumps.push_back(jaccardAssumps);
+	
 		if(jaccardAssumps.size()==0)
 		  onlyLast=true;
 		//	solver->simplify(&jaccardAssumps);
