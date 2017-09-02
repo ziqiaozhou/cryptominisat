@@ -1055,7 +1055,7 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	bool less=false,more=false;
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
-
+	unsigned lower=LowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
 		if(resultIndex==1 && std::equal(jaccardAssumps[1].begin(),jaccardAssumps[1].end(),jaccardAssumps[0].begin())){
 			scounts.push_back(scounts[0]);
@@ -1075,10 +1075,14 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			solver=this->solver;
 		}
 		hashCount=hashCount?hashCount:initialHashCount;
-		unsigned lower=LowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
-		int nSol=0;
+		if(resultIndex==2){
+			upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
+		}else{
+			lower=LowerFib;
+			upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
+		}
 
-		
+		int nSol=0;
 		if(debug>DEBUG_HASH_LEVEL)
 		  printVars(jaccardAssumps[resultIndex]);	
 		if(hashCount==0){
@@ -1129,6 +1133,15 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 				if(debug)
 				  cout<<"timeout";
 				timeoutcount++;
+				if(resultIndex==2){
+					scounts.pop_back();
+					scounts.pop_back();
+					resultIndex=0;
+					assumps.clear();
+					hashVars.clear();
+					lower=LowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
+					continue;
+				}
 				if(timeoutcount>2)//return -1 if timeout>=3 for one hashCount
 				  return -1;
 				assumps.clear();
