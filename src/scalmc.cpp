@@ -402,6 +402,7 @@ lbool CUSP::solve_exclude( vector<Lit> assumps,int & count){
 		}
 	}
 }
+int timeoutCount=0;
 int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, const vector<Lit> jassumps,int resultIndex,SATSolver* solver=NULL)
 {
 	//    cout << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
@@ -535,6 +536,7 @@ int CUSP::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, cons
 	//Timeout
 	if(ret == l_Undef) {
 		must_interrupt.store(false, std::memory_order_relaxed);
+		timeoutCount=solutions;
 		std::cout<<"timeout,but explored count="<<solutions;
 		return -1;
 	}
@@ -1061,6 +1063,8 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			scounts.push_back(scounts[0]);
 			continue;
 		}
+	
+retry:
 		if(debug)
 		  cout<<"resultIndex="<<resultIndex<<"\n";
 		if(resultIndex==0){
@@ -1132,6 +1136,8 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 			if(nSol==-1){
 				if(debug)
 				  cout<<"timeout";
+				if(timeoutcount>2|| timeoutCount<1)//return -1 if timeout>=3 for one hashCount
+				  return -1;
 				timeoutcount++;
 				if(resultIndex==2){
 					scounts.pop_back();
@@ -1140,10 +1146,8 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 					assumps.clear();
 					hashVars.clear();
 					lower=LowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
-					continue;
+					goto retry;
 				}
-				if(timeoutcount>2)//return -1 if timeout>=3 for one hashCount
-				  return -1;
 				assumps.clear();
 				hashVars.clear();
 				continue;
