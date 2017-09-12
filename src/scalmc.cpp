@@ -2337,10 +2337,7 @@ bool CUSP::JaccardApproxMC(map<unsigned,SATCount>& count)
 				computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
 				computeCountFromList(singleIndex-1,results[0].numHashList,results[0].numCountList,results[0].count);
 				results[0].searched[singleIndex]=true;
-				if(results[0].count[singleIndex].cellSolCount>0){
-					cout<<"break";
 					break;
-				}
 				cout<<"====0 retry singleIndex"<<endl;
 				if(retryJaccardSingle>5){
 					retryJaccardSingle=0;
