@@ -1695,7 +1695,6 @@ void CUSP::JaccardOneRoundFor3(unsigned jaccardHashCount,JaccardResult* result ,
 		jaccard_samples.clear();
 		jaccard3Assumps.clear();
 		//solver->simplify(&jaccardAssumps);
-
 		if((jaccard_vars.size()-jaccardHashCount)>2 || notSampled){	
 			if(jaccardHashCount)
 			{
@@ -1739,36 +1738,14 @@ void CUSP::JaccardOneRoundFor3(unsigned jaccardHashCount,JaccardResult* result ,
 #endif
 			continue;
 		}
-		if(scounts[0].cellSolCount<=0){
-			if(debug)
-			cout<<"cellSolCount<=0,cntinue";
-			continue;
-		}else{
-			for(int j=0;j<2;++j){
-				numHashList[jaccardHashCount].push_back(scounts[j].hashCount);
-				numCountList[jaccardHashCount].push_back(scounts[j].cellSolCount);
-			}
-			numHashList[jaccardHashCount+1].push_back(scounts[2].hashCount);
-			numCountList[jaccardHashCount+1].push_back(scounts[2].cellSolCount);
-
-			break;
+		for(int j=0;j<2;++j){
+			numHashList[jaccardHashCount].push_back(scounts[j].hashCount);
+			numCountList[jaccardHashCount].push_back(scounts[j].cellSolCount);
 		}
-
-
-
-		/*	cout<<"--------------------------"<<jaccardHashCount<<"\n"<<endl;
-			for(int k=0;k<numCountList[jaccardHashCount].size();k++){
-			cout<<"("<<numCountList[jaccardHashCount][k]<<"*2^"<< numHashList[jaccardHashCount][k]<<"),";
-			}
-			cout<<"\n";
-			*/
-		result->searched[jaccardHashCount-1]=true;
-		/*vector<Lit> cl_that_removes;
-		  cl_that_removes.push_back(Lit(act_var, false));
-		  solver->add_clause(cl_that_removes);
-		  */
-	
-		break;
+		numHashList[jaccardHashCount+1].push_back(scounts[2].hashCount);
+		numCountList[jaccardHashCount+1].push_back(scounts[2].cellSolCount);
+			result->searched[jaccardHashCount-1]=true;
+			break;
 	}
 
 #if DELETE_SOLVER 
