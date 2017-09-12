@@ -1221,7 +1221,7 @@ int CUSP::OneRoundFor3(unsigned jaccardHashCount,JaccardResult* result, unsigned
 	}
 	hashCount=hashCount?hashCount:initialHashCount;
 	int resultIndex=0;
-	for (unsigned j = 0; j < tApproxMC*3; j++) {
+	for (unsigned j = 0; j < tApproxMC; j++) {
 		map<unsigned,std::set<std::string> > countRecord;
 		map<unsigned,unsigned> succRecord;
 		unsigned repeatTry = 0;
