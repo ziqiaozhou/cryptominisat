@@ -1057,13 +1057,14 @@ int CUSP::OneRoundFor3_simple(unsigned jaccardHashCount,JaccardResult* result, u
 	bool less=false,more=false;
 	int resultIndex=0;
 	assert(3==jaccardAssumps.size());
+
 	unsigned lower=LowerFib,upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
 	for(resultIndex=0;resultIndex<jaccardAssumps.size();resultIndex++){
+
 		if(resultIndex==1 && std::equal(jaccardAssumps[1].begin(),jaccardAssumps[1].end(),jaccardAssumps[0].begin())){
 			scounts.push_back(scounts[0]);
 			continue;
 		}
-	
 retry:
 		if(debug)
 		  cout<<"resultIndex="<<resultIndex<<"\n";
@@ -1080,7 +1081,8 @@ retry:
 		}
 		hashCount=hashCount?hashCount:initialHashCount;
 		if(resultIndex==2){
-			upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
+			lower=LowerFib;
+			//upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
 		}else{
 			lower=LowerFib;
 			upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
@@ -2314,7 +2316,7 @@ bool CUSP::JaccardApproxMC(map<unsigned,SATCount>& count)
 				computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
 				computeCountFromList(singleIndex-1,results[0].numHashList,results[0].numCountList,results[0].count);
 				results[0].searched[singleIndex]=true;
-					break;
+				break;
 				cout<<"====0 retry singleIndex"<<endl;
 				if(retryJaccardSingle>5){
 					retryJaccardSingle=0;
