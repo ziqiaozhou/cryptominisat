@@ -1221,9 +1221,9 @@ int CUSP::OneRoundFor3(unsigned jaccardHashCount,JaccardResult* result, unsigned
 	if(solver==NULL){
 		solver=this->solver;
 	}
-	hashCount=hashCount?hashCount:initialHashCount;
+	hashCount=hashCount?hashCount:LowerFib;
 	int resultIndex=0;
-	for (unsigned j = 0; j < tApproxMC; j++) {
+	for (unsigned j = 0; j < tApproxMC*3; j++) {
 		map<unsigned,std::set<std::string> > countRecord;
 		map<unsigned,unsigned> succRecord;
 		unsigned repeatTry = 0;
@@ -1721,7 +1721,11 @@ void CUSP::JaccardOneRoundFor3(unsigned jaccardHashCount,JaccardResult* result ,
 		map<unsigned,Lit> hashVars; //map assumption var to XOR hash
 
 	//	int checkSAT = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps);
-		
+		lbool ret1 = solver->solve(&jaccardAssumps_lastZero);
+		lbool ret2 = solver->solve(&jaccardAssumps);
+		if(ret1!=l_True|| ret2!=l_True)
+		  continue;
+
 		SATCount scount0,scount1,scount2,scount3,scount4,scount5;
 		JaccardResult result0,result1;
 		vector<SATCount>scounts={scount0,scount1,scount2,scount3,scount4,scount5};
@@ -2465,14 +2469,13 @@ void CUSP::solver_init(){
 int CUSP::solve()
 {
 	if(!gauss_manual){
-    conf.reconfigure_at = 0;
-    conf.reconfigure_val = 15;
-    conf.gaussconf.max_matrix_rows = 3000;
-    conf.gaussconf.decision_until = 3000;
-	conf.gaussconf.max_num_matrixes = 4;
-	conf.gaussconf.min_matrix_rows = 5;
-	if(searchMode==3)
-	  conf.gaussconf.autodisable = false;
+		conf.reconfigure_at = 0;
+		conf.reconfigure_val = 15;
+		conf.gaussconf.max_matrix_rows = 3000;
+		conf.gaussconf.decision_until = 3000;
+		conf.gaussconf.max_num_matrixes = 4;
+		conf.gaussconf.min_matrix_rows = 5;
+		conf.gaussconf.autodisable = false;
 	}
 
     //set seed
