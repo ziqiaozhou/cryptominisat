@@ -1307,7 +1307,8 @@ reset_for_next_count:
 					if (searched||(abs(hashCount - mPrev) < 2 && mPrev!=0)) {
 						lowerFib = hashCount;
 						hashCount ++;
-					} else //if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1) {
+					} else //if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1) 
+					{
 						lowerFib = hashCount;
 						hashCount = (lowerFib+upperFib)/2;
 					}/* else {
