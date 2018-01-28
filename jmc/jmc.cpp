@@ -475,7 +475,8 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						pushlit2Sols(fullsols, "*");
 						num_undef++;
 					}
-					if(distribution.count(var)&&isTrue){
+					if(useWeight&&distribution.count(var)&&isTrue){
+						cout<<"weighted";
 						wsolution+=distribution[var];
 					}else{
 						wsolution+=1;
@@ -2288,6 +2289,7 @@ void JaccardMC::readDFile(){
 		line.clear();
 		std::getline(dfile,line);
 		std::sscanf(line.c_str(),"%i %f", &var,&weight);
+		std::cout<<var<<":"<<weight<<"\t";
 		distribution[var]=weight;
 	}
 	dfile.close();
