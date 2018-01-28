@@ -1049,7 +1049,7 @@ retry:
 			upper = (UpperFib > 0) ? UpperFib : independent_vars.size() - ceil(log(pivot) / log(2)) + 2;
 		}
 
-		int nSol = 0;
+		double nSol = 0;
 		if (debug > DEBUG_HASH_LEVEL)
 			printVars(jaccardAssumps[resultIndex]);
 		if (hashCount == 0) {
