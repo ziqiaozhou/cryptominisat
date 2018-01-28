@@ -460,6 +460,13 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						pushlit2Sols(sols, "*");
 						num_undef++;
 					}
+					cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTruesssssss;
+					if(useWeight&&distribution.count(var)&&isTrue){
+						cout<<"weighted";
+						wsolution+=distribution[var];
+					}else{
+						wsolution+=1;
+					}
 				}
 
 			}
@@ -475,12 +482,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						pushlit2Sols(fullsols, "*");
 						num_undef++;
 					}
-					if(useWeight&&distribution.count(var)&&isTrue){
-						cout<<"weighted";
-						wsolution+=distribution[var];
-					}else{
-						wsolution+=1;
-					}
+					
 				}
 			}
 			if (lits.size() > 1)
@@ -2284,11 +2286,11 @@ void JaccardMC::readDFile(){
 	dfile.open(dFilename);
 	string line;
 	int var;
-	double weight;
+	float weight=4;
 	distribution[89]=4;
 	while(std::getline(dfile,line)){
 		std::sscanf(line.c_str(),"%d,%f", &var,&weight);
-		std::cout<<line<<"->"<<var<<":"<<weight<<"\n";
+		std::cout<<line.c_str()<<"->"<<var<<":"<<weight<<"\n";
 		distribution[var]=weight;
 		line.clear();
 	}
