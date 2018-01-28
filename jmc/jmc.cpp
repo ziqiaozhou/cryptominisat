@@ -2299,7 +2299,7 @@ void JaccardMC::readDFile(){
 	//distribution[89]=4;
 	while(std::getline(dfile,line)){
 		memset(weightstr,0,100);
-		std::sscanf(line.c_str(),"%d,%s", &var,&weightstr);
+		std::sscanf(line.c_str(),"%d,%s", &var,weightstr);
 		weight=atof(weightstr);
 		std::cout<<line.c_str()<<"->"<<var<<":"<<weight<<"\n";
 		distribution[var]=weight;
