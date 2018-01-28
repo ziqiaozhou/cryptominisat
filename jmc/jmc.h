@@ -84,7 +84,7 @@ public:
     double cellSolCount = 0;
 
     vector<unsigned> numHashList; //for output
-    vector<int> numCountList; //for outpur
+    vector<double> numCountList; //for outpur
 
 };
 
@@ -92,7 +92,7 @@ class JaccardResult
 {
 public:
     std::map< unsigned, vector<unsigned> > numHashList;
-    std::map< unsigned, vector<int> > numCountList;
+    std::map< unsigned, vector<double> > numCountList;
     std::map<unsigned, SATCount> count;
     std::map<unsigned, unsigned> hashCount;
     std::map<unsigned, bool> searched;
@@ -119,11 +119,16 @@ private:
     std::set<std::string> independent_samples;
     std::set<std::string> jaccard_samples;
     std::string logFileName = "cusp_log.txt";
+    bool useWeight=false;
     unsigned singleIndex = 0;
     double startTime;
     std::map< std::string, std::vector<unsigned> > globalSolutionMap;
     bool openLogFile();
     std::atomic<bool> must_interrupt;
+    string dFilename="";
+    std::map<unsigned,float> distribution;
+    double wsolution=0;
+    void readDFile();
 public:
 
     std::vector<CMSat::SATSolver*> solvers;
@@ -143,14 +148,13 @@ private:
 
     void add_approxmc_options();
     void solver_init();
-    bool checkParity(int, string randomBits, int num_xor_cls, int size, int i, int j);
     bool JaccardApproxMC(std::map<unsigned, SATCount>& count);
     void setDiffOb();
-    bool Jaccard2ApproxMC(std::map<unsigned, SATCount>& count);
+    bool JaccardHatApproxMC(std::map<unsigned, SATCount>& count);
     bool ScalApproxMC(SATCount& count);
     bool ApproxMC(SATCount& count);
-    bool AddJaccardHash(unsigned num_xor_cls, vector<Lit>& assumps, std::vector<XorClause>&, CMSat::SATSolver* solver);
-    bool AddJaccard2Hash(unsigned num_xor_cls, std::vector<Lit>& assumps, CMSat::SATSolver* solver);
+    bool SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, std::vector<XorClause>&, CMSat::SATSolver* solver);
+    bool SSetTwoHashSample(unsigned num_xor_cls, std::vector<Lit>& assumps, CMSat::SATSolver* solver);
     bool AddHash(unsigned num_xor_cls, vector<Lit>& assumps, CMSat::SATSolver* solver);
     void SetHash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, vector<Lit>& assumps, CMSat::SATSolver* solver);
     int SampledBoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, const vector<Lit> jassumps, CMSat::SATSolver* solver);
@@ -165,7 +169,7 @@ private:
     int BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, CMSat::SATSolver * solver);
     int OneRoundCount(unsigned jaccardHashCount, JaccardResult *result, unsigned & mPrev, unsigned& hashPrev, vector<Lit> jaccardAssumps, SATCount& count, CMSat::SATSolver* solver);
 
-    int OneRoundFor3_simple(unsigned jaccardHashCount, JaccardResult* result, unsigned &mPrev, unsigned &hashPrev, std::vector<std::vector<Lit>> jaccardAssumps, std::vector<std::pair<unsigned, unsigned>>&scounts, SATSolver * solver);
+    int OneRoundForHatJ(unsigned jaccardHashCount, JaccardResult* result, unsigned &mPrev, unsigned &hashPrev, std::vector<std::vector<Lit>> jaccardAssumps, std::vector<std::pair<unsigned, double>>&scounts);
     int OneRoundFor3(unsigned jaccardHashCount, JaccardResult* result, unsigned &mPrev, unsigned &hashPrev, std::vector<std::vector<Lit>> jaccardAssumps, std::vector<SATCount>& scounts, SATSolver * solver);
     int OneRoundFor3NoHash(std::vector<std::vector<CMSat::Lit> >, std::vector<SATCount>&, int rindex, CMSat::SATSolver*);
 
@@ -174,10 +178,10 @@ private:
     void JaccardOneRoundFor3(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, SATSolver* solver);
 
     void Jaccard2OneRoundFor3(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, SATSolver* solver);
-    void Jaccard2OneRound(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, CMSat::SATSolver* solver0);
+    void JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, CMSat::SATSolver* solver0);
     void JaccardOneRound(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, CMSat::SATSolver* solver0);
-    void computeCountFromList(unsigned jaccardHashCount, std::map<unsigned, vector<unsigned>> &numHashList, std::map<unsigned, vector<int>>&numCountList, std::map<unsigned, SATCount>& count);
-    void addKey2Map(unsigned jaccardHashCount, std::map<unsigned, vector<unsigned>> &numHashList, std::map<unsigned, vector<int>>&numCountList, std::map<unsigned, SATCount>& count);
+    void computeCountFromList(unsigned jaccardHashCount, std::map<unsigned, vector<unsigned>> &numHashList, std::map<unsigned, vector<double>>&numCountList, std::map<unsigned, SATCount>& count);
+    void addKey2Map(unsigned jaccardHashCount, std::map<unsigned, vector<unsigned>> &numHashList, std::map<unsigned, vector<double>>&numCountList, std::map<unsigned, SATCount>& count);
     lbool BoundedSAT(
                      unsigned maxSolutions, unsigned minSolutions
                      , vector<Lit>& assumptions
@@ -199,7 +203,7 @@ private:
     double tStdError = 0.05;
     double prevTime;
     unsigned endJaccardIndex = 0;
-
+    
     int printXor = 0;
     int trimOnly = 0;
     int onlyOne = 0;
@@ -224,7 +228,7 @@ private:
     int notSampled = 0;
     int debug = 0;
     int originalPC_size;
-    std::ofstream cusp_logf;
+    std::ofstream LOGF;
     std::random_device random_dev;
     std::mt19937 randomEngine;
     int nCounterExamples = 0;

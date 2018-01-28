@@ -48,6 +48,9 @@ using std::map;
 #define SIMPLE 1
 std::string debug_info = "";
 
+/*
+ * convert int to binary string
+ */
 string binary(unsigned x, unsigned length)
 {
 	unsigned logSize = (x == 0 ? 1 : log2(x) + 1);
@@ -63,7 +66,9 @@ string binary(unsigned x, unsigned length)
 	return s;
 
 }
-
+/**
+ * Uniform-distributed Random bit 
+ **/
 string JaccardMC::GenerateRandomBits(unsigned size)
 {
 	string randomBits;
@@ -95,34 +100,32 @@ void JaccardMC::add_approxmc_options()
 {
 	approxMCOptions.add_options()
 		("pivotAC", po::value(&pivotApproxMC)->default_value(pivotApproxMC)
-		, "Number of solutions to check for")
+		, "Max Number of solutions to check for")
 		("std", po::value(&tStdError)->default_value(tStdError)
-		, "STD threshold")
+		, "STD threshold used to decide when to stop")
 		("outprefix", po::value(&outPrefix)->default_value(""),
-		"prefix for count_jx")
+		"prefix for output filename")
 		("mode", po::value(&searchMode)->default_value(searchMode)
-		, "Seach mode. ApproxMC = 0, JaccardMC=1, ScalMC = 2,print sol only=3")
-		("JaccardXorMax", po::value(&jaccardXorMax)->default_value(jaccardXorMax)
-		, "default =600, if xor is eceed this value, trim the xor by change the ratio for randombits")
-		("XorMax", po::value(&XorMax)->default_value(XorMax)
+		, "Seach mode:  Jn Mode (JaccardMC): =1, \\hat{Jn} Mode: = 3")
+		("JaccardXorMax", po::value(&jaccardXorMax)->default_value(1000)
+		, "default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
+		("XorMax", po::value(&XorMax)->default_value(1000)
 		, "default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
 		("JaccardXorRate", po::value(&jaccardXorRate)->default_value(jaccardXorRate)
 		, "default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
 		("XorRate", po::value(&xorRate)->default_value(xorRate)
 		, "default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
-		("specify-ob", po::value(&specifiedOb)->default_value(""), "default("")")
 		("printXor", po::value(&printXor)->default_value(0), "default(false)")
-		("trimOnly", po::value(&trimOnly)->default_value(0), "default(false)")
-		("onlyOne", po::value(&onlyOne)->default_value(1), "only count one subset default(false)")
-		("onlyLast", po::value(&onlyOne)->default_value(onlyLast), "only count one subset default(false)")
+		("trimOnly", po::value(&trimOnly)->default_value(0), "just trim variables and not solving, default(false)")
+		("onlyOne", po::value(&onlyOne)->default_value(0), "only count one subset default(false)")
+		("onlyLast", po::value(&onlyLast)->default_value(0), "only count one subset default(false)")
 		("tApproxMC", po::value(&tApproxMC)->default_value(tApproxMC)
 		, "Number of measurements")
 		("tJaccardMC", po::value(&tJaccardMC)->default_value(tJaccardMC)
-		, "Number of measurements for jaccard hash")
-		("startIteration", po::value(&startIteration)->default_value(startIteration), "")
-		("lowerFib", po::value(&LowerFib)->default_value(0), "")
-		("UpperFib", po::value(&UpperFib)->default_value(0), "")
-		("lowest Jaccard Index ", po::value(&endJaccardIndex)->default_value(1), "")
+		, "Max Number of measurements for jaccard hash; reaching STD or exceeding tJaccardMC would stop measuring")
+		("startIteration", po::value(&startIteration)->default_value(startIteration), "initial hash size, default 0")
+		("lowerFib", po::value(&LowerFib)->default_value(0), "Max hash size")
+		("UpperFib", po::value(&UpperFib)->default_value(0), "Min hash size")
 		("looptout", po::value(&loopTimeout)->default_value(loopTimeout)
 		, "Timeout for one measurement, consisting of finding pivotAC solutions")
 		("logFileName", po::value(&logFileName)->default_value(logFileName), "")
@@ -135,21 +138,16 @@ void JaccardMC::add_approxmc_options()
 		("debug", po::value(&debug)->default_value(false),
 		"debug"
 		"default:false")
-		("Parallel", po::value(&Parallel)->default_value(Parallel),
-		"parallel"
-		"NOT USED")
-		("parity", po::value(&Parity)->default_value(Parity),
-		"parity"
-		"hash parity for counting")
 		("JaccardIndex", po::value(&singleIndex)->default_value(singleIndex),
 		"jaccard index=log(|S|/n)"
 		"choose one otherwise use max")
-		("test", po::value(&test_func)->default_value(0), "test new feature, 0->default, 1-> hash attack first then ob")
+		("test", po::value(&test_func)->default_value(0), "(Not Valid)test new feature, 0->default, 1-> hash attack first then ob")
 		("diff", po::value(&is_diff)->default_value(0), "diff creation, let ob diff, ob is jac")
-		("exclude", po::value(&exclude)->default_value(0), "diff creation, let ob diff, ob is jac")
+		("exclude", po::value(&exclude)->default_value(0), "Count solution with different ob, ob is labeled with jac and S is labeled with jac2")
 		("same_set", po::value(&same_set)->default_value(0), "jac and jac2 use same set, default: false")
 	("gauss_manual_setting", po::value(&gauss_manual)->default_value(0), "do not use default gauss setting, you can set by yourselfe")
-		;
+		("distributionfile",po::value(&dFilename)->default_value(""),"distribution file")
+		("useWeight",po::value(&useWeight)->default_value(0),"default: false");
 
 	help_options_simple.add(approxMCOptions);
 	help_options_complicated.add(approxMCOptions);
@@ -197,8 +195,8 @@ void print_xor(const vector<unsigned>& vars, const unsigned rhs, string text)
 
 bool JaccardMC::openLogFile()
 {
-	cusp_logf.open(logFileName.c_str());
-	if (!cusp_logf.is_open()) {
+	LOGF.open(logFileName.c_str());
+	if (!LOGF.is_open()) {
 		cout << "Cannot open CUSP log file '" << logFileName
 			<< "' for writing." << endl;
 		exit(1);
@@ -238,16 +236,9 @@ inline T findMin(vector<T>& numList)
 	return min;
 }
 
-bool JaccardMC::checkParity(int parity, string randomBits, int num_xor_cls, int size, int i, int j)
-{
-	for (int k = 0; k < parity; ++k) {
-		if (randomBits[ size * i + j + size * k * num_xor_cls] != '1') {
-			return false;
-		}
-	}
-	return true;
-}
-
+/*
+ * Add hash function for counting
+ */
 bool JaccardMC::AddHash(unsigned num_xor_cls, vector<Lit>& assumps, CMSat::SATSolver* solver)
 {
 	double ratio = xorRate;
@@ -278,7 +269,9 @@ bool JaccardMC::AddHash(unsigned num_xor_cls, vector<Lit>& assumps, CMSat::SATSo
 	}
 	return true;
 }
-
+/*
+ * trim variables with deterministic assignment
+ */
 void JaccardMC::trimVar(vector<unsigned> &vars)
 {
 	vector<unsigned> new_vars;
@@ -473,13 +466,19 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 			if (nCounterExamples < MAX_EXAMPLES) {
 				for (unsigned i = 0; i < jaccard_vars.size(); ++i) {
 					unsigned var = jaccard_vars[i];
+					bool isTrue=false;
 					//std::cout<<"getmodel of "<<var;
 					if (solver->get_model()[var] != l_Undef) {
-						bool isTrue = (solver->get_model()[var] == l_True);
+						isTrue = (solver->get_model()[var] == l_True);
 						pushlit2Sols(fullsols, isTrue ? "1" : "0");
 					} else {
 						pushlit2Sols(fullsols, "*");
 						num_undef++;
+					}
+					if(distribution.count(var)&&isTrue){
+						wsolution+=distribution[var];
+					}else{
+						wsolution+=1;
 					}
 				}
 			}
@@ -638,7 +637,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 	return BoundedSATCount(maxSolutions, assumps, jassumps, 0, solver);
 }
 
-double getSTD(vector<int>cnt_list, vector<unsigned>list)
+double getSTD(vector<double>cnt_list, vector<unsigned>list)
 {
 	auto cnt_it = cnt_list.begin();
 	double std_error = 0;
@@ -673,7 +672,7 @@ double getSTD(vector<int>cnt_list, vector<unsigned>list)
 void SATCount::summarize()
 {
 	vector<unsigned>list = numHashList;
-	vector<int>cnt_list = numCountList;
+	vector<double>cnt_list = numCountList;
 
 	auto minHash = findMin(list);
 	if (list.size() <= 0) {
@@ -696,9 +695,10 @@ void SATCount::summarize()
 	hashCount = minHash;
 }
 
-int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps, vector<SATCount>& scounts, int resultIndex, CMSat::SATSolver * solver = NULL)
+int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps, 
+	vector<SATCount>& scounts, int resultIndex, CMSat::SATSolver * solver = NULL)
 {
-	int s[3];
+	double s[3];
 	vector<Lit> assumps;
 	int hashCount = 0;
 	assumps.clear();
@@ -724,7 +724,7 @@ int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps, vector<SAT
 	}
 	//Din't find at least pivotApproxMC+1
 	if (currentNumSolutions < pivotApproxMC + 1) {
-		s[0] = currentNumSolutions;
+		s[0] = useWeight?wsolution:currentNumSolutions;
 		if (s[0] <= 0) {
 			//unbalanced jaccard sampling, giveup
 			if (debug)
@@ -736,14 +736,18 @@ int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps, vector<SAT
 			s[1] = s[0];
 			s[2] = s[0];
 		} else {
-			s[1] = BoundedSATCount(pivotApproxMC * 2 + 1, assumps, jaccardAssumps[1], 1, solver);
+			s[1] = useWeight?wsolution:BoundedSATCount(pivotApproxMC * 2 + 1, assumps, jaccardAssumps[1], 1, solver);
 			cout << "solution s[0]" << s[0] << "s[1]" << s[1] << "\n";
 			if ((s[1] <= 0 || s[0] <= 0)) {
 				cout << "not found one solution" << s[0] << "\n";
 				//unbalanced jaccard sampling, giveup
 				return RETRY_JACCARD_HASH;
 			}
-			s[2] = cachedSolutions.size(); // BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],solver);
+			s[2] = cachedSolutions.size(); 
+			if(useWeight){
+				BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],2,solver);
+				s[2]=wsolution;
+			}
 			cache_clear();
 			if (s[2] <= 0 || s[2]>(s[1] + s[0])) {
 				//impossible reach
@@ -761,7 +765,10 @@ int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps, vector<SAT
 	return hashCount;
 }
 
-int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext, std::set<std::string> nextCount, unsigned &hashCount, map<unsigned, Lit>& hashVars, vector<Lit>assumps, vector<vector<Lit>> jaccardAssumps, vector<SATCount>& scounts, int resultIndex, SATSolver * solver = NULL)
+int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext, 
+	std::set<std::string> nextCount, unsigned &hashCount, map<unsigned, 
+	Lit>& hashVars, vector<Lit>assumps, vector<vector<Lit>> jaccardAssumps, 
+	vector<SATCount>& scounts, int resultIndex, SATSolver * solver = NULL)
 {
 	int repeatTry = 0;
 	int pivotApproxMC0 = pivotApproxMC;
@@ -779,7 +786,7 @@ int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext, std::set<std
 
 	while (true) {
 		SetHash(hashCount, hashVars, assumps, solver);
-		int s[3];
+		double s[3];
 		double myTime = cpuTimeTotal();
 		if (resultIndex == 0)
 			cache_clear();
@@ -791,7 +798,7 @@ int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext, std::set<std
 		int currentNumSolutions = BoundedSATCount(pivotApproxMC0 + 1, assumps, jaccardAssumps[resultIndex], resultIndex, solver);
 
 
-		s[0] = currentNumSolutions;
+		s[0] = useWeight?wsolution:currentNumSolutions;
 		if (debug)
 			cout << "solver->nvar()=" << solver->nVars()
 			<< "Number of XOR hashes active: " << hashCount << endl
@@ -831,6 +838,7 @@ int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext, std::set<std
 					s[1] = s[0];
 				} else {
 					s[1] = BoundedSATCount(pivotApproxMC * 2 + 1, assumps, jaccardAssumps[1], 1, solver);
+					s[1]=useWeight?wsolution:s[1];
 					if (s[1] < 0 || s[1] > pivotApproxMC * 2) {
 						//unbalanced sampling, giveup
 						if (debug)
@@ -878,19 +886,21 @@ int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext, std::set<std
 				//s[0]= BoundedSATCount(pivotApproxMC*2+1,assumps,jaccardAssumps[0],solver);
 				if (onlyOne) {
 					s[1] = s[0];
-				} else
+				} else{
 					s[1] = BoundedSATCount(pivotApproxMC0 * 2 + 1, assumps, jaccardAssumps[1], 1, solver);
-				std::cout << "s[1]" << s[1] << ",time:" << cpuTimeTotal() - myTime1 << "\n";
-				cout << "s[0]=" << s[0] << "s[1]" << s[1];
-				if (s[1] <= 0) {
+					s[1]=useWeight?wsolution:s[1];
+					std::cout << "s[1]" << s[1] << ",time:" << cpuTimeTotal() - myTime1 << "\n";
+					cout << "s[0]=" << s[0] << "s[1]" << s[1];
+					if (s[1] <= 0) {
 					//unbalanced sampling, giveup
 					assumps.clear();
 					hashVars.clear();
 					solver->simplify(&assumps);
 					return RETRY_JACCARD_HASH;
-				}
-				if (s[1] > pivotApproxMC0 * 2 + 1) {
+					}
+					if (s[1] > pivotApproxMC0 * 2 + 1) {
 					return RETRY_JACCARD_HASH;
+					}
 				}
 				myTime1 = cpuTimeTotal();
 				for (auto one : cachedSolutions) {
@@ -989,7 +999,9 @@ string str2hex(string s)
 	return ss.str() + "\t" + s;
 }
 
-int JaccardMC::OneRoundFor3_simple(unsigned jaccardHashCount, JaccardResult* result, unsigned &mPrev, unsigned &hashPrev, vector<vector<Lit>> jaccardAssumps, vector<std::pair<unsigned, unsigned>>&scounts, SATSolver * solver = NULL)
+int JaccardMC::OneRoundForHatJ(unsigned jaccardHashCount, JaccardResult* result, 
+	unsigned &mPrev, unsigned &hashPrev, vector<vector<Lit>> jaccardAssumps, 
+	vector<std::pair<unsigned, double>>&scounts)
 {
 	unsigned pivot = pivotApproxMC;
 	unsigned& hashCount = result->hashCount[jaccardHashCount];
@@ -1040,7 +1052,7 @@ retry:
 			SetHash(hashCount, hashVars, assumps, solver);
 			nSol = BoundedSATCount(pivot + 1, assumps, jaccardAssumps[resultIndex], resultIndex, solver);
 			if (nSol == 0) {
-				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, nSol));
+				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
 				if (debug > DEBUG_VAR_LEVEL)
 					cout << "nSol=0\n";
 				if (resultIndex < 2)
@@ -1052,7 +1064,7 @@ retry:
 			if (nSol > (int)pivot)
 				hashCount = lower + 1;
 			else {
-				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, nSol));
+				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
 				continue;
 			}
 		}
@@ -1426,7 +1438,7 @@ int JaccardMC::OneRoundCount(unsigned jaccardHashCount, JaccardResult* result, u
 	double myTime = cpuTimeTotal();
 
 	vector<unsigned>numHashList0, *numHashList = &numHashList0;
-	vector<int> numCountList0, * numCountList = &numCountList0;
+	vector<double> numCountList0, * numCountList = &numCountList0;
 	unsigned jaccardIndex = jaccardHashCount;
 	bool less = false, more = false;
 	if (solver == NULL) {
@@ -1592,11 +1604,11 @@ int JaccardMC::OneRoundCount(unsigned jaccardHashCount, JaccardResult* result, u
 	return 0;
 }
 
-void JaccardMC::addKey2Map(unsigned jaccardHashCount, map<unsigned, vector<unsigned>> &numHashList, map<unsigned, vector<int>>&numCountList, map<unsigned, SATCount>& count)
+void JaccardMC::addKey2Map(unsigned jaccardHashCount, map<unsigned, vector<unsigned>> &numHashList, map<unsigned, vector<double>>&numCountList, map<unsigned, SATCount>& count)
 {
 	if (numHashList.find(jaccardHashCount) == numHashList.end()) {
 		vector<unsigned> oneHashList;
-		vector<int> oneCountList;
+		vector<double> oneCountList;
 		numHashList[jaccardHashCount] = (oneHashList);
 		numCountList[jaccardHashCount] = (oneCountList);
 		SATCount onecount;
@@ -1609,7 +1621,7 @@ void JaccardMC::JaccardOneRoundFor3(unsigned jaccardHashCount, JaccardResult* re
 	if (solver == NULL)
 		solver = solver;
 	map<unsigned, vector<unsigned>> &numHashList = result->numHashList;
-	map<unsigned, vector<int>>&numCountList = result->numCountList;
+	map<unsigned, vector<double>>&numCountList = result->numCountList;
 	map<unsigned, SATCount>& count = result->count;
 	unsigned &hashCount = result->hashCount[jaccardHashCount];
 	map<unsigned, Lit> jaccardHashVars;
@@ -1715,12 +1727,12 @@ void seperate(vector<Lit> all, vector<Lit> &one, vector<Lit>&another, bool singl
 	assert(another.size() == one.size());
 }
 
-void JaccardMC::Jaccard2OneRound(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, SATSolver* solver = NULL)
+void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, SATSolver* solver = NULL)
 {
 	if (solver == NULL)
 		solver = solver;
 	map<unsigned, vector<unsigned>> &numHashList = result->numHashList;
-	map<unsigned, vector<int>>&numCountList = result->numCountList;
+	map<unsigned, vector<double>>&numCountList = result->numCountList;
 	map<unsigned, SATCount>& count = result->count;
 	unsigned &hashCount = result->hashCount[jaccardHashCount];
 	map<unsigned, Lit> jaccardHashVars;
@@ -1762,9 +1774,9 @@ void JaccardMC::Jaccard2OneRound(unsigned jaccardHashCount, JaccardResult* resul
 		addKey2Map(jaccardHashCount, numHashList, numCountList, count);
 		map<unsigned, int> countRecord;
 		map<unsigned, unsigned> succRecord;
-		vector<std::pair<unsigned, unsigned>>result3s;
+		vector<std::pair<unsigned, double>>result3s;
 		result3s.clear();
-		int ret = OneRoundFor3_simple(jaccardHashCount, result, mPrev, hashPrev, inJaccardAssumps, result3s, solver);
+		int ret = OneRoundForHatJ(jaccardHashCount, result, mPrev, hashPrev, inJaccardAssumps, result3s);
 		if (ret == -1) {
 			continue;
 		}
@@ -1806,7 +1818,7 @@ void JaccardMC::JaccardOneRound(unsigned jaccardHashCount, JaccardResult* result
 	if (solver == NULL)
 		solver = solver;
 	map<unsigned, vector<unsigned>> &numHashList = result->numHashList;
-	map<unsigned, vector<int>>&numCountList = result->numCountList;
+	map<unsigned, vector<double>>&numCountList = result->numCountList;
 	map<unsigned, SATCount>& count = result->count;
 	unsigned &hashCount = result->hashCount[jaccardHashCount];
 	map<unsigned, Lit> jaccardHashVars;
@@ -1911,14 +1923,14 @@ void JaccardMC::JaccardOneRound(unsigned jaccardHashCount, JaccardResult* result
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
 
-void JaccardMC::computeCountFromList(unsigned jaccardHashCount, map<unsigned, vector<unsigned>> &numHashList, map<unsigned, vector<int>>&numCountList, map<unsigned, SATCount>& count)
+void JaccardMC::computeCountFromList(unsigned jaccardHashCount, map<unsigned, vector<unsigned>> &numHashList, map<unsigned, vector<double>>&numCountList, map<unsigned, SATCount>& count)
 {
 	if (numHashList[jaccardHashCount].size() == 0) {
 		count[jaccardHashCount].cellSolCount = 0;
 		count[jaccardHashCount].hashCount = 0;
 	} else {
 		auto minHash = findMin(numHashList[jaccardHashCount]);
-		vector<int> numCountL = numCountList[jaccardHashCount];
+		vector<double> numCountL = numCountList[jaccardHashCount];
 		vector<unsigned> numHashL = numHashList[jaccardHashCount];
 		auto cnt_it = numCountL.begin();
 		for (auto hash_it = numHashL.begin()
@@ -1970,12 +1982,12 @@ void JaccardMC::setDiffOb()
 	solver->add_clause(assumps);
 }
 
-bool JaccardMC::Jaccard2ApproxMC(map<unsigned, SATCount>& count)
+bool JaccardMC::JaccardHatApproxMC(map<unsigned, SATCount>& count)
 {
 	count.clear();
 	int currentNumSolutions = 0;
 	map<unsigned, vector<unsigned>> numHashList;
-	map<unsigned, vector<int>> numCountList;
+	map<unsigned, vector<double>> numCountList;
 	JaccardResult result;
 	vector<Lit> assumps;
 	vector<Lit >jaccardAssumps, jaccardAssumps_lastZero;
@@ -2041,7 +2053,7 @@ bool JaccardMC::Jaccard2ApproxMC(map<unsigned, SATCount>& count)
 			}
 			if (debug)
 				std::cout << "j=" << j << "\n";
-			Jaccard2OneRound(singleIndex, &results[0], true, solver);
+			JaccardHatOneRound(singleIndex, &results[0], true, solver);
 			//	computeCountFromList(singleIndex,results[0].numHashList,results[0].numCountList,results[0].count);
 			results[0].searched[singleIndex] = true;
 			break;
@@ -2060,7 +2072,7 @@ bool JaccardMC::JaccardApproxMC(map<unsigned, SATCount>& count)
 	count.clear();
 	int currentNumSolutions = 0;
 	map<unsigned, vector<unsigned>> numHashList;
-	map<unsigned, vector<int>> numCountList;
+	map<unsigned, vector<double>> numCountList;
 	JaccardResult result;
 	vector<Lit> assumps;
 	vector<Lit >jaccardAssumps, jaccardAssumps_lastZero;
@@ -2150,7 +2162,7 @@ bool JaccardMC::ApproxMC(SATCount& count)
 	count.clear();
 	int currentNumSolutions = 0;
 	vector<unsigned> numHashList;
-	vector<int> numCountList;
+	vector<double> numCountList;
 	vector<Lit> assumps;
 	for (unsigned j = 0; j < tApproxMC; j++) {
 		unsigned hashCount;
@@ -2161,7 +2173,7 @@ bool JaccardMC::ApproxMC(SATCount& count)
 			currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps, solver);
 
 			//cout << currentNumSolutions << ", " << pivotApproxMC << endl;
-			cusp_logf << "ApproxMC:" << searchMode << ":"
+			LOGF << "ApproxMC:" << searchMode << ":"
 				<< j << ":" << hashCount << ":"
 				<< std::fixed << std::setprecision(2) << (cpuTimeTotal() - myTime) << ":"
 				<< (int) (currentNumSolutions == (pivotApproxMC + 1)) << ":"
@@ -2254,15 +2266,6 @@ void JaccardMC::solver_init()
 	if (original_independent_vars.size() > 0)
 		independent_vars = original_independent_vars;
 	int pos = 0;
-
-	if (jaccard_vars.size() == specifiedOb.size()) {
-		for (auto var : jaccard_vars) {
-			vector<Lit> assume;
-			assume.push_back(Lit(var, (specifiedOb[pos] == '1') ? false : true));
-			solver->add_clause(assume);
-			pos++;
-		}
-	}
 	if (is_diff) {
 		ob_vars = jaccard_vars;
 		ob_vars2 = jaccard_vars2;
@@ -2275,7 +2278,20 @@ void JaccardMC::solver_init()
 
 
 }
-
+void JaccardMC::readDFile(){
+	std::ifstream dfile;
+	dfile.open(dFilename);
+	string line;
+	int var;
+	double weight;
+	while(!dfile.eof()){
+		line.clear();
+		std::getline(dfile,line);
+		std::sscanf(line.c_str(),"%i %f", &var,&weight);
+		distribution[var]=weight;
+	}
+	dfile.close();
+}
 int JaccardMC::solve()
 {
 	if (!gauss_manual) {
@@ -2292,7 +2308,7 @@ int JaccardMC::solve()
 	assert(vm.count("random"));
 	unsigned int seed = vm["random"].as<unsigned int>();
 	randomEngine.seed(seed);
-
+	readDFile();
 	openLogFile();
 	startTime = cpuTimeTotal();
 	solver = new SATSolver((void*) &conf, &must_interrupt);
@@ -2357,7 +2373,7 @@ int JaccardMC::solve()
 	} else if (searchMode == 3)//jaccard F(c,s,o) xor F'(c,s',o)
 	{
 		map<unsigned, SATCount> solCounts;
-		finished = Jaccard2ApproxMC(solCounts);
+		finished = JaccardHatApproxMC(solCounts);
 		if (!finished) {
 
 			cout << " (TIMED OUT)" << endl;
@@ -2436,7 +2452,7 @@ void JaccardMC::call_after_parse()
 
 }
 
-bool JaccardMC::AddJaccard2Hash(unsigned num_xor_cls, vector<Lit>& assumps, SATSolver* solver)
+bool JaccardMC::SSetTwoHashSample(unsigned num_xor_cls, vector<Lit>& assumps, SATSolver* solver)
 {
 	int var_size = jaccard_vars.size();
 	jaccardXorRate = (jaccardXorRate > 0.5) ? 0.5 : jaccardXorRate;
@@ -2508,7 +2524,7 @@ bool JaccardMC::AddJaccard2Hash(unsigned num_xor_cls, vector<Lit>& assumps, SATS
 
 }
 
-bool JaccardMC::AddJaccardHash(unsigned num_xor_cls, vector<Lit>& assumps, vector<XorClause>& jaccardXorClause, SATSolver* solver)
+bool JaccardMC::SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, vector<XorClause>& jaccardXorClause, SATSolver* solver)
 {
 	int var_size = jaccard_vars.size();
 	jaccardXorRate = (jaccardXorRate > 0.5) ? 0.5 : jaccardXorRate;
@@ -2620,7 +2636,7 @@ void JaccardMC::SetJaccardHash(unsigned clausNum, std::map<unsigned, Lit>& hashV
 		}
 		if (clausNum > hashVars.size()) {
 
-			AddJaccardHash(clausNum - hashVars.size(), assumps, jaccardXorClause, solver);
+			SSetHashSample(clausNum - hashVars.size(), assumps, jaccardXorClause, solver);
 			for (unsigned i = hashVars.size(); i < clausNum; i++) {
 				hashVars[i] = assumps[i];
 			}
@@ -2647,7 +2663,7 @@ void JaccardMC::SetJaccard2Hash(unsigned clausNum, std::map<unsigned, Lit>& hash
 	assumps.clear();
 	if (debug > DEBUG_VAR_LEVEL)
 		std::cout << "jaccardxorrate=" << jaccardXorRate << "\n";
-	AddJaccard2Hash(clausNum - hashVars.size(), assumps, solver);
+	SSetTwoHashSample(clausNum - hashVars.size(), assumps, solver);
 	jaccardXorRate = originaljaccardXorRate;
 }
 
@@ -2656,7 +2672,6 @@ void JaccardMC::SetJaccard2Hash(unsigned clausNum, std::map<unsigned, Lit>& hash
 void JaccardMC::SetHash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, vector<Lit>& assumps, SATSolver* solver)
 {
 	double ratio = 0.5;
-	int parity = Parity;
 	if (test_func == 1 && (clausNum < attack_vars.size() - 1)) {
 		independent_vars0 = attack_vars;
 	} else {
@@ -2706,7 +2721,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 {
 	count.clear();
 	vector<unsigned> numHashList;
-	vector<int> numCountList;
+	vector<double> numCountList;
 	std::ofstream f;
 	std::ostringstream filename("");
 
@@ -2722,7 +2737,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 	if (hashCount == 0) {
 		vector<Lit> assumps;
 		int currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps, solver);
-		cusp_logf << "ApproxMC:" << searchMode << ":" << "0:0:"
+		LOGF << "ApproxMC:" << searchMode << ":" << "0:0:"
 			<< std::fixed << std::setprecision(2) << (cpuTimeTotal() - myTime) << ":"
 			<< (int) (currentNumSolutions == (pivotApproxMC + 1)) << ":"
 			<< currentNumSolutions << endl;
@@ -2765,7 +2780,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 			int currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps, solver);
 
 			//   cout << currentNumSolutions << ", " << pivotApproxMC << endl;
-			cusp_logf << "ApproxMC:" << searchMode << ":"
+			LOGF << "ApproxMC:" << searchMode << ":"
 				<< j << ":" << hashCount << ":"
 				<< std::fixed << std::setprecision(2) << (cpuTimeTotal() - myTime) << ":"
 				<< (currentNumSolutions == (int)(pivotApproxMC + 1)) << ":"
@@ -2870,7 +2885,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 			int currentNumSolutions = BoundedSATCount(pivotApproxMC + 1, assumps, solver);
 
 			cout << currentNumSolutions << ", " << pivotApproxMC << endl;
-			cusp_logf << "ApproxMC:" << searchMode << ":"
+			LOGF << "ApproxMC:" << searchMode << ":"
 				<< j << ":" << hashCount << ":"
 				<< std::fixed << std::setprecision(2) << (cpuTimeTotal() - myTime) << ":"
 				<< (unsigned) (currentNumSolutions == (pivotApproxMC + 1)) << ":"
