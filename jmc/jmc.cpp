@@ -460,6 +460,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTrue;
 					if(useWeight&&distribution.count(var)&&!isTrue){
 						wsolution+=distribution[var];
+						cout<<wsolution;
 					}else{
 						wsolution+=1;
 					}
@@ -1084,6 +1085,10 @@ retry:
 			if (next != hashCount) {
 				hashCount = next;
 			}
+			if(hashCount>upper|| hashCount<lower){
+				cerr<<"error hash count"<<hashCount;
+				break;
+			}
 			if (nSols.find(hashCount) == nSols.end()) {
 				SetHash(hashCount, hashVars, assumps, solver);
 				double myTime = cpuTimeTotal();
@@ -1095,6 +1100,7 @@ retry:
 					cout << ",time=" << (cpuTimeTotal() - myTime) << endl;
 			} else {
 				nSol = nSols[hashCount];
+				checksol=1;
 			}
 			if (debug > DEBUG_VAR_LEVEL)
 				cout << "hashCount=" << hashCount << "nSol=" << nSol << "\n";
@@ -1125,10 +1131,10 @@ retry:
 				next = (next > upper) ? ceil(1.0 * lower + upper) / 2 : next;
 				nSols.insert(std::pair<unsigned, unsigned>(hashCount, nSol));
 			} else {
-				if (nSol > 0)
+				if (checksol > 0)
 					notZero = true;
 				nSols.insert(std::pair<unsigned, unsigned>(hashCount, nSol));
-				if (nSol * 1.3 > pivot) {
+				if (checksol * 1.3 > pivot) {
 					lower = hashCount;
 					upper = hashCount;
 					break;
@@ -1142,7 +1148,7 @@ retry:
 		if (notZero && (nSol == 0)) {
 			for (auto one : nSols) {
 				if (one.second > 0) {
-					if ((one.first > nSol)&&(one.first <= pivot)) {
+					if ((one.first > nSol)&&(one.second<hashCount)) {
 						hashCount = one.second;
 						nSol = one.first;
 					}
