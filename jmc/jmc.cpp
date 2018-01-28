@@ -456,7 +456,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						lits.push_back(Lit(var, isTrue));
 						pushlit2Sols(sols, isTrue ? "1" : "0");
 						pushlit2Sols(fullsols, isTrue ? "1" : "0");
-						cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTruesssssss;
+						//cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTrue;
 					if(useWeight&&distribution.count(var)&&isTrue){
 						cout<<"weighted";
 						wsolution+=distribution[var];
