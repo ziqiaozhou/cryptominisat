@@ -449,6 +449,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 					}
 				}
 			} else {
+				double addw=1;
 				for (unsigned i = 0; i < independent_vars.size(); ++i) {
 					unsigned var = independent_vars[i];
 					if (solver->get_model()[var] != l_Undef) {
@@ -456,21 +457,15 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						lits.push_back(Lit(var, isTrue));
 						pushlit2Sols(sols, isTrue ? "1" : "0");
 						pushlit2Sols(fullsols, isTrue ? "1" : "0");
-					if(distribution.count(var))
-						cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTrue;
-					if(useWeight&&distribution.count(var)&&!isTrue){
-						wsolution+=distribution[var];
-						cout<<wsolution;
-					}else{
-						wsolution+=1;
-					}
+					if (distribution.count(var))
+						addw=distribution[var];
 					} else {
 						pushlit2Sols(sols, "*");
 						num_undef++;
 					}
 					
 				}
-
+				wsolution+=addw;
 			}
 			if (nCounterExamples < MAX_EXAMPLES) {
 				for (unsigned i = 0; i < jaccard_vars.size(); ++i) {
@@ -1909,7 +1904,7 @@ void JaccardMC::JaccardOneRound(unsigned jaccardHashCount, JaccardResult* result
 		}
 		std::ofstream f;
 		std::ostringstream filename("");
-				filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t0";
+		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t0";
 		f.open(filename.str(), std::ofstream::out | std::ofstream::app);
 		for (int i = 0; i < scount0.size() && i < scount1.size() && i < scount2.size(); ++i) {
 			f << scount0.str(i) << "\t" << scount1.str(i) << "\t" << scount2.str(i) << "\n";
