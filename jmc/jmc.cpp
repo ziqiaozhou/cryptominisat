@@ -456,17 +456,18 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						lits.push_back(Lit(var, isTrue));
 						pushlit2Sols(sols, isTrue ? "1" : "0");
 						pushlit2Sols(fullsols, isTrue ? "1" : "0");
-					} else {
-						pushlit2Sols(sols, "*");
-						num_undef++;
-					}
-					cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTruesssssss;
+						cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTruesssssss;
 					if(useWeight&&distribution.count(var)&&isTrue){
 						cout<<"weighted";
 						wsolution+=distribution[var];
 					}else{
 						wsolution+=1;
 					}
+					} else {
+						pushlit2Sols(sols, "*");
+						num_undef++;
+					}
+					
 				}
 
 			}
