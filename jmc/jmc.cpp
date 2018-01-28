@@ -1325,7 +1325,7 @@ TOO_SMALL_ENTRY:
 		if (resultIndex == 0) {
 			std::ofstream f;
 			std::ostringstream filename("");
-			//			filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+					filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t0";
 			f.open(filename.str(), std::ofstream::out | std::ofstream::app);
 			unsigned i = scounts[0].size();
 			if (i > 0) {
@@ -1789,7 +1789,7 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 				merge(numCountList[jaccardHashCount],scount0.numCountList);*/
 		std::ofstream f;
 		std::ostringstream filename("");
-		//		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+		filename<<outPrefix<<"count_j"<<jaccardHashCount;
 		f.open(filename.str(), std::ofstream::out | std::ofstream::app);
 		for (int i = 0; i < result3s.size(); ++i) {
 			f << result3s[i].second << "*2^" << result3s[i].first << "\t";
@@ -1896,7 +1896,7 @@ void JaccardMC::JaccardOneRound(unsigned jaccardHashCount, JaccardResult* result
 		}
 		std::ofstream f;
 		std::ostringstream filename("");
-		//		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+				filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t0";
 		f.open(filename.str(), std::ofstream::out | std::ofstream::app);
 		for (int i = 0; i < scount0.size() && i < scount1.size() && i < scount2.size(); ++i) {
 			f << scount0.str(i) << "\t" << scount1.str(i) << "\t" << scount2.str(i) << "\n";
@@ -2005,7 +2005,7 @@ bool JaccardMC::JaccardHatApproxMC(map<unsigned, SATCount>& count)
 		cerr << "unsat, cannot counting";
 		std::ofstream f;
 		std::ostringstream filename("");
-		//		filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t"<<omp_get_thread_num();
+			filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t0";
 		f.open(filename.str(), std::ofstream::out | std::ofstream::app);
 		for (int i = 0; i < 3; ++i) {
 			f << 0 << "*2^" << 0 << "\t";
@@ -2416,12 +2416,6 @@ int JaccardMC::solve()
 
 int main(int argc, char** argv)
 {
-#if defined(__GNUC__) && defined(__linux__)
-	feenableexcept(FE_INVALID |
-		FE_DIVBYZERO |
-		FE_OVERFLOW
-		);
-#endif
 
 #ifndef USE_GAUSS
 	std::cerr << "CUSP only makes any sese to run if you have configured with:" << endl
@@ -2725,7 +2719,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 	std::ofstream f;
 	std::ostringstream filename("");
 
-	//	filename<<outPrefix<<"count_"<<specifiedOb<<"_t"<<omp_get_thread_num();
+	filename<<outPrefix<<"count_"<<specifiedOb<<"_t0";
 
 
 
