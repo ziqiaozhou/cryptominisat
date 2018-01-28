@@ -2287,8 +2287,7 @@ void JaccardMC::readDFile(){
 	double weight;
 	distribution[89]=4;
 	while(std::getline(dfile,line)){
-		
-		std::sscanf(line.c_str(),"%d %f", &var,&weight);
+		std::sscanf(line.c_str(),"%d,%f", &var,&weight);
 		std::cout<<line<<"->"<<var<<":"<<weight<<"\n";
 		distribution[var]=weight;
 		line.clear();
