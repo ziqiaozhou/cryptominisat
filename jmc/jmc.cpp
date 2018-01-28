@@ -457,8 +457,11 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						lits.push_back(Lit(var, isTrue));
 						pushlit2Sols(sols, isTrue ? "1" : "0");
 						pushlit2Sols(fullsols, isTrue ? "1" : "0");
-						if (distribution.count(var)&& isTrue)
-							addw=distribution[var];
+						if (distribution.count(var)){
+							addw=isTrue?distribution[var]:1;
+							if(debug)
+								cout<<"get a dis:"<<var<<",w="<<addw<<"\n:w";
+						}
 					} else {
 						pushlit2Sols(sols, "*");
 						num_undef++;
