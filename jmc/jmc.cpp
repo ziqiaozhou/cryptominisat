@@ -456,9 +456,9 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						lits.push_back(Lit(var, isTrue));
 						pushlit2Sols(sols, isTrue ? "1" : "0");
 						pushlit2Sols(fullsols, isTrue ? "1" : "0");
-						//cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTrue;
+					if(distribution.count(var))
+						cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTrue;
 					if(useWeight&&distribution.count(var)&&isTrue){
-						cout<<"weighted";
 						wsolution+=distribution[var];
 					}else{
 						wsolution+=1;
@@ -1069,7 +1069,7 @@ retry:
 			if (checksol > (int)pivot)
 				hashCount = lower + 1;
 			else {
-				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
+				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, nSol));
 				continue;
 			}
 		}
@@ -1127,7 +1127,7 @@ retry:
 			} else {
 				if (nSol > 0)
 					notZero = true;
-				nSols.insert(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
+				nSols.insert(std::pair<unsigned, unsigned>(hashCount, nSol));
 				if (nSol * 1.3 > pivot) {
 					lower = hashCount;
 					upper = hashCount;
@@ -2291,7 +2291,7 @@ void JaccardMC::readDFile(){
 	string line;
 	int var;
 	float weight=4;
-	distribution[89]=4;
+	//distribution[89]=4;
 	while(std::getline(dfile,line)){
 		std::sscanf(line.c_str(),"%d,%f", &var,&weight);
 		std::cout<<line.c_str()<<"->"<<var<<":"<<weight<<"\n";
