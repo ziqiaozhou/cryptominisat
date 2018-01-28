@@ -65,7 +65,7 @@ public:
         std::ostringstream out("");
         if (i < (int) numHashList.size())
             out << numCountList[i] << "*2^" << numHashList[i];
-        cout<<"str(count)="<<numCountList[i]<<"\n";
+        std::cout<<"str(count)="<<numCountList[i]<<"\n";
         return out.str();
     }
 
