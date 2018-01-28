@@ -410,7 +410,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 	double start_time = cpuTime();
 	unsigned solutions = 0;
 	lbool ret;
-
+	wsolution=0;
 	int count_exclude = 0;
 	while (solutions < maxSolutions) {
 		double this_iter_timeout = loopTimeout - (cpuTime() - start_time);
@@ -1054,8 +1054,9 @@ retry:
 			printVars(jaccardAssumps[resultIndex]);
 		if (hashCount == 0) {
 			SetHash(hashCount, hashVars, assumps, solver);
-			nSol = BoundedSATCount(pivot + 1, assumps, jaccardAssumps[resultIndex], resultIndex, solver);
-			if (nSol == 0) {
+			int checksol = BoundedSATCount(pivot + 1, assumps, jaccardAssumps[resultIndex], resultIndex, solver);
+			nSol=wsolution;
+			if (checksol == 0) {
 				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
 				if (debug > DEBUG_VAR_LEVEL)
 					cout << "nSol=0\n";
@@ -1065,7 +1066,7 @@ retry:
 					continue;
 				}
 			}
-			if (nSol > (int)pivot)
+			if (checksol > (int)pivot)
 				hashCount = lower + 1;
 			else {
 				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
@@ -1078,6 +1079,7 @@ retry:
 		map<unsigned, unsigned> nSols;
 		bool notZero = false;
 		int timeoutcount = 0;
+		int checksol =1;
 		while (upper - lower > 0) {
 			if (next != hashCount) {
 				hashCount = next;
@@ -1087,7 +1089,8 @@ retry:
 				double myTime = cpuTimeTotal();
 				if (debug)
 					cout << "hashCount" << hashCount << "assumps.size=" << assumps.size();
-				nSol = BoundedSATCount(pivot + 1, assumps, jaccardAssumps[resultIndex], resultIndex, solver);
+				checksol= BoundedSATCount(pivot + 1, assumps, jaccardAssumps[resultIndex], resultIndex, solver);
+				nSol=wsolution;
 				if (debug)
 					cout << ",time=" << (cpuTimeTotal() - myTime) << endl;
 			} else {
@@ -1095,7 +1098,7 @@ retry:
 			}
 			if (debug > DEBUG_VAR_LEVEL)
 				cout << "hashCount=" << hashCount << "nSol=" << nSol << "\n";
-			if (nSol == -1) {
+			if (checksol == -1) {
 				if (debug)
 					cout << "timeout";
 				if (timeoutcount > 2 || CountOnOut < 1)//return -1 if timeout>=3 for one hashCount
@@ -1115,7 +1118,7 @@ retry:
 				continue;
 			}
 			timeoutcount = 0;
-			if (nSol > pivot) {
+			if (checksol > pivot) {
 				notZero = true;
 				lower = hashCount + 1;
 				next = hashCount * 2;
@@ -1124,7 +1127,7 @@ retry:
 			} else {
 				if (nSol > 0)
 					notZero = true;
-				nSols.insert(std::pair<unsigned, unsigned>(hashCount, nSol));
+				nSols.insert(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
 				if (nSol * 1.3 > pivot) {
 					lower = hashCount;
 					upper = hashCount;
