@@ -458,7 +458,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						pushlit2Sols(fullsols, isTrue ? "1" : "0");
 					if(distribution.count(var))
 						cout<<"weighted"<<useWeight<<"dis:"<<distribution.count(var)<<"isTrue"<<isTrue;
-					if(useWeight&&distribution.count(var)&&isTrue){
+					if(useWeight&&distribution.count(var)&&!isTrue){
 						wsolution+=distribution[var];
 					}else{
 						wsolution+=1;
@@ -694,7 +694,7 @@ void SATCount::summarize()
 		int this_cnt = pow(2, (*hash_it) - minHash);
 		*cnt_it *= this_cnt;
 	}
-	int medSolCount = findMedian(cnt_list);
+	double medSolCount = findMedian(cnt_list);
 	cellSolCount = medSolCount;
 	hashCount = minHash;
 }
@@ -1034,7 +1034,7 @@ retry:
 			hashVars.clear();
 		}
 		if (onlyLast && resultIndex < 2) {
-			scounts.push_back(std::pair<unsigned, unsigned>(0, 1));
+			scounts.push_back(std::pair<unsigned, double>(0, 1));
 			continue;
 		}
 		if (solver == NULL) {
@@ -1057,7 +1057,7 @@ retry:
 			int checksol = BoundedSATCount(pivot + 1, assumps, jaccardAssumps[resultIndex], resultIndex, solver);
 			nSol=wsolution;
 			if (checksol == 0) {
-				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, useWeight?wsolution:nSol));
+				scounts.push_back(std::pair<unsigned, double>(hashCount, useWeight?wsolution:nSol));
 				if (debug > DEBUG_VAR_LEVEL)
 					cout << "nSol=0\n";
 				if (resultIndex < 2)
@@ -1069,7 +1069,7 @@ retry:
 			if (checksol > (int)pivot)
 				hashCount = lower + 1;
 			else {
-				scounts.push_back(std::pair<unsigned, unsigned>(hashCount, nSol));
+				scounts.push_back(std::pair<unsigned, double>(hashCount, nSol));
 				continue;
 			}
 		}
@@ -1165,7 +1165,7 @@ retry:
 		if (nSol == 0 && (resultIndex < 2 || onlyLast)) {
 			return -1;
 		}
-		scounts.push_back(std::pair<unsigned, unsigned>(hashCount, nSol));
+		scounts.push_back(std::pair<unsigned, double>(hashCount, nSol));
 	}
 	return 0;
 }
