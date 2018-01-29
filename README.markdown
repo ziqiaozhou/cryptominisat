@@ -1,5 +1,9 @@
-CryptoMiniSat SAT solver
+JMC 
 ===========================================
+refer to https://github.com/ziqiaozhou/cryptominisat/wiki
+
+CryptoMiniSat SAT solver
+============================================
 
 This system provides CryptoMiniSat, an advanced SAT solver. The system has 3
 interfaces: command-line, C++ library and python. The command-line interface
