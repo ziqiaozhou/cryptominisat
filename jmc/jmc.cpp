@@ -117,8 +117,8 @@ void JaccardMC::add_approxmc_options()
 		, "default =1(0-1), sparse xor can speed up, but may lose precision.VarXorRate * jaccard_size() ")
 		("printXor", po::value(&printXor)->default_value(0), "default(false)")
 		("trimOnly", po::value(&trimOnly)->default_value(0), "just trim variables and not solving, default(false)")
-		("onlyOne", po::value(&onlyOne)->default_value(0), "only count one subset default(false)")
-		("onlyLast", po::value(&onlyLast)->default_value(0), "only count one subset default(false)")
+		("onlyOne", po::value(&onlyOne)->default_value(0), "only count #<C,O > for one set S, default(false)")
+		("onlyLast", po::value(&onlyLast)->default_value(0), "directly count intersection set instead of two sets separately, default(false)")
 		("tApproxMC", po::value(&tApproxMC)->default_value(tApproxMC)
 		, "Number of measurements")
 		("tJaccardMC", po::value(&tJaccardMC)->default_value(tJaccardMC)
@@ -139,7 +139,7 @@ void JaccardMC::add_approxmc_options()
 		"debug"
 		"default:false")
 		("JaccardIndex", po::value(&singleIndex)->default_value(singleIndex),
-		"jaccard index=log(|S|/n)"
+		"jaccard index=log(n/|S|)"
 		"choose one otherwise use max")
 		("test", po::value(&test_func)->default_value(0), "(Not Valid)test new feature, 0->default, 1-> hash attack first then ob")
 		("diff", po::value(&is_diff)->default_value(0), "diff creation, let ob diff, ob is jac")
@@ -1673,8 +1673,12 @@ void JaccardMC::JaccardOneRoundFor3(unsigned jaccardHashCount, JaccardResult* re
 		//	int checkSAT = BoundedSATCount(pivotApproxMC+1,assumps,jaccardAssumps);
 		lbool ret1 = solver->solve(&jaccardAssumps_lastZero);
 		lbool ret2 = solver->solve(&jaccardAssumps);
-		if (ret1 != l_True || ret2 != l_True)
+		if (ret1 != l_True || ret2 != l_True){
+			if(debug>DEBUG_HASH_LEVEL){
+				cout<<"Unsatisfiable using this hash constraint";
+			}
 			continue;
+		}
 
 		SATCount scount0, scount1, scount2, scount3, scount4, scount5;
 		JaccardResult result0, result1;
@@ -1718,7 +1722,7 @@ void JaccardMC::JaccardOneRoundFor3(unsigned jaccardHashCount, JaccardResult* re
 	//	cout<<"load to back, nVar="<<solver->nVars();
 }
 
-void seperate(vector<Lit> all, vector<Lit> &one, vector<Lit>&another, bool single)
+void separate(vector<Lit> all, vector<Lit> &one, vector<Lit>&another, bool single)
 {
 	Lit it;
 	if (all.size() <= 0 || all.size() % 2 != 0) {
@@ -1759,17 +1763,20 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 		rightAssumps.clear();
 		SetJaccard2Hash(jaccardHashCount, jaccardHashVars, jaccardAssumps, solver);
 		bool is_single = (jaccardHashCount == jaccard_vars.size()&&(!notSampled));
-		seperate(jaccardAssumps, leftAssumps, rightAssumps, is_single);
+		separate(jaccardAssumps, leftAssumps, rightAssumps, is_single);
 		lbool ret1 = solver->solve(&leftAssumps);
 		unsigned x = (rightAssumps.back().toInt() - 1) / 2;
-
 		rightAssumps.pop_back();
-
 		rightAssumps.push_back(Lit(x, false));
 		lbool ret2 = solver->solve(&rightAssumps);
 		if (ret1 != l_True || ret2 != l_True)
-			continue;
+		{
+			if(debug>DEBUG_HASH_LEVEL){
+				cout<<"Unsatisfiable using this hash constraint";
+			}
 
+			continue;
+		}
 		if (!is_single) {
 			leftAssumps.pop_back();
 			rightAssumps.pop_back();
@@ -1777,7 +1784,6 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 		inJaccardAssumps.push_back(leftAssumps);
 		inJaccardAssumps.push_back(rightAssumps);
 		inJaccardAssumps.push_back(jaccardAssumps);
-
 		if (jaccardAssumps.size() == 0)
 			onlyLast = true;
 		//	solver->simplify(&jaccardAssumps);
@@ -1940,23 +1946,21 @@ void JaccardMC::computeCountFromList(unsigned jaccardHashCount, map<unsigned, ve
 		count[jaccardHashCount].cellSolCount = 0;
 		count[jaccardHashCount].hashCount = 0;
 	} else {
-		auto minHash = findMin(numHashList[jaccardHashCount]);
+
 		vector<double> numCountL = numCountList[jaccardHashCount];
 		vector<unsigned> numHashL = numHashList[jaccardHashCount];
+		auto minHash = findMin(numHashL);
 		auto cnt_it = numCountL.begin();
 		for (auto hash_it = numHashL.begin()
 			; hash_it != numHashL.end() && cnt_it != numCountL.end()
 			; hash_it++, cnt_it++
 			) {
-			if (debug)
-				cout << *hash_it << "minhash=" << minHash;
 			if (*hash_it - minHash)
 				*cnt_it *= pow(2, (*hash_it) - minHash);
 			else
 				*cnt_it = 1;
 		}
 		int medSolCount = findMedian(numCountL);
-
 		count[jaccardHashCount].hashCount = minHash;
 		count[jaccardHashCount].cellSolCount = medSolCount;
 		/*double all;
@@ -2153,7 +2157,7 @@ bool JaccardMC::JaccardApproxMC(map<unsigned, SATCount>& count)
 			computeCountFromList(singleIndex, results[0].numHashList, results[0].numCountList, results[0].count);
 			computeCountFromList(singleIndex - 1, results[0].numHashList, results[0].numCountList, results[0].count);
 			results[0].searched[singleIndex] = true;
-			break;
+			/*
 			cout << "====0 retry singleIndex" << endl;
 			if (retryJaccardSingle > 5) {
 				retryJaccardSingle = 0;
@@ -2161,7 +2165,7 @@ bool JaccardMC::JaccardApproxMC(map<unsigned, SATCount>& count)
 				j--;
 				break;
 			}
-			retryJaccardSingle++;
+			retryJaccardSingle++;*/
 		}
 	}
 
@@ -2551,6 +2555,7 @@ bool JaccardMC::SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, vecto
 		vars.clear();
 		vars.push_back(act_var);
 		rhs = (randomBits_rhs[i] == '1');
+		cout<<"\nhash S:";
 		for (unsigned k = 0; k < var_size; k++) {
 			if (randomBits[var_size * i + k] == '1') {
 				vars.push_back(jaccard_vars[k]);
@@ -2566,7 +2571,6 @@ bool JaccardMC::SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, vecto
 			solver->add_xor_clause(vars, rhs);
 		XorClause xc(vars, rhs);
 		jaccardXorClause.push_back(xc);
-
 	}
 	return true;
 
@@ -2672,7 +2676,7 @@ void JaccardMC::SetJaccard2Hash(unsigned clausNum, std::map<unsigned, Lit>& hash
 	//if (conf.verbosity)
 	assumps.clear();
 	if (debug > DEBUG_VAR_LEVEL)
-		std::cout << "jaccardxorrate=" << jaccardXorRate << "\n";
+		std::cout << "set jaccard2hash: jaccardxorrate=" << jaccardXorRate << "\n";
 	SSetTwoHashSample(clausNum - hashVars.size(), assumps, solver);
 	jaccardXorRate = originaljaccardXorRate;
 }
