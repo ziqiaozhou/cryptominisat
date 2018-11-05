@@ -22,10 +22,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 static const unsigned chunk_limit = 148576;
 
-#ifdef USE_ZLIB
-#include <zlib.h>
-typedef size_t(*fread_op_zip)(void*, size_t, size_t, gzFile);
-#endif
 #include <stdio.h>
 #include <iostream>
 #include <iomanip>
@@ -33,18 +29,48 @@ typedef size_t(*fread_op_zip)(void*, size_t, size_t, gzFile);
 #include <string>
 #include <memory>
 
-//A = gzFile, FILE
-//B = fread, gz_read
-typedef size_t(*fread_op_norm)(void*, size_t, size_t, FILE*);
+#ifdef USE_ZLIB
+#include <zlib.h>
+struct GZ {
+    static inline int read(void* buf, size_t num, size_t count, gzFile f)
+    {
+        return gzread(f, buf, num*count);
+    }
+};
+#endif
 
-template<typename A, typename B, B C>
+struct FN {
+    static inline int read(void* buf, size_t num, size_t count, FILE* f)
+    {
+        return fread(buf, num, count, f);
+    }
+};
+
+struct CH {
+    static inline int read(void* buf, size_t num, size_t count, const char*& f)
+    {
+        int toread = num*count;
+        char* mybuf = (char*)buf;
+
+        int read = 0;
+        while(*f != 0 && read < toread) {
+            *mybuf = *f;
+            mybuf++;
+            f++;
+            read++;
+        }
+        return read;
+    }
+};
+
+template<typename A, typename B>
 class StreamBuffer
 {
     A  in;
     void assureLookahead() {
         if (pos >= size) {
             pos  = 0;
-            size = C(buf.get(), 1, chunk_limit, in);
+            size = B::read(buf.get(), 1, chunk_limit, in);
         }
     }
     int     pos;
@@ -126,7 +152,7 @@ public:
         exit(-1);
     }
 
-    bool parseInt(int32_t& ret, size_t lineNum, bool allow_eol = false)
+    inline bool parseInt(int32_t& ret, size_t lineNum, bool allow_eol = false)
     {
         int32_t val = 0;
         int32_t mult = 1;

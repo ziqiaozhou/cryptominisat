@@ -20,8 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ***********************************************/
 
-#ifndef _SOLVE_FEATURES_H_
-#define _SOLVE_FEATURES_H_
+#ifndef SOLVE_FEATURES_H_
+#define SOLVE_FEATURES_H_
 
 #include <limits>
 #include <cstdint>
@@ -42,7 +42,6 @@ struct SolveFeatures
 
     //Clause distribution
     double binary = 0;
-    double trinary = 0;
     double horn = 0;
     double horn_mean = 0;
     double horn_std = 0;
@@ -85,7 +84,6 @@ struct SolveFeatures
     double num_resolutions_min = 0.0;
     double num_resolutions_max = 0.0;
     double learnt_bins_per_confl = 0;
-    double learnt_tris_per_confl = 0;
 
     //Search
     double avg_branch_depth = 0.0;
@@ -120,4 +118,4 @@ struct SolveFeatures
 
 }
 
-#endif //_SOLVE_FEATURES_H_
+#endif //SOLVE_FEATURES_H_

@@ -66,78 +66,6 @@ void ClauseCleaner::clean_binary_implicit(
     }
 }
 
-void ClauseCleaner::clean_tertiary_implicit(
-    Watched& ws
-    , Watched*& j
-    , const Lit lit
-) {
-    bool remove = false;
-
-    //Satisfied?
-    if (solver->value(lit) == l_True
-        || solver->value(ws.lit2()) == l_True
-        || solver->value(ws.lit3()) == l_True
-    ) {
-        remove = true;
-    }
-
-    //Shortened -- attach bin, but only *once*
-    Lit lits[2];
-    bool needAttach = false;
-    if (!remove
-        && solver->value(lit) == l_False
-    ) {
-        if (lit < ws.lit2()) {
-            lits[0] = ws.lit2();
-            lits[1] = ws.lit3();
-            needAttach = true;
-        }
-        remove = true;
-    }
-    if (!remove
-        && solver->value(ws.lit2()) == l_False
-    ) {
-        if (lit < ws.lit2()) {
-            lits[0] = lit;
-            lits[1] = ws.lit3();
-            needAttach = true;
-        }
-        remove = true;
-    }
-    if (!remove
-        && solver->value(ws.lit3()) == l_False
-    ) {
-        if (lit < ws.lit2()) {
-            lits[0] = lit;
-            lits[1] = ws.lit2();
-            needAttach = true;
-        }
-        remove = true;
-    }
-    if (needAttach) {
-        impl_data.toAttach.push_back(BinaryClause(lits[0], lits[1], ws.red()));
-        (*solver->drat) << lits[0] << lits[1] << fin;
-    }
-
-    if (remove) {
-        //Drat
-        if (//Only remove once --> exactly when adding
-            lit < ws.lit2()
-            && ws.lit2() < ws.lit3()
-        ) {
-            (*solver->drat)
-            << del << lit << ws.lit2() << ws.lit3() << fin;
-        }
-
-        if (ws.red())
-            impl_data.remLTri++;
-        else
-            impl_data.remNonLTri++;
-    } else {
-        *j++ = ws;
-    }
-}
-
 void ClauseCleaner::clean_implicit_watchlist(
     watch_subarray& watch_list
     , const Lit lit
@@ -149,22 +77,21 @@ void ClauseCleaner::clean_implicit_watchlist(
             *j++ = *i;
             continue;
         }
-        assert(!solver->drat->something_delayed());
 
         if (i->isBin()) {
             clean_binary_implicit(*i, j, lit);
             continue;
         }
-
-        assert(i->isTri());
-        clean_tertiary_implicit(*i, j, lit);
     }
     watch_list.shrink_(i - j);
 }
 
 void ClauseCleaner::clean_implicit_clauses()
 {
-    assert(!solver->drat->something_delayed());
+    if (solver->conf.verbosity > 15) {
+        cout << "c cleaning implicit clauses" << endl;
+    }
+
     assert(solver->decisionLevel() == 0);
     impl_data = ImplicitData();
     size_t wsLit = 0;
@@ -193,22 +120,14 @@ void ClauseCleaner::clean_implicit_clauses()
     #endif
 }
 
-void ClauseCleaner::clean_clauses(vector<ClOffset>& cs)
-{
-    clean_clauses_pre();
-    clean_clauses_inter(cs);
-    clean_clauses_post();
-}
-
 void ClauseCleaner::clean_clauses_inter(vector<ClOffset>& cs)
 {
-    assert(!solver->drat->something_delayed());
     assert(solver->decisionLevel() == 0);
     assert(solver->prop_at_head());
 
-    #ifdef VERBOSE_DEBUG
-    cout << "Cleaning  clauses" << endl;
-    #endif //VERBOSE_DEBUG
+    if (solver->conf.verbosity > 15) {
+        cout << "Cleaning clauses in vector<>" << endl;
+    }
 
     vector<ClOffset>::iterator s, ss, end;
     size_t at = 0;
@@ -245,10 +164,16 @@ void ClauseCleaner::clean_clauses_inter(vector<ClOffset>& cs)
 
 inline bool ClauseCleaner::clean_clause(Clause& cl)
 {
-    assert(!solver->drat->something_delayed());
-    assert(cl.size() > 3);
+    assert(cl.size() > 2);
     (*solver->drat) << deldelay << cl << fin;
 
+    #ifdef SLOW_DEBUG
+    uint32_t num_false_begin = 0;
+    Lit l1 = cl[0];
+    Lit l2 = cl[1];
+    num_false_begin += solver->value(cl[0]) == l_False;
+    num_false_begin += solver->value(cl[1]) == l_False;
+    #endif
 
     Lit *i, *j, *end;
     uint32_t num = 0;
@@ -266,18 +191,31 @@ inline bool ClauseCleaner::clean_clause(Clause& cl)
     }
     if (i != j) {
         cl.shrink(i-j);
-        (*solver->drat) << cl << fin << findelay;
+        (*solver->drat) << add << cl
+        #ifdef STATS_NEEDED
+        << solver->sumConflicts
+        #endif
+        << fin << findelay;
     } else {
         solver->drat->forget_delay();
     }
 
     assert(cl.size() > 1);
+    assert(solver->value(cl[0]) == l_Undef);
+    assert(solver->value(cl[1]) == l_Undef);
+
+    #ifdef SLOW_DEBUG
+    //no l_True, so first 2 of orig must have been l_Undef
+    if (num_false_begin != 0) {
+        cout << "val " << l1 << ":" << solver->value(l1) << endl;
+        cout << "val " << l2 << ":" << solver->value(l2) << endl;
+    }
+    assert(num_false_begin == 0 && "Propagation wasn't full? Watch lit was l_False and clause wasn't satisfied");
+    #endif
+
     if (i != j) {
         if (cl.size() == 2) {
             solver->attach_bin_clause(cl[0], cl[1], cl.red());
-            return true;
-        } else if (cl.size() == 3) {
-            solver->attach_tri_clause(cl[0], cl[1], cl[2], cl.red());
             return true;
         } else {
             if (cl.red()) {
@@ -285,8 +223,6 @@ inline bool ClauseCleaner::clean_clause(Clause& cl)
             } else {
                 solver->litStats.irredLits -= i-j;
             }
-            assert(solver->value(cl[0]) == l_Undef);
-            assert(solver->value(cl[1]) == l_Undef);
         }
     }
 
@@ -298,7 +234,7 @@ bool ClauseCleaner::satisfied(const Clause& cl) const
     for (uint32_t i = 0; i != cl.size(); i++)
         if (solver->value(cl[i]) == l_True)
             return true;
-        return false;
+    return false;
 }
 
 void ClauseCleaner::ImplicitData::update_solver_stats(Solver* solver)
@@ -311,12 +247,8 @@ void ClauseCleaner::ImplicitData::update_solver_stats(Solver* solver)
 
     assert(remNonLBin % 2 == 0);
     assert(remLBin % 2 == 0);
-    assert(remNonLTri % 3 == 0);
-    assert(remLTri % 3 == 0);
     solver->binTri.irredBins -= remNonLBin/2;
     solver->binTri.redBins -= remLBin/2;
-    solver->binTri.irredTris -= remNonLTri/3;
-    solver->binTri.redTris -= remLTri/3;
 }
 
 void ClauseCleaner::clean_clauses_pre()
@@ -337,6 +269,8 @@ void ClauseCleaner::clean_clauses_post()
 void ClauseCleaner::remove_and_clean_all()
 {
     double myTime = cpuTime();
+    assert(solver->okay());
+    assert(solver->prop_at_head());
 
     clean_implicit_clauses();
 
@@ -359,12 +293,18 @@ void ClauseCleaner::remove_and_clean_all()
     ) {
         const Lit lit = Lit::toLit(wsLit);
         if (solver->value(lit) != l_Undef) {
-            assert((*it).empty());
+            if (!it->empty()) {
+                cout << "ERROR watches size: " << it->size() << endl;
+                for(const auto& w: *it) {
+                    cout << "ERROR w: " << w << endl;
+                }
+            }
+            assert(it->empty());
         }
     }
     #endif
 
-    if (solver->conf.verbosity) {
+    if (solver->conf.verbosity >= 2) {
         cout
         << "c [clean] T: "
         << std::fixed << std::setprecision(4)
@@ -419,25 +359,29 @@ bool ClauseCleaner::clean_xor_clauses(vector<Xor>& xors)
     }
     #endif
 
-    size_t i = 0;
-    size_t j = 0;
-    for(size_t size = xors.size(); i < size; i++) {
-        Xor& x = xors[i];
-        const bool keep = clean_one_xor(x);
-        if (!solver->ok) {
-            return false;
-        }
+    size_t last_trail = std::numeric_limits<size_t>::max();
+    while(last_trail != solver->trail_size()) {
+        last_trail = solver->trail_size();
+        size_t i = 0;
+        size_t j = 0;
+        for(size_t size = xors.size(); i < size; i++) {
+            Xor& x = xors[i];
+            const bool keep = clean_one_xor(x);
+            if (!solver->ok) {
+                return false;
+            }
 
-        if (keep) {
-            xors[j++] = x;
+            if (keep) {
+                xors[j++] = x;
+            }
         }
-    }
-    xors.resize(j);
+        xors.resize(j);
 
-    #ifdef VERBOSE_DEBUG
-    for(Xor& x : xors) {
-        cout << "cleaned XOR: " << x << endl;
+        #ifdef VERBOSE_DEBUG
+        for(Xor& x : xors) {
+            cout << "cleaned XOR: " << x << endl;
+        }
+        #endif
     }
-    #endif
-    return solver->ok;
+    return solver->okay();
 }

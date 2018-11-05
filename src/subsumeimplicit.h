@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include "solvertypes.h"
 #include "cloffset.h"
 #include "watcharray.h"
+#include "touchlist.h"
 
 namespace CMSat {
 
@@ -40,8 +41,11 @@ class Clause;
 class SubsumeImplicit
 {
 public:
-    SubsumeImplicit(Solver* solver);
+    explicit SubsumeImplicit(Solver* solver);
     void subsume_implicit(bool check_stats = true);
+    uint32_t subsume_at_watch(const uint32_t at,
+                              int64_t *timeAvail,
+                              TouchList* touched = NULL);
 
     struct Stats {
         void clear()
@@ -56,9 +60,6 @@ public:
         uint64_t numCalled = 0;
         uint64_t time_out = 0;
         uint64_t remBins = 0;
-        uint64_t remTris = 0;
-        uint64_t stampTriRem = 0;
-        uint64_t cacheTriRem = 0;
         uint64_t numWatchesLooked = 0;
     };
     Stats get_stats() const;
@@ -69,7 +70,6 @@ private:
     int64_t timeAvailable;
 
     Lit lastLit2;
-    Lit lastLit3;
     Watched* lastBin;
     bool lastRed;
     vector<Lit> tmplits;
@@ -79,22 +79,17 @@ private:
     void clear()
     {
         lastLit2 = lit_Undef;
-        lastLit3 = lit_Undef;
         lastBin = NULL;
         lastRed = false;
     }
 
     //ImplSubsumeData impl_subs_dat;
-    void try_subsume_tri(
-        const Lit lit
-        , Watched* i
-        , Watched*& j
-        , const bool doStamp
-    );
     void try_subsume_bin(
        const Lit lit
         , Watched* i
         , Watched*& j
+        , int64_t* timeAvail
+        , TouchList* touched = NULL
     );
 };
 

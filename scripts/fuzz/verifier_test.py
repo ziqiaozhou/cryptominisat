@@ -23,6 +23,7 @@ from __future__ import print_function
 from verifier import *
 import unittest
 
+
 class Map(dict):
     """
     Example:
@@ -32,7 +33,7 @@ class Map(dict):
         super(Map, self).__init__(*args, **kwargs)
         for arg in args:
             if isinstance(arg, dict):
-                for k, v in arg.iteritems():
+                for k, v in arg.items():
                     self[k] = v
 
         if kwargs:

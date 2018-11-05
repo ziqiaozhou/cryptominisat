@@ -27,7 +27,8 @@ THE SOFTWARE.
 #include <vector>
 #include <cstdlib>
 #include <cassert>
-#include "gaussconfig.h"
+#include "constants.h"
+#include "cryptominisat5/solvertypesmini.h"
 
 using std::string;
 
@@ -35,8 +36,7 @@ namespace CMSat {
 
 enum class ClauseClean {
     glue = 0
-    , size = 1
-    , activity = 2
+    , activity = 1
 };
 
 inline unsigned clean_to_int(ClauseClean t)
@@ -46,11 +46,8 @@ inline unsigned clean_to_int(ClauseClean t)
         case ClauseClean::glue:
             return 0;
 
-        case ClauseClean::size:
-            return 1;
-
         case ClauseClean::activity:
-            return 2;
+            return 1;
     }
 
     assert(false);
@@ -80,6 +77,9 @@ inline std::string getNameOfRestartType(Restart rest_type)
         case Restart::geom:
             return "geometric";
 
+        case Restart::glue_geom:
+            return "regularly switch between glue and geometric";
+
         case Restart::luby:
             return "luby";
 
@@ -87,7 +87,7 @@ inline std::string getNameOfRestartType(Restart rest_type)
             return "never";
 
         default:
-            release_assert(false && "Unknown clause cleaning type?");
+            assert(false && "Unknown clause cleaning type?");
     };
 }
 
@@ -96,9 +96,6 @@ inline std::string getNameOfCleanType(ClauseClean clauseCleaningType)
     switch(clauseCleaningType) {
         case ClauseClean::glue :
             return "glue";
-
-        case ClauseClean::size:
-            return "size";
 
         case ClauseClean::activity:
             return "activity";
@@ -109,24 +106,30 @@ inline std::string getNameOfCleanType(ClauseClean clauseCleaningType)
     };
 }
 
-enum class ElimStrategy {
-    heuristic
-    , calculate_exactly
-};
-
-inline std::string getNameOfElimStrategy(ElimStrategy strategy)
+class GaussConf
 {
-    switch(strategy)
-    {
-        case ElimStrategy::heuristic:
-            return "heuristic";
+    public:
 
-        case ElimStrategy::calculate_exactly:
-            return "calculate";
+    GaussConf() :
+        decision_until(700)
+        , autodisable(true)
+        , max_matrix_rows(5000)
+        , min_matrix_rows(2)
+        , max_num_matrixes(5)
+    {
     }
 
-    assert(false && "Unknown elimination strategy type");
-}
+    uint32_t decision_until; //do Gauss until this level
+    bool autodisable;
+    uint32_t max_matrix_rows; //The maximum matrix size -- no. of rows
+    uint32_t min_matrix_rows; //The minimum matrix size -- no. of rows
+    uint32_t max_num_matrixes; //Maximum number of matrixes
+
+    //Matrix extraction config
+    bool doMatrixFind = true;
+    uint32_t min_gauss_xor_clauses = 2;
+    uint32_t max_gauss_xor_clauses = 500000;
+};
 
 class DLL_PUBLIC SolverConf
 {
@@ -146,81 +149,101 @@ class DLL_PUBLIC SolverConf
         ) const;
 
         //Variable activities
-        double  var_inc_start;
-        double  var_decay_start;
-        double  var_decay_max;
+        double  var_inc_vsids_start;
+        double  var_decay_vsids_start;
+        double  var_decay_vsids_max;
         double random_var_freq;
         PolarityMode polarity_mode;
 
         //Clause cleaning
-        unsigned  max_temporary_learnt_clauses;
-        unsigned  cur_max_temp_red_cls;
+
+        //if non-zero, we reduce at every X conflicts.
+        //Reduced according to whether it's been used recently
+        //Otherwise, we *never* reduce
+        unsigned every_lev1_reduce;
+
+        //if non-zero, we reduce at every X conflicts.
+        //Otherwise we geometrically keep around max_temp_lev2_learnt_clauses*(inc**N)
+        unsigned every_lev2_reduce;
+
+        uint32_t must_touch_lev1_within;
+        unsigned  max_temp_lev2_learnt_clauses;
+        double    inc_max_temp_lev2_red_cls;
+
         unsigned protect_cl_if_improved_glue_below_this_glue_for_one_turn;
-        double    clean_confl_multiplier;
-        double    clean_prop_multiplier;
-        int       doPreClauseCleanPropAndConfl;
-        unsigned  long long preClauseCleanLimit;
-        double    ratio_keep_clauses[10]; ///< Remove this ratio of clauses at every database reduction round
-        double    inc_max_temp_red_cls;
+        unsigned glue_put_lev0_if_below_or_eq;
+        unsigned glue_put_lev1_if_below_or_eq;
+        double    ratio_keep_clauses[2]; ///< Remove this ratio of clauses at every database reduction round
+
         double    clause_decay;
-        unsigned  min_time_in_db_before_eligible_for_cleaning;
-        unsigned glue_must_keep_clause_if_below_or_eq;
+
+        //If too many (in percentage) low glues after min_num_confl_adjust_glue_cutoff, adjust glue lower
         double   adjust_glue_if_too_many_low;
+        uint64_t min_num_confl_adjust_glue_cutoff;
+
         int      guess_cl_effectiveness;
-        int      hash_relearn_check;
+
+        //maple
+        int      maple;
+        unsigned modulo_maple_iter;
+        bool     more_maple_bump_high_glue;
 
         //For restarting
         unsigned    restart_first;      ///<The initial restart limit.                                                                (default 100)
         double    restart_inc;        ///<The factor with which the restart limit is multiplied in each restart.                    (default 1.5)
-        unsigned   burst_search_len;
         Restart  restartType;   ///<If set, the solver will always choose the given restart strategy
         int       do_blocking_restart;
         unsigned blocking_restart_trail_hist_length;
         double   blocking_restart_multip;
+        int      broken_glue_restart;
+
         double   local_glue_multiplier;
         unsigned  shortTermHistorySize; ///< Rolling avg. glue window size
         unsigned lower_bound_for_blocking_restart;
-        int more_otf_shrink_with_cache;
-        int more_otf_shrink_with_stamp;
-        int abort_searcher_solve_on_geom_phase;
+        double   ratio_glue_geom; //higher the number, the more glue will be done. 2 is 2x glue 1x geom
+        int more_more_with_cache;
+        int more_more_with_stamp;
+        int doAlwaysFMinim;
 
         //Clause minimisation
         int doRecursiveMinim;
         int doMinimRedMore;  ///<Perform learnt clause minimisation using watchists' binary and tertiary clauses? ("strong minimization" in PrecoSat)
-        int doAlwaysFMinim; ///< Always try to minimise clause with cache&gates
+        int doMinimRedMoreMore;
         unsigned max_glue_more_minim;
         unsigned max_size_more_minim;
         unsigned more_red_minim_limit_cache;
         unsigned more_red_minim_limit_binary;
-        unsigned max_num_lits_more_red_min;
-        int extra_bump_var_activities_based_on_glue;
+        unsigned max_num_lits_more_more_red_min;
 
         //Verbosity
         int  verbosity;  ///<Verbosity level. 0=silent, 1=some progress report, 2=lots of report, 3 = all report       (default 2) preferentiality is turned off (i.e. picked randomly between [0, all])
         int  doPrintGateDot; ///< Print DOT file of gates
-        int  doPrintConflDot; ///< Print DOT file for each conflict
         int  print_full_restart_stat;
+        int  print_all_restarts;
         int  verbStats;
         int do_print_times; ///Print times during verbose output
         int print_restart_line_every_n_confl;
 
         //Limits
         double   maxTime;
-        long maxConfl;
+        long max_confl;
 
         //Glues
-        int       update_glues_on_prop;
         int       update_glues_on_analyze;
 
         //OTF stuff
         int       otfHyperbin;
         int       doOTFSubsume;
         int       doOTFSubsumeOnlyAtOrBelowGlue;
-        int       rewardShortenedClauseWithConfl; //Shortened through OTF subsumption
 
         //SQL
-        bool      dump_individual_search_time;
         bool      dump_individual_restarts_and_clauses;
+        double    dump_individual_cldata_ratio;
+
+        //Steps
+        double orig_step_size = 0.40;
+        double step_size_dec = 0.000001;
+        double min_step_size = 0.06;
 
         //Var-elim
         int      doVarElim;          ///<Perform variable elimination
@@ -228,11 +251,7 @@ class DLL_PUBLIC SolverConf
         int      do_empty_varelim;
         long long empty_varelim_time_limitM;
         long long varelim_time_limitM;
-        int      updateVarElimComplexityOTF;
-        unsigned updateVarElimComplexityOTF_limitvars;
-        int      updateVarElimComplexityOTF_limitavg;
-        ElimStrategy  var_elim_strategy; ///<Guess varelim order, or calculate?
-        int      varElimCostEstimateStrategy;
+        long long varelim_sub_str_limit;
         double    varElimRatioPerIter;
         int      skip_some_bve_resolvents;
         int velim_resolvent_too_large; //-1 == no limit
@@ -244,6 +263,7 @@ class DLL_PUBLIC SolverConf
 
         //BVA
         int      do_bva;
+        int min_bva_gain;
         unsigned bva_limit_per_call;
         int      bva_also_twolit_diff;
         long     bva_extra_lit_and_red_start;
@@ -268,19 +288,17 @@ class DLL_PUBLIC SolverConf
         //XORs
         int      doFindXors;
         unsigned maxXorToFind;
+        unsigned maxXorToFindSlow;
         int      useCacheWhenFindingXors;
-        int      doEchelonizeXOR;
-        unsigned long long  maxXORMatrix;
-        long long xor_finder_time_limitM;
+        uint64_t maxXORMatrix;
+        uint64_t xor_finder_time_limitM;
+        int      allow_elim_xor_vars;
+        unsigned xor_var_per_cut;
 
         //Var-replacement
         int doFindAndReplaceEqLits;
         int doExtendedSCC;
-        double sccFindPercent;
         int max_scc_depth;
-
-        //Propagation & searching
-        int      propBinFirst;
 
         //Iterative Alo Scheduling
         int      simplify_at_startup; //simplify at 1st startup (only)
@@ -299,15 +317,14 @@ class DLL_PUBLIC SolverConf
         int      perform_occur_based_simp;
         int      do_strengthen_with_occur;         ///<Perform self-subsuming resolution
         unsigned maxRedLinkInSize;
-        unsigned maxOccurIrredMB;
-        unsigned maxOccurRedMB;
-        unsigned long long maxOccurRedLitLinkedM;
+        double maxOccurIrredMB;
+        double maxOccurRedMB;
+        double maxOccurRedLitLinkedM;
         double   subsume_gothrough_multip;
 
         //Distillation
-        uint32_t distill_queue_by;
         int      do_distill_clauses;
-        unsigned long long distill_long_irred_cls_time_limitM;
+        unsigned long long distill_long_cls_time_limitM;
         long watch_cache_stamp_based_str_time_limitM;
         long long distill_time_limitM;
 
@@ -323,8 +340,6 @@ class DLL_PUBLIC SolverConf
 
 
         //Misc Optimisations
-        int      doExtBinSubs;
-        int      doSortWatched;      ///<Sort watchlists according to size&type: binary, tertiary, normal (>3-long), xor clauses
         int      doStrSubImplicit;
         long long  subsume_implicit_time_limitM;
         long long  distill_implicit_with_implicit_time_limitM;
@@ -341,6 +356,7 @@ class DLL_PUBLIC SolverConf
 
         //Gauss
         GaussConf gaussconf;
+        bool dont_elim_xor_vars;
 
         //Greedy undef
         int      greedy_undef;
@@ -353,14 +369,15 @@ class DLL_PUBLIC SolverConf
         double global_timeout_multiplier;
         double global_timeout_multiplier_multiplier;
         double global_multiplier_multiplier_max;
+        double var_and_mem_out_mult;
 
         //Misc
-        unsigned  maxDumpRedsSize; ///<When dumping the redundant clauses, this is the maximum clause size that should be dumped
         unsigned origSeed;
         unsigned long long sync_every_confl;
         unsigned reconfigure_val;
         unsigned reconfigure_at;
         unsigned preprocess;
+        int      simulate_drat;
         std::string simplified_cnf;
         std::string solution_file;
         std::string saved_state_file;

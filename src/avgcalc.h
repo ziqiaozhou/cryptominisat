@@ -120,11 +120,17 @@ public:
     #ifdef AVGCALC_NEED_MIN_MAX
     T getMin() const
     {
+        if (min == std::numeric_limits<T>::max())
+            return 0;
+
         return min;
     }
 
     T getMax() const
     {
+        if (max == std::numeric_limits<T>::min())
+            return 0;
+
         return max;
     }
     #endif
@@ -158,7 +164,7 @@ public:
             ss << std::fixed << std::setprecision(prec) << std::setw(w) << std::left
             << avg();
         } else {
-            ss << std::setw(5) << "?";
+            ss << std::setw(w) << "?";
         }
 
         return ss.str();

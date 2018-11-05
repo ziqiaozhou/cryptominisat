@@ -45,6 +45,8 @@ using std::cout;
 using std::endl;
 using std::string;
 
+enum class gret{confl, unit_confl, prop, unit_prop, nothing, nothing_fnewwatch};
+
 inline std::string restart_type_to_string(const Restart type)
 {
     switch(type) {
@@ -67,6 +69,30 @@ inline std::string restart_type_to_string(const Restart type)
     assert(false && "oops, one of the restart types has no string name");
 
     return "Ooops, undefined!";
+}
+
+inline std::string restart_type_to_short_string(const Restart type)
+{
+    switch(type) {
+        case Restart::glue:
+            return "glue";
+
+        case Restart::geom:
+            return "geom";
+
+        case Restart::luby:
+            return "luby";
+
+        case Restart::glue_geom:
+            return "gl/geo";
+
+        case Restart::never:
+            return "never";
+    }
+
+        assert(false && "oops, one of the restart types has no string name");
+
+        return "ERR: undefined!";
 }
 
 //Removed by which algorithm. NONE = not eliminated
@@ -274,8 +300,6 @@ struct PropStats
         propsUnit += other.propsUnit;
         propsBinIrred += other.propsBinIrred;
         propsBinRed += other.propsBinRed;
-        propsTriIrred += other.propsTriIrred;
-        propsTriRed += other.propsTriRed;
         propsLongIrred += other.propsLongIrred;
         propsLongRed += other.propsLongRed;
 
@@ -298,8 +322,6 @@ struct PropStats
         propsUnit -= other.propsUnit;
         propsBinIrred -= other.propsBinIrred;
         propsBinRed -= other.propsBinRed;
-        propsTriIrred -= other.propsTriIrred;
-        propsTriRed -= other.propsTriRed;
         propsLongIrred -= other.propsLongIrred;
         propsLongRed -= other.propsLongRed;
 
@@ -360,16 +382,6 @@ struct PropStats
             , "% of propagations"
         );
 
-        print_stats_line("c propsTriIred", propsTriIrred
-            , stats_line_percent(propsTriIrred, propagations)
-            , "% of propagations"
-        );
-
-        print_stats_line("c propsTriRed", propsTriRed
-            , stats_line_percent(propsTriRed, propagations)
-            , "% of propagations"
-        );
-
         print_stats_line("c propsLongIrred", propsLongIrred
             , stats_line_percent(propsLongIrred, propagations)
             , "% of propagations"
@@ -408,8 +420,6 @@ struct PropStats
     uint64_t propsUnit = 0;
     uint64_t propsBinIrred = 0;
     uint64_t propsBinRed = 0;
-    uint64_t propsTriIrred = 0;
-    uint64_t propsTriRed = 0;
     uint64_t propsLongIrred = 0;
     uint64_t propsLongRed = 0;
 
@@ -425,8 +435,6 @@ enum class ConflCausedBy {
     , longred
     , binred
     , binirred
-    , triirred
-    , trired
 };
 
 struct ConflStats
@@ -441,8 +449,6 @@ struct ConflStats
     {
         conflsBinIrred += other.conflsBinIrred;
         conflsBinRed += other.conflsBinRed;
-        conflsTriIrred += other.conflsTriIrred;
-        conflsTriRed += other.conflsTriRed;
         conflsLongIrred += other.conflsLongIrred;
         conflsLongRed += other.conflsLongRed;
 
@@ -455,8 +461,6 @@ struct ConflStats
     {
         conflsBinIrred -= other.conflsBinIrred;
         conflsBinRed -= other.conflsBinRed;
-        conflsTriIrred -= other.conflsTriIrred;
-        conflsTriRed -= other.conflsTriRed;
         conflsLongIrred -= other.conflsLongIrred;
         conflsLongRed -= other.conflsLongRed;
 
@@ -474,12 +478,6 @@ struct ConflStats
             case ConflCausedBy::binred :
                 conflsBinRed++;
                 break;
-            case ConflCausedBy::triirred :
-                conflsTriIrred++;
-                break;
-            case ConflCausedBy::trired :
-                conflsTriRed++;
-                break;
             case ConflCausedBy::longirred :
                 conflsLongIrred++;
                 break;
@@ -491,20 +489,24 @@ struct ConflStats
         }
     }
 
-    void print_short(double cpu_time) const
+    void print_short(double cpu_time, bool do_print_times) const
     {
         //Search stats
-        print_stats_line("c conflicts", numConflicts
-            , ratio_for_stat(numConflicts, cpu_time)
-            , "/ sec"
-        );
+        if (!do_print_times) {
+            print_stats_line("c conflicts", numConflicts);
+        } else {
+            print_stats_line("c conflicts", numConflicts
+                , ratio_for_stat(numConflicts, cpu_time)
+                , "/ sec"
+            );
+        }
     }
 
-    void print(double cpu_time) const
+    void print(double cpu_time, bool do_print_times) const
     {
         //Search stats
         cout << "c CONFLS stats" << endl;
-        print_short(cpu_time);
+        print_short(cpu_time, do_print_times);
 
         print_stats_line("c conflsBinIrred", conflsBinIrred
             , stats_line_percent(conflsBinIrred, numConflicts)
@@ -513,16 +515,6 @@ struct ConflStats
 
         print_stats_line("c conflsBinRed", conflsBinRed
             , stats_line_percent(conflsBinRed, numConflicts)
-            , "%"
-        );
-
-        print_stats_line("c conflsTriIrred", conflsTriIrred
-            , stats_line_percent(conflsTriIrred, numConflicts)
-            , "%"
-        );
-
-        print_stats_line("c conflsTriIrred", conflsTriRed
-            , stats_line_percent(conflsTriRed, numConflicts)
             , "%"
         );
 
@@ -538,7 +530,6 @@ struct ConflStats
 
         long diff = (long)numConflicts
             - (long)(conflsBinIrred + (long)conflsBinRed
-                + (long)conflsTriIrred + (long)conflsTriRed
                 + (long)conflsLongIrred + (long)conflsLongRed
             );
 
@@ -547,10 +538,10 @@ struct ConflStats
             << "c DEBUG"
             << "((int)numConflicts - (int)(conflsBinIrred + conflsBinRed"
             << endl
-            << "c  + conflsTriIrred + conflsTriRed + conflsLongIrred + conflsLongRed)"
+            << "c  + conflsLongIrred + conflsLongRed)"
             << " = "
             << (((int)numConflicts - (int)(conflsBinIrred + conflsBinRed
-                + conflsTriIrred + conflsTriRed + conflsLongIrred + conflsLongRed)))
+                + conflsLongIrred + conflsLongRed)))
             << endl;
 
             //assert(diff == 0);
@@ -559,8 +550,6 @@ struct ConflStats
 
     uint64_t conflsBinIrred = 0;
     uint64_t conflsBinRed = 0;
-    uint64_t conflsTriIrred = 0;
-    uint64_t conflsTriRed = 0;
     uint64_t conflsLongIrred = 0;
     uint64_t conflsLongRed = 0;
 

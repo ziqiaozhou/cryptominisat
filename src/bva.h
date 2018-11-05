@@ -125,7 +125,7 @@ private:
     };
     size_t calc_watch_irred_size(const Lit lit) const;
     void calc_watch_irred_sizes();
-    lit_pair most_occuring_lit_in_potential(size_t& num_occur);
+    lit_pair most_occurring_lit_in_potential(size_t& num_occur);
     lit_pair lit_diff_watches(const OccurClause& a, const OccurClause& b);
     Lit least_occurring_except(const OccurClause& c);
     bool simplifies_system(const size_t num_occur) const;
@@ -158,7 +158,7 @@ private:
     vector<size_t> watch_irred_sizes;
     struct VarBVAOrder
     {
-        VarBVAOrder(vector<size_t>& _watch_irred_sizes) :
+        explicit VarBVAOrder(vector<size_t>& _watch_irred_sizes) :
             watch_irred_sizes(_watch_irred_sizes)
         {}
 

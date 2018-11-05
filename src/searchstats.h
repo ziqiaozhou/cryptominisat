@@ -42,9 +42,9 @@ public:
     SearchStats& operator+=(const SearchStats& other);
     SearchStats& operator-=(const SearchStats& other);
     SearchStats operator-(const SearchStats& other) const;
-    void printCommon(uint64_t props) const;
-    void print_short(uint64_t props) const;
-    void print(uint64_t props) const;
+    void printCommon(uint64_t props, bool do_print_times) const;
+    void print_short(uint64_t props, bool do_print_times) const;
+    void print(uint64_t props, bool do_print_times) const;
 
     //Restart stats
     uint64_t blocked_restart = 0;
@@ -62,6 +62,10 @@ public:
     uint64_t litsRedFinal = 0;
     uint64_t recMinCl = 0;
     uint64_t recMinLitRem = 0;
+    uint64_t permDiff_attempt = 0;
+    uint64_t permDiff_success = 0;
+    uint64_t permDiff_rem_lits = 0;
+
     uint64_t furtherShrinkAttempt = 0;
     uint64_t binTriShrinkedClause = 0;
     uint64_t cacheShrinkedClause = 0;
@@ -76,14 +80,12 @@ public:
     //Learnt clause stats
     uint64_t learntUnits = 0;
     uint64_t learntBins = 0;
-    uint64_t learntTris = 0;
     uint64_t learntLongs = 0;
     uint64_t otfSubsumed = 0;
     uint64_t otfSubsumedImplicit = 0;
     uint64_t otfSubsumedLong = 0;
     uint64_t otfSubsumedRed = 0;
     uint64_t otfSubsumedLitsGained = 0;
-    uint64_t guess_different = 0;
     uint64_t cache_hit = 0;
     uint64_t red_cl_in_which0 = 0;
 

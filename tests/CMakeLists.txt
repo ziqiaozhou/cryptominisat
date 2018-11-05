@@ -1,12 +1,23 @@
-# -----------------------------------------------------------------------------
-# Check we can find Python and the lit tool
-# -----------------------------------------------------------------------------
-find_package(PythonInterp REQUIRED)
-mark_as_advanced(CLEAR PYTHON_EXECUTABLE) # Make visible in cmake-gui/ccmake
+# Copyright (c) 2017, Mate Soos
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
-if(NOT PYTHONINTERP_FOUND)
-    message(FATAL_ERROR "Python cannot be found. Please install it or disable testing.")
-endif()
 
 find_program(LIT_TOOL
     lit
@@ -48,33 +59,30 @@ add_subdirectory(${GTEST_PREFIX} gtest)
 set(GTEST_BOTH_LIBRARIES gtest gtest_main)
 
 include_directories(${GTEST_PREFIX}/include)
+add_definitions( -DCMS_TESTING_ENABLED )
 
 # Add handy macros/functions
 include(AddSTPGTest)
 include(AddGTestSuite)
 
 # -----------------------------------------------------------------------------
-# Tests that drive cryptominisat by using cnf files (e.g. smt2, smt and cvc files)
 # -----------------------------------------------------------------------------
 
-option(TEST_CNF_FILES
-       "Enable tests that use cnf files to drive cryptominisat"
-       ON
-      )
-
-if(TEST_CNF_FILES)
+if(NOT ONLY_SIMPLE)
+    # Tests that drive cryptominisat by using cnf files (e.g. smt2, smt and cvc files)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tests/cnf-files)
+
+    # Needed for fuzz-testing
+    add_subdirectory(${PROJECT_SOURCE_DIR}/utils/cnf-utils cnf-utils)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/utils/drat-trim drat-trim)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/utils/sha1-sat sha1-sat)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/utils/minisat minisat)
 endif()
 
-
-# -----------------------------------------------------------------------------
-
-add_subdirectory(${PROJECT_SOURCE_DIR}/utils/cnf-utils cnf-utils)
-add_subdirectory(${PROJECT_SOURCE_DIR}/utils/sha1-sat sha1-sat)
-
-
-if (PYTHON_OK AND NOT STATS)
-    # add_subdirectory(swig)
+add_sanitize_flags()
+if (PYTHON_EXECUTABLE AND ZLIB_FOUND AND NOT STATS_NEEDED AND NOT ONLY_SIMPLE)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/utils/minisat_only_elim_and_subsume minisat_only_elim_and_subsume)
+    add_subdirectory(simp-checks)
 endif()
 
 
@@ -99,17 +107,19 @@ add_test (
 )
 
 # C bindings test
-add_executable(c_test
-    c_test.c
-)
-target_link_libraries(c_test
-    libcryptominisat5
-)
-add_test (
-    NAME c_test
-    COMMAND c_test
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
+if (NOT SANITIZE)
+    add_executable(c_test
+        c_test.c
+    )
+    target_link_libraries(c_test
+        libcryptominisat5
+    )
+    add_test (
+        NAME c_test
+        COMMAND c_test
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endif()
 
 # Multisol test
 add_executable(multisol_test
@@ -124,8 +134,25 @@ add_test (
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+
+if (IPASIR)
+    add_executable(ipasir_test
+        ipasir_test.cpp
+    )
+    target_link_libraries(ipasir_test
+        ${GTEST_BOTH_LIBRARIES}
+        ipasircryptominisat5
+    )
+    add_test (
+        NAME ipasir_test
+        COMMAND ipasir_test
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endif()
+
 #google test harness
 set (MY_TESTS
+#     clause_alloc_test
     basic_test
     assump_test
     heap_test
@@ -136,19 +163,21 @@ set (MY_TESTS
     clause_cleaner_test
     probe_test
     distiller_all_with_all_test
-    str_impl_w_impl_stamp
     distill_long_with_implicit_test
     subsume_impl_test
     comp_find_test
     intree_test
     xorfinder_test
     comphandler_test
-    undefine_test
+    dump_test
+    searcher_test
+    solver_test
+#    undefine_test
 )
 
 if (USE_GAUSS)
     set (MY_TESTS ${MY_TESTS}
-        gauss_test
+        # gauss_test
         matrixfinder_test
     )
 endif()
@@ -167,15 +196,3 @@ foreach(F ${MY_TESTS})
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
 endforeach()
-
-
-# This test is not stable enough, depends on CPU speed
-# if (NOT SLOW_DEBUG)
-#     add_executable(library_speed_test
-#         library_speed_test.cpp
-#     )
-#
-#     target_link_libraries(library_speed_test
-#         libcryptominisat5
-#     )
-# endif()

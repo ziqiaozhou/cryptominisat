@@ -47,7 +47,7 @@ A main use-case is the following:
 class CompleteDetachReatacher
 {
     public:
-        CompleteDetachReatacher(Solver* solver);
+        explicit CompleteDetachReatacher(Solver* solver);
         bool reattachLongs(bool removeStatsFrist = false);
         void detach_nonbins_nontris();
         void reattachLongsNoClean();
@@ -65,22 +65,16 @@ class CompleteDetachReatacher
                 ClausesStay() :
                     redBins(0)
                     , irredBins(0)
-                    , redTris(0)
-                    , irredTris(0)
                 {}
 
                 ClausesStay& operator+=(const ClausesStay& other) {
                     redBins += other.redBins;
                     irredBins += other.irredBins;
-                    redTris += other.redTris;
-                    irredTris += other.irredTris;
                     return *this;
                 }
 
                 uint64_t redBins;
                 uint64_t irredBins;
-                uint64_t redTris;
-                uint64_t irredTris;
         };
         ClausesStay clearWatchNotBinNotTri(watch_subarray ws);
 

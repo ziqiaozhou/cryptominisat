@@ -41,8 +41,9 @@ TopLevelGauss::TopLevelGauss(Solver* _solver) :
     m4ri_build_all_codes();
 }
 
-bool TopLevelGauss::toplevelgauss(const vector<Xor>& _xors)
+bool TopLevelGauss::toplevelgauss(const vector<Xor>& _xors, vector<Lit>* _out_changed_occur)
 {
+    out_changed_occur = _out_changed_occur;
     runStats.clear();
     runStats.numCalls = 1;
     xors = _xors;
@@ -63,7 +64,7 @@ bool TopLevelGauss::toplevelgauss(const vector<Xor>& _xors)
     }
     globalStats += runStats;
 
-    return solver->ok;
+    return solver->okay();
 }
 
 struct XorSorter{
@@ -154,7 +155,7 @@ bool TopLevelGauss::extractInfo()
 end:
     runStats.extractTime += cpuTime() - myTime;
 
-    return solver->ok;
+    return solver->okay();
 }
 
 bool TopLevelGauss::extractInfoFromBlock(
@@ -185,10 +186,14 @@ bool TopLevelGauss::extractInfoFromBlock(
     assert(thisXors.size() > 1 && "We pre-filter the set such that *every* block contains at least 2 xors");
 
     //Set up matrix
-    size_t numCols = block.size()+1; //we need augmented column
-    size_t matSize = numCols*thisXors.size();
+    uint64_t numCols = block.size()+1; //we need augmented column
+    uint64_t matSize = numCols*thisXors.size();
+    matSize /= 1000ULL*1000ULL;
     if (matSize > solver->conf.maxXORMatrix) {
         //this matrix is way too large, skip :(
+        if (solver->conf.verbosity) {
+            cout << "c skipping matrix " << thisXors.size() << " x " << numCols << " size:" << matSize << endl;
+        }
         return solver->okay();
     }
     mzd_t *mat = mzd_init(thisXors.size(), numCols);
@@ -216,7 +221,7 @@ bool TopLevelGauss::extractInfoFromBlock(
     }
 
     //Fully echelonize
-    mzd_echelonize(mat, true);
+    mzd_echelonize_pluq(mat, true);
 
     //Examine every row if it gives some new short truth
     vector<Lit> lits;
@@ -255,6 +260,7 @@ bool TopLevelGauss::extractInfoFromBlock(
 
             case 2: {
                 runStats.newBins++;
+                out_changed_occur->insert(out_changed_occur->end(), lits.begin(), lits.end());
                 solver->add_xor_clause_inter(lits, rhs, false);
                 if (!solver->okay())
                     goto end;
@@ -386,7 +392,7 @@ void TopLevelGauss::cutIntoBlocks(const vector<size_t>& xorsToUse)
     }
 
     if (solver->conf.verbosity) {
-        cout << "c Sum vars in blocks: " << runStats.numVarsInBlocks << endl;
+        cout << "c [xor-m4ri] Sum vars in blocks: " << runStats.numVarsInBlocks << endl;
     }
 }
 
@@ -410,13 +416,13 @@ size_t TopLevelGauss::mem_used() const
 void TopLevelGauss::Stats::print_short(const Solver* solver) const
 {
     cout
-    << "c [occ-xor] cut into " << numBlocks << " blcks. "
+    << "c [xor-m4ri] cut into " << numBlocks << " blcks. "
     << " Vars in blcks: " << numVarsInBlocks
     << solver->conf.print_times(blockCutTime)
     << endl;
 
     cout
-    << "c [occ-xor] extr info. "
+    << "c [xor-m4ri] extr info. "
     << " unit: " << newUnits
     << " bin: " << newBins
     << " 0-depth-ass: " << zeroDepthAssigns

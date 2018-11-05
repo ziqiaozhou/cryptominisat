@@ -37,8 +37,8 @@ class Solver;
 class TopLevelGauss: public TopLevelGaussAbst
 {
 public:
-    TopLevelGauss(Solver* _solver);
-    bool toplevelgauss(const vector<Xor>& _xors);
+    explicit TopLevelGauss(Solver* _solver);
+    bool toplevelgauss(const vector<Xor>& _xors, vector<Lit>* _out_changed_occur) override;
 
     struct Stats
     {
@@ -76,10 +76,11 @@ public:
 
     Stats runStats;
     Stats globalStats;
-    size_t mem_used() const;
+    size_t mem_used() const override;
 
 private:
     Solver* solver;
+    vector<Lit>* out_changed_occur; // may have changed the occur count of these literals
 
     bool extractInfo();
     void cutIntoBlocks(const vector<size_t>& xorsToUse);

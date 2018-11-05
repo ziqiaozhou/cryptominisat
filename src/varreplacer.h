@@ -48,13 +48,13 @@ class SCCFinder;
 class VarReplacer
 {
     public:
-        VarReplacer(Solver* solver);
+        explicit VarReplacer(Solver* solver);
         ~VarReplacer();
         void new_var(const uint32_t orig_outer);
         void new_vars(const size_t n);
         void save_on_var_memory();
-        bool replace_if_enough_is_found(const size_t limit = 0, uint64_t* bogoprops = NULL);
-        void print_equivalent_literals(std::ostream *os) const;
+        bool replace_if_enough_is_found(const size_t limit = 0, uint64_t* bogoprops = NULL, bool* replaced = NULL);
+        uint32_t print_equivalent_literals(bool outer_numbering, std::ostream *os = NULL) const;
         void print_some_stats(const double global_cpu_time) const;
         const SCCFinder* get_scc_finder() const;
 
@@ -95,7 +95,6 @@ class VarReplacer
             uint64_t zeroDepthAssigns = 0;
             uint64_t actuallyReplacedVars = 0;
             uint64_t removedBinClauses = 0;
-            uint64_t removedTriClauses = 0;
             uint64_t removedLongClauses = 0;
             uint64_t removedLongLits = 0;
             uint64_t bogoprops = 0;
@@ -104,6 +103,7 @@ class VarReplacer
         size_t mem_used() const;
         vector<std::pair<Lit, Lit> > get_all_binary_xors_outer() const;
         vector<uint32_t> get_vars_replacing_others() const;
+        bool get_scc_depth_warning_triggered() const;
 
         void save_state(SimpleOutFile& f) const;
         void load_state(SimpleInFile& f);
@@ -123,6 +123,7 @@ class VarReplacer
         uint32_t get_var_replaced_with_fast(const uint32_t var) const {
             return fast_inter_replace_lookup[var].var();
         }
+        bool replace_xor_clauses();
 
         vector<Lit> ps_tmp;
         bool perform_replace();
@@ -175,20 +176,12 @@ class VarReplacer
             ImplicitTmpStats() :
                 removedRedBin(0)
                 , removedIrredBin(0)
-                , removedRedTri(0)
-                , removedIrredTri(0)
             {
             }
 
             void remove(const Watched& ws)
             {
-                if (ws.isTri()) {
-                    if (ws.red()) {
-                        removedRedTri++;
-                    } else {
-                        removedIrredTri++;
-                    }
-                } else if (ws.isBin()) {
+                if (ws.isBin()) {
                     if (ws.red()) {
                         removedRedBin++;
                     } else {
@@ -206,18 +199,8 @@ class VarReplacer
 
             size_t removedRedBin;
             size_t removedIrredBin;
-            size_t removedRedTri;
-            size_t removedIrredTri;
         };
         ImplicitTmpStats impl_tmp_stats;
-        void updateTri(
-            Watched* i
-            , Watched*& j
-            , const Lit origLit1
-            , const Lit origLit2
-            , Lit lit1
-            , Lit lit2
-        );
         void updateBin(
             Watched* i
             , Watched*& j

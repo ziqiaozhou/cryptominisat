@@ -54,7 +54,7 @@ struct AtecedentData
 
     uint64_t num() const
     {
-        return binRed + binIrred + triRed + triIrred + longIrred + longRed;
+        return binRed + binIrred + longIrred + longRed;
     }
 
     template<class T2>
@@ -62,8 +62,6 @@ struct AtecedentData
     {
         binRed += other.binRed;
         binIrred += other.binIrred;
-        triRed += other.triRed;
-        triIrred += other.triIrred;
         longIrred += other.longIrred;
         longRed += other.longRed;
 
@@ -80,8 +78,6 @@ struct AtecedentData
     {
         binRed -= other.binRed;
         binIrred -= other.binIrred;
-        triRed -= other.triRed;
-        triIrred -= other.triIrred;
         longIrred -= other.longIrred;
         longRed -= other.longRed;
 
@@ -98,8 +94,6 @@ struct AtecedentData
         uint32_t sum = 0;
         sum += binIrred*2;
         sum += binRed*2;
-        sum += triIrred*3;
-        sum += triRed*3;
         sum += size_longs.get_sum();
 
         return sum;
@@ -107,8 +101,6 @@ struct AtecedentData
 
     T binRed = 0;
     T binIrred = 0;
-    T triRed = 0;
-    T triIrred = 0;
     T longIrred = 0;
     T longRed = 0;
     AvgCalc<uint32_t> glue_long_reds;
@@ -124,15 +116,11 @@ struct ClauseStats
 {
     ClauseStats()
     {
-        memset(this, 0, sizeof(ClauseStats));
-        #ifdef STATS_NEEDED
-        ID = 1;
-        #endif
-        which_red_array = 1;
         glue = 1000;
-        activity = 0;
+        which_red_array = 2;
+        activity = 1;
         ttl = 0;
-        marked_clause = 0;
+        marked_clause = false;
     }
 
     //Stored data
@@ -140,9 +128,11 @@ struct ClauseStats
     uint32_t marked_clause:1;
     uint32_t ttl:2;
     uint32_t which_red_array:2;
-    float   activity = 0.0;
+    float   activity = 1.0;
+    uint32_t last_touched = 0;
     #ifdef STATS_NEEDED
-    int64_t ID;
+    uint32_t dump_number = std::numeric_limits<uint32_t>::max();
+    int64_t ID = 0;
     uint64_t introduced_at_conflict = 0; ///<At what conflict number the clause  was introduced
     uint64_t conflicts_made = 0; ///<Number of times caused conflict
     uint64_t sum_of_branch_depth_conflict = 0;
@@ -152,10 +142,23 @@ struct ClauseStats
     AtecedentData<uint16_t> antec_data;
     #endif
 
+    #ifdef STATS_NEEDED
+    void reset_rdb_stats()
+    {
+        ttl = 0;
+        conflicts_made = 0;
+        sum_of_branch_depth_conflict = 0;
+        propagations_made = 0;
+        clause_looked_at = 0;
+        used_for_uip_creation = 0;
+        antec_data.clear();
+    }
+    #endif
+
     static ClauseStats combineStats(const ClauseStats& first, const ClauseStats& second)
     {
         //Create to-be-returned data
-        ClauseStats ret;
+        ClauseStats ret = first;
 
         //Combine stats
         ret.glue = std::min(first.glue, second.glue);
@@ -201,7 +204,7 @@ class Clause
 {
 public:
     uint16_t isRed:1; ///<Is the clause a redundant clause?
-    uint16_t isRemoved:1; ///<Is this clause queued for removal because of usless binary removal?
+    uint16_t isRemoved:1; ///<Is this clause queued for removal?
     uint16_t isFreed:1; ///<Has this clause been marked as freed by the ClauseAllocator ?
     uint16_t is_distilled:1;
     uint16_t occurLinked:1;
@@ -227,15 +230,15 @@ public:
     uint32_t mySize;
 
     template<class V>
-    Clause(const V& ps
+    Clause(const V& ps, const uint32_t _introduced_at_conflict
         #ifdef STATS_NEEDED
-        , const uint32_t _introduced_at_conflict
         , const int64_t _ID
         #endif
         )
     {
         //assert(ps.size() > 2);
 
+        stats.last_touched = _introduced_at_conflict;
         #ifdef STATS_NEEDED
         stats.introduced_at_conflict = _introduced_at_conflict;
         stats.ID = _ID;
@@ -342,12 +345,16 @@ public:
     void makeIrred()
     {
         assert(isRed);
+        #if STATS_NEEDED
+        stats.ID = 0;
+        #endif
         isRed = false;
     }
 
-    void makeRed(const uint32_t newGlue)
+    void makeRed(const uint32_t newGlue, const double init_activity = 1.0)
     {
         stats.glue = newGlue;
+        stats.activity = init_activity;
         isRed = true;
     }
 
@@ -432,7 +439,7 @@ public:
         return occurLinked;
     }
 
-    void set_occur_linked(bool toset)
+    void setOccurLinked(bool toset)
     {
         occurLinked = toset;
     }

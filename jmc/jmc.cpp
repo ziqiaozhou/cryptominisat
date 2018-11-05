@@ -1019,20 +1019,24 @@ int JaccardMC::OneRoundForHatJ(unsigned jaccardHashCount, JaccardResult* result,
 	assert(3 == jaccardAssumps.size());
 
 	unsigned lower = LowerFib, upper = (UpperFib > 0) ? UpperFib : independent_vars.size() - ceil(log(pivot) / log(2)) + 2;
+	// resultIndex : 0-> <C,O,I > for S, 1 -> <C,O,I> for S', and 2->  <C,O,I> intersection
 	for (resultIndex = 0; resultIndex < jaccardAssumps.size(); resultIndex++) {
-
-		if (resultIndex == 1 && std::equal(jaccardAssumps[1].begin(), jaccardAssumps[1].end(), jaccardAssumps[0].begin())) {
+		if (resultIndex == 1 && 
+					std::equal(jaccardAssumps[1].begin(), \
+						jaccardAssumps[1].end(), jaccardAssumps[0].begin()))
+		{// S and S' are the same, use <C,O> in S as <C,O> in S'
 			scounts.push_back(scounts[0]);
 			continue;
 		}
 retry:
 		if (debug)
-			cout << "resultIndex=" << resultIndex << "\n";
+		  cout << "resultIndex=" << resultIndex << "\n";
 		if (resultIndex == 0) {
 			assumps.clear();
 			hashVars.clear();
 		}
 		if (onlyLast && resultIndex < 2) {
+			// Only compute when the resultIndex==2
 			scounts.push_back(std::pair<unsigned, double>(0, 1));
 			continue;
 		}
@@ -1645,7 +1649,7 @@ void JaccardMC::JaccardOneRoundFor3(unsigned jaccardHashCount, JaccardResult* re
 		jaccardAssumps_lastZero.clear();
 		jaccardHashVars.clear();
 		jaccardXorClause.clear();
-		jaccard_samples.clear();
+		//jaccard_samples.clear();
 		jaccard3Assumps.clear();
 		//solver->simplify(&jaccardAssumps);
 		if ((jaccard_vars.size() - jaccardHashCount) > 2 || notSampled) {
@@ -1762,22 +1766,25 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 		leftAssumps.clear();
 		rightAssumps.clear();
 		SetJaccard2Hash(jaccardHashCount, jaccardHashVars, jaccardAssumps, solver);
-		bool is_single = (jaccardHashCount == jaccard_vars.size()&&(!notSampled));
-		separate(jaccardAssumps, leftAssumps, rightAssumps, is_single);
+		bool useConcreteSample = (jaccardHashCount == jaccard_vars.size()&&(!notSampled));
+		// s in S and s' in S'=S
+		separate(jaccardAssumps, leftAssumps, rightAssumps, useConcreteSample);
 		lbool ret1 = solver->solve(&leftAssumps);
 		unsigned x = (rightAssumps.back().toInt() - 1) / 2;
-		rightAssumps.pop_back();
-		rightAssumps.push_back(Lit(x, false));
+		if(!useConcreteSample){
+			// Force S' and S =empty
+			rightAssumps.pop_back();
+			rightAssumps.push_back(Lit(x, false));
+		}
 		lbool ret2 = solver->solve(&rightAssumps);
 		if (ret1 != l_True || ret2 != l_True)
 		{
 			if(debug>DEBUG_HASH_LEVEL){
 				cout<<"Unsatisfiable using this hash constraint";
 			}
-
 			continue;
 		}
-		if (!is_single) {
+		if (!useConcreteSample) {
 			leftAssumps.pop_back();
 			rightAssumps.pop_back();
 		}
@@ -1785,7 +1792,7 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 		inJaccardAssumps.push_back(rightAssumps);
 		inJaccardAssumps.push_back(jaccardAssumps);
 		if (jaccardAssumps.size() == 0)
-			onlyLast = true;
+		  onlyLast = true;
 		//	solver->simplify(&jaccardAssumps);
 		unsigned hashPrev = LowerFib;
 		addKey2Map(jaccardHashCount, numHashList, numCountList, count);
@@ -1798,7 +1805,7 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 			continue;
 		}
 		if (result3s.size() < 3)
-			continue;
+		  continue;
 		assert(result3s.size() == 3);
 		numHashList[jaccardHashCount].push_back(result3s[2].first);
 		numCountList[jaccardHashCount].push_back(result3s[2].second);
@@ -1813,7 +1820,6 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 		}
 		f << "\n";
 		f.close();
-
 		break;
 	}
 #if DELETE_SOLVER 
@@ -1827,13 +1833,13 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 	solver_init();
 	cout << "end delete";
 #endif
-	//	cout<<"load to back, nVar="<<solver->nVars();
+//	cout<<"load to back, nVar="<<solver->nVars();
 }
 
 void JaccardMC::JaccardOneRound(unsigned jaccardHashCount, JaccardResult* result, bool computePrev, SATSolver* solver = NULL)
 {
 	if (solver == NULL)
-		solver = solver;
+	  solver = solver;
 	map<unsigned, vector<unsigned>> &numHashList = result->numHashList;
 	map<unsigned, vector<double>>&numCountList = result->numCountList;
 	map<unsigned, SATCount>& count = result->count;
@@ -2465,9 +2471,82 @@ void JaccardMC::call_after_parse()
 	}
 
 }
+/*set concrete samples for s, s'*/
+static void JaccardMC::SetSampledJaccardHatHash(unsigned clausNum, vector<vector<Lit>>&assumps, SATSolver* solver)
+{
+	//assumps[0]: constrain secret s in S
+	//assumps[1]: constrain secret s' in S'
+	//assumps[2]: constrain secret s in S and s' in S'
+	string sampleOne;
+	size_t var_size = jaccard_vars.size();
+	int sampleSize = 1 << (jaccard_vars.size() - clausNum);
+	sampleSize;
+	std::set<string>jaccard_samples;
+	while (jaccard_samples.size() < sampleSize * 2) {
+		sampleOne = GenerateRandomBits_prob(var_size, 0.5);
+		jaccard_samples.insert(sampleOne);
+	}
+	solver->new_var();
+	unsigned two_var = solver->nVars() - 1;
+	vector<Lit> out_var;
+	auto variables;
+	for (int i = 0; i < 3; ++i)
+		assumps[i].push_back(Lit(two_var, false));
+	out_var.push_back(Lit(two_var, true));
+	std::set<string>::iterator sampleit = jaccard_samples.begin();
+	for (int t = 0; t < 2; ++t) {
+		switch (t){
+			case 0:
+				variables=jaccard_vars;
+				break;
+			case 1:
+				variables=jaccard_vars2;
+				break;
+			default:
+				variables=jaccard_vars;
+				break;
+		}
+		
+		// t=0 -> assign values to S
+		// t=1 -> assign values to S'
+		sampleOne = *sampleit;
+		solver->new_var(); 
+		unsigned act_var = solver->nVars() - 1;
+		assumps[t].push_back(Lit(act_var, false));
+		out_var.push_back(Lit(act_var, false));
+		vector<Lit> orSols;
+		orSols.push_back(Lit(act_var, true));
+		orSols.push_back(Lit(two_var, true));
+		for (int i = 0; i < sampleSize; ++i) {
+			sampleOne = *sampleit;
+			vector<Lit> vars;
+			solver->new_var();
+			unsigned sol_var = solver->nVars() - 1;
+			vars.push_back(Lit(sol_var, true));
+			vars.push_back(Lit(act_var, true));
+			vars.push_back(Lit(two_var, true));
+			orSols.push_back(Lit(sol_var, false));
+			// Assign S to a concrete value sampelOne
+			// by adding var_size constraints where each constraint one bit
+			//
+			for (int j = 0; j < var_size; ++j) {
+				vars.push_back(Lit(variables[j], sampleOne[j] == '1'));
+				printVars(vars);
+				solver->add_clause(vars);
+				vars.pop_back();
+			}
+			sampleit++;
+		}
+		printVars(orSols);
+		solver->add_clause(orSols);
+	}
+	solver->add_clause(out_var);
+
+}
 
 bool JaccardMC::SSetTwoHashSample(unsigned num_xor_cls, vector<Lit>& assumps, SATSolver* solver)
-{
+{	// assumps[odd]-> constraint s using S
+	// assumps[even] ->constraint s' using S'=S, to use this , please modify one bit from assumps[even] to make S' and S = empty
 	int var_size = jaccard_vars.size();
 	jaccardXorRate = (jaccardXorRate > 0.5) ? 0.5 : jaccardXorRate;
 
@@ -2484,6 +2563,10 @@ bool JaccardMC::SSetTwoHashSample(unsigned num_xor_cls, vector<Lit>& assumps, SA
 			assumps.push_back(Lit(jaccard_vars[i], randomBits_rhs[i] == '1'));
 			assumps.push_back(Lit(jaccard_vars2[i], randomBits_rhs2[i] == '1'));
 		}
+		return true;
+	}
+	if(!notSampled){
+		SetSampledJaccardHatHash(num_xor_cls,assumps,solver);
 		return true;
 	}
 	vector<unsigned> vars, vars2;
@@ -2538,6 +2621,7 @@ bool JaccardMC::SSetTwoHashSample(unsigned num_xor_cls, vector<Lit>& assumps, SA
 
 }
 
+	
 bool JaccardMC::SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, vector<XorClause>& jaccardXorClause, SATSolver* solver)
 {
 	int var_size = jaccard_vars.size();
@@ -2575,15 +2659,19 @@ bool JaccardMC::SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, vecto
 	return true;
 
 }
-
+/*set concrete samples to S, S' and SUS'*/
 void JaccardMC::SetSampledJaccardHash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, vector<vector<Lit>>&assumps, SATSolver* solver)
 {
+	//assumps[0]: constrain secret in S
+	//assumps[1]: constrain secret in S'
+	//assumps[2]: constrain secret in S or S'
 	string sampleOne;
-	size_t size = jaccard_vars.size();
+	size_t var_size = jaccard_vars.size();
 	int sampleSize = 1 << (jaccard_vars.size() - clausNum);
 	sampleSize;
+	std::set<string>jaccard_samples;
 	while (jaccard_samples.size() < sampleSize * 2) {
-		sampleOne = GenerateRandomBits_prob(size, 0.5);
+		sampleOne = GenerateRandomBits_prob(var_size, 0.5);
 		jaccard_samples.insert(sampleOne);
 	}
 	solver->new_var();
@@ -2594,14 +2682,16 @@ void JaccardMC::SetSampledJaccardHash(unsigned clausNum, std::map<unsigned, Lit>
 	out_var.push_back(Lit(two_var, true));
 	std::set<string>::iterator sampleit = jaccard_samples.begin();
 	for (int t = 0; t < 2; ++t) {
+		// t=0 -> assign values to S
+		// t=1 -> assign values to S'
 		sampleOne = *sampleit;
-		solver->new_var();
+		solver->new_var(); 
 		unsigned act_var = solver->nVars() - 1;
 		assumps[t].push_back(Lit(act_var, false));
 		out_var.push_back(Lit(act_var, false));
-		vector<Lit> orVars;
-		orVars.push_back(Lit(act_var, true));
-		orVars.push_back(Lit(two_var, true));
+		vector<Lit> orSols;
+		orSols.push_back(Lit(act_var, true));
+		orSols.push_back(Lit(two_var, true));
 		for (int i = 0; i < sampleSize; ++i) {
 			sampleOne = *sampleit;
 			vector<Lit> vars;
@@ -2610,8 +2700,11 @@ void JaccardMC::SetSampledJaccardHash(unsigned clausNum, std::map<unsigned, Lit>
 			vars.push_back(Lit(sol_var, true));
 			vars.push_back(Lit(act_var, true));
 			vars.push_back(Lit(two_var, true));
-			orVars.push_back(Lit(sol_var, false));
-			for (int j = 0; j < size; ++j) {
+			orSols.push_back(Lit(sol_var, false));
+			// Assign S to a concrete value sampelOne
+			// by adding var_size constraints where each constraint one bit
+			//
+			for (int j = 0; j < var_size; ++j) {
 				vars.push_back(Lit(jaccard_vars[j], sampleOne[j] == '1'));
 				printVars(vars);
 				solver->add_clause(vars);
@@ -2619,9 +2712,8 @@ void JaccardMC::SetSampledJaccardHash(unsigned clausNum, std::map<unsigned, Lit>
 			}
 			sampleit++;
 		}
-
-		printVars(orVars);
-		solver->add_clause(orVars);
+		printVars(orSols);
+		solver->add_clause(orSols);
 	}
 	solver->add_clause(out_var);
 

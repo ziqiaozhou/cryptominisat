@@ -45,6 +45,7 @@ bool SCCFinder::performSCC(uint64_t* bogoprops_given)
     assert(binxors.empty());
     runStats.clear();
     runStats.numCalls = 1;
+    depth_warning_issued = false;
     const double myTime = cpuTime();
 
     globalIndex = 0;
@@ -81,20 +82,20 @@ bool SCCFinder::performSCC(uint64_t* bogoprops_given)
             runStats.print_short(solver);
     }
     globalStats += runStats;
-    solver->binTri.numNewBinsSinceSCC = 0;
 
     if (bogoprops_given) {
         *bogoprops_given += runStats.bogoprops;
     }
 
-    return solver->ok;
+    return solver->okay();
 }
 
 void SCCFinder::tarjan(const uint32_t vertex)
 {
     depth++;
-    if (depth >= solver->conf.max_scc_depth) {
-        if (solver->conf.verbosity) {
+    if (depth >= (uint32_t)solver->conf.max_scc_depth) {
+        if (solver->conf.verbosity && !depth_warning_issued) {
+            depth_warning_issued = true;
             cout << "c [scc] WARNING: reached maximum depth of " << solver->conf.max_scc_depth << endl;
         }
         return;
@@ -115,7 +116,8 @@ void SCCFinder::tarjan(const uint32_t vertex)
     vector<LitExtra>* transCache = NULL;
     if (solver->conf.doCache
         && solver->conf.doExtendedSCC
-        && (!solver->drat->enabled() || solver->conf.otfHyperbin)
+        && (!(solver->drat->enabled() || solver->conf.simulate_drat) ||
+            solver->conf.otfHyperbin)
     ) {
         transCache = &(solver->implCache[~vertLit].lits);
         __builtin_prefetch(transCache->data());

@@ -43,9 +43,6 @@ class ClauseCleaner
     public:
         ClauseCleaner(Solver* solver);
 
-        void clean_clauses(vector<ClOffset>& cs);
-
-
         void clean_implicit_clauses();
         void remove_and_clean_all();
         bool satisfied(const Clause& c) const;
@@ -59,8 +56,6 @@ class ClauseCleaner
         {
             uint64_t remNonLBin = 0;
             uint64_t remLBin = 0;
-            uint64_t remNonLTri = 0;
-            uint64_t remLTri = 0;
 
             //We can only attach these in delayed mode, otherwise we would
             //need to manipulate the watchlist we are going through
@@ -74,11 +69,6 @@ class ClauseCleaner
             , const Lit lit
         );
         void clean_binary_implicit(
-           Watched& ws
-            , Watched*& j
-            , const Lit lit
-        );
-        void clean_tertiary_implicit(
            Watched& ws
             , Watched*& j
             , const Lit lit

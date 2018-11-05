@@ -26,6 +26,7 @@ THE SOFTWARE.
 
 #include "cryptominisat5/cryptominisat.h"
 #include "src/solverconf.h"
+#include "test_helper.h"
 using namespace CMSat;
 #include <vector>
 using std::vector;
@@ -43,7 +44,7 @@ TEST(normal_interface, onelit)
 {
     SATSolver s;
     s.new_var();
-    s.add_clause(vector<Lit>{Lit(0, false)});
+    s.add_clause(str_to_cl("1"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_True);
     EXPECT_EQ( s.okay(), true);
@@ -53,8 +54,8 @@ TEST(normal_interface, twolit)
 {
     SATSolver s;
     s.new_var();
-    s.add_clause(vector<Lit>{Lit(0, false)});
-    s.add_clause(vector<Lit>{Lit(0, true)});
+    s.add_clause(str_to_cl("1"));
+    s.add_clause(str_to_cl("-1"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_False);
     EXPECT_EQ( s.okay(), false);
@@ -64,8 +65,8 @@ TEST(normal_interface, multi_solve_unsat)
 {
     SATSolver s;
     s.new_var();
-    s.add_clause(vector<Lit>{Lit(0, false)});
-    s.add_clause(vector<Lit>{Lit(0, true)});
+    s.add_clause(str_to_cl("1"));
+    s.add_clause(str_to_cl("-1"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_False);
     EXPECT_EQ( s.okay(), false);
@@ -81,8 +82,8 @@ TEST(normal_interface, multi_solve_unsat_multi_thread)
     SATSolver s;
     s.set_num_threads(2);
     s.new_var();
-    s.add_clause(vector<Lit>{Lit(0, false)});
-    s.add_clause(vector<Lit>{Lit(0, true)});
+    s.add_clause(str_to_cl("1"));
+    s.add_clause(str_to_cl("-1"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_False);
     EXPECT_EQ( s.okay(), false);
@@ -98,11 +99,11 @@ TEST(normal_interface, solve_multi_thread)
     SATSolver s;
     s.set_num_threads(2);
     s.new_vars(2);
-    s.add_clause(vector<Lit>{Lit(0, false), Lit(1, false)});
+    s.add_clause(str_to_cl("1, 2"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_True);
 
-    s.add_clause(vector<Lit>{Lit(0, true)});
+    s.add_clause(str_to_cl("-1"));
     ret = s.solve();
     EXPECT_EQ( ret, l_True);
     EXPECT_EQ(s.get_model()[0], l_False);
@@ -114,7 +115,7 @@ TEST(normal_interface, logfile)
     SATSolver* s = new SATSolver();
     s->log_to_file("testfile");
     s->new_vars(2);
-    s->add_clause(vector<Lit>{Lit(0, false), Lit(1, false)});
+    s->add_clause(str_to_cl("1, 2"));
     lbool ret = s->solve();
     EXPECT_EQ( ret, l_True);
     delete s;
@@ -134,8 +135,8 @@ TEST(normal_interface, logfile2)
     SATSolver* s = new SATSolver();
     s->log_to_file("testfile");
     s->new_vars(2);
-    s->add_clause(vector<Lit>{Lit(0, false)});
-    s->add_clause(vector<Lit>{Lit(0, false), Lit(1, false)});
+    s->add_clause(str_to_cl("1"));
+    s->add_clause(str_to_cl("1, 2"));
     lbool ret = s->solve();
     s->add_clause(vector<Lit>{Lit(1, false)});
     ret = s->solve();
@@ -162,8 +163,8 @@ TEST(normal_interface, logfile2_assumps)
     SATSolver* s = new SATSolver();
     s->log_to_file("testfile");
     s->new_vars(2);
-    s->add_clause(vector<Lit>{Lit(0, false)});
-    s->add_clause(vector<Lit>{Lit(0, false), Lit(1, false)});
+    s->add_clause(str_to_cl("1"));
+    s->add_clause(str_to_cl("1, 2"));
     std::vector<Lit> assumps {Lit(0, false), Lit(1, true)};
     lbool ret = s->solve(&assumps);
     s->add_clause(vector<Lit>{Lit(1, false)});
@@ -186,6 +187,20 @@ TEST(normal_interface, logfile2_assumps)
     EXPECT_EQ(line, "2 0");
     std::getline(infile, line);
     EXPECT_EQ(line, "c Solver::solve( -2 )");
+}
+
+TEST(normal_interface, max_time)
+{
+    SATSolver* s = new SATSolver();
+    s->new_vars(200);
+    s->add_clause(str_to_cl("1"));
+    s->add_clause(str_to_cl("1, 2"));
+    s->set_max_time(3);
+    lbool ret = s->solve();
+    s->add_clause(vector<Lit>{Lit(1, false)});
+    ret = s->solve();
+    delete s;
+    EXPECT_EQ(ret, l_True);
 }
 
 bool is_critical(const std::range_error&) { return true; }
@@ -493,7 +508,7 @@ TEST(xor_interface, xor_norm_mix_unsat_multi_thread)
     SATSolver s;
     //s.set_num_threads(3);
     s.new_vars(3);
-    s.add_clause(vector<Lit>{Lit(0, false)});
+    s.add_clause(str_to_cl("1"));
     s.add_xor_clause(vector<uint32_t>{0U, 1U, 2U}, false);
     s.add_clause(vector<Lit>{Lit(1, false)});
     s.add_clause(vector<Lit>{Lit(2, false)});
@@ -506,7 +521,7 @@ TEST(xor_interface, unit)
 {
     SATSolver s;
     s.new_vars(3);
-    s.add_clause(vector<Lit>{Lit(0, false)});
+    s.add_clause(str_to_cl("1"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_True);
 
@@ -519,7 +534,7 @@ TEST(xor_interface, unit2)
 {
     SATSolver s;
     s.new_vars(3);
-    s.add_clause(vector<Lit>{Lit(0, false)});
+    s.add_clause(str_to_cl("1"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_True);
 
@@ -541,8 +556,8 @@ TEST(xor_interface, unit3)
 {
     SATSolver s;
     s.new_vars(3);
-    s.add_clause(vector<Lit>{Lit(0, false)});
-    s.add_clause(vector<Lit>{Lit(0, true), Lit(1, true)});
+    s.add_clause(str_to_cl("1"));
+    s.add_clause(str_to_cl("-1, -2"));
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_True);
 
@@ -595,13 +610,34 @@ TEST(xor_interface, abort_early)
     s.set_max_confl(0);
     s.new_vars(2);
 
-    s.add_clause(vector<Lit>{Lit(0, false), Lit(1, false)});
-    s.add_clause(vector<Lit>{Lit(0, false), Lit(1, true)});
-    s.add_clause(vector<Lit>{Lit(0, true), Lit(1, false)});
-    s.add_clause(vector<Lit>{Lit(0, true), Lit(1, true)});
+    s.add_clause(str_to_cl("1, 2"));
+    s.add_clause(str_to_cl("1, -2"));
+    s.add_clause(str_to_cl("-1, 2"));
+    s.add_clause(str_to_cl("-1, -2"));
 
     lbool ret = s.solve();
     EXPECT_EQ( ret, l_Undef);
+}
+
+TEST(xor_interface, abort_once_continue_next)
+{
+    SATSolver s;
+    s.set_no_simplify();
+    s.set_no_equivalent_lit_replacement();
+
+    s.set_num_threads(2);
+    s.set_max_confl(0);
+    s.new_vars(2);
+
+    s.add_clause(str_to_cl("1, 2"));
+    s.add_clause(str_to_cl("1, -2"));
+    s.add_clause(str_to_cl("-1, 2"));
+    s.add_clause(str_to_cl("-1, -2"));
+
+    lbool ret = s.solve();
+    EXPECT_EQ( ret, l_Undef);
+    lbool ret2 = s.solve();
+    EXPECT_EQ( ret2, l_False);
 }
 
 TEST(xor_interface, xor3)
@@ -663,7 +699,7 @@ TEST(error_throw, toomany_vars)
 
     EXPECT_THROW({
         s.new_vars(1ULL << 28);}
-        , std::runtime_error);
+        , CMSat::TooManyVarsError);
 }
 
 TEST(error_throw, toomany_vars2)
@@ -673,7 +709,7 @@ TEST(error_throw, toomany_vars2)
 
     EXPECT_THROW({
         s.new_vars(1ULL << 27);}
-        , std::runtime_error);
+        , CMSat::TooManyVarsError);
 }
 
 TEST(error_throw, toomany_vars_single)
@@ -683,7 +719,7 @@ TEST(error_throw, toomany_vars_single)
 
     EXPECT_THROW({
         s.new_var();}
-        , std::runtime_error);
+        , CMSat::TooManyVarsError);
 }
 
 TEST(no_error_throw, long_clause)
@@ -698,6 +734,372 @@ TEST(no_error_throw, long_clause)
     s.add_clause(cl);
     lbool ret = s.solve();
     EXPECT_EQ(ret, l_True);
+}
+
+TEST(statistics, zero)
+{
+    SATSolver s;
+    s.set_no_simplify();
+    s.new_vars(10);
+
+    lbool ret = s.solve();
+    EXPECT_EQ(ret, l_True);;
+    EXPECT_EQ(s.get_sum_conflicts(), 0);
+    EXPECT_EQ(s.get_sum_propagations(), 10);
+    EXPECT_EQ(s.get_sum_decisions(), 10);
+}
+
+TEST(statistics, one_confl)
+{
+    SATSolver s;
+    s.set_no_simplify();
+    s.new_vars(10);
+    s.add_clause(str_to_cl("1, 2"));
+    s.add_clause(str_to_cl("1, -2"));
+    s.add_clause(str_to_cl("-1, 2"));
+
+    lbool ret = s.solve();
+    EXPECT_EQ(ret, l_True);
+    EXPECT_EQ(s.get_sum_conflicts(), 1);
+    EXPECT_EQ(s.get_sum_propagations(), 11);
+}
+
+TEST(statistics, unsat)
+{
+    SATSolver s;
+    s.set_no_simplify();
+    s.new_vars(10);
+    s.add_clause(str_to_cl("1, 2"));
+    s.add_clause(str_to_cl("1, -2"));
+    s.add_clause(str_to_cl("-1, 2"));
+    s.add_clause(str_to_cl("-1, -2"));
+
+    lbool ret = s.solve();
+    EXPECT_EQ(ret, l_False);
+    EXPECT_EQ(s.get_sum_conflicts(), 2);
+    EXPECT_EQ(s.get_sum_propagations(), 2);
+}
+
+TEST(statistics, last_vs_sum_conflicts)
+{
+    SATSolver s;
+    s.set_no_simplify();
+    s.new_vars(10);
+    s.add_clause(str_to_cl("1, 2"));
+    s.add_clause(str_to_cl("1, -2"));
+    s.add_clause(str_to_cl("-1, 2"));
+    s.add_clause(str_to_cl("-1, -2"));
+
+    s.set_max_confl(0);
+    lbool ret = s.solve();
+    EXPECT_EQ(ret, l_Undef);
+    EXPECT_EQ(s.get_sum_conflicts(), 0);
+    EXPECT_EQ(s.get_last_conflicts(), 0);
+
+    s.set_max_confl(2);
+    ret = s.solve();
+    EXPECT_EQ(ret, l_False);
+    EXPECT_EQ(s.get_sum_conflicts(), 2);
+    EXPECT_EQ(s.get_last_conflicts(), 2);
+}
+
+TEST(propagate, trivial_1)
+{
+    SATSolver s;
+    s.new_vars(10);
+    s.add_clause(str_to_cl("-1"));
+
+    vector<Lit> lits = s.get_zero_assigned_lits();
+    vector<Lit>::iterator it;
+    it = std::find(lits.begin(), lits.end(), Lit(0, true));
+    EXPECT_NE(it, lits.end());
+    EXPECT_EQ(lits.size(), 1);
+}
+
+TEST(propagate, trivial_2)
+{
+    SATSolver s;
+    s.new_vars(10);
+    s.add_clause(str_to_cl("-1"));
+    s.add_clause(str_to_cl("-2"));
+
+    vector<Lit> lits = s.get_zero_assigned_lits();
+    vector<Lit>::iterator it;
+    it = std::find(lits.begin(), lits.end(), Lit(0, true));
+    EXPECT_NE(it, lits.end());
+    it = std::find(lits.begin(), lits.end(), Lit(1, true));
+    EXPECT_NE(it, lits.end());
+
+    EXPECT_EQ(lits.size(), 2);
+}
+
+TEST(propagate, prop_1)
+{
+    SATSolver s;
+    s.new_vars(10);
+    s.add_clause(str_to_cl("1, 2"));
+    s.add_clause(str_to_cl("-1"));
+
+    vector<Lit> lits = s.get_zero_assigned_lits();
+    vector<Lit>::iterator it;
+    it = std::find(lits.begin(), lits.end(), Lit(0, true));
+    EXPECT_NE(it, lits.end());
+    it = std::find(lits.begin(), lits.end(), Lit(1, false));
+    EXPECT_NE(it, lits.end());
+
+    EXPECT_EQ(lits.size(), 2);
+}
+
+TEST(propagate, prop_1_alter)
+{
+    SATSolver s;
+    s.new_vars(10);
+    s.add_clause(str_to_cl("-1"));
+    s.add_clause(str_to_cl("1, 2"));
+
+    vector<Lit> lits = s.get_zero_assigned_lits();
+    vector<Lit>::iterator it;
+    it = std::find(lits.begin(), lits.end(), Lit(0, true));
+    EXPECT_NE(it, lits.end());
+    it = std::find(lits.begin(), lits.end(), Lit(1, false));
+    EXPECT_NE(it, lits.end());
+    EXPECT_EQ(lits.size(), 2);
+}
+
+TEST(propagate, prop_many)
+{
+    SATSolver s;
+    s.new_vars(30);
+    for(unsigned i = 0; i < 10; i++) {
+        s.add_clause(vector<Lit>{Lit(i*2, true), Lit(i*2+1, true)});
+        s.add_clause(vector<Lit>{Lit(i*2, false)});
+    }
+
+    vector<Lit> lits = s.get_zero_assigned_lits();
+    for(unsigned i = 0; i < 10; i++) {
+        vector<Lit>::iterator it;
+        it = std::find(lits.begin(), lits.end(), Lit(i*2, false));
+        EXPECT_NE(it, lits.end());
+        it = std::find(lits.begin(), lits.end(), Lit(i*2+1, true));
+        EXPECT_NE(it, lits.end());
+    }
+
+    EXPECT_EQ(lits.size(), 10*2);
+}
+
+TEST(propagate, prop_complex)
+{
+    SATSolver s;
+    s.new_vars(30);
+
+    s.add_clause(str_to_cl("-1"));
+    s.add_clause(str_to_cl("1, 2"));
+
+    s.add_clause(str_to_cl("-5, 6"));
+    s.add_clause(str_to_cl("5"));
+
+    s.add_clause(str_to_cl("1, -2, -5, -6, 7"));
+
+    vector<Lit> lits = s.get_zero_assigned_lits();
+    vector<Lit>::iterator it;
+    it = std::find(lits.begin(), lits.end(), Lit(6, true));
+    EXPECT_EQ(lits.size(), 5);
+}
+
+TEST(independent, indep1)
+{
+    SolverConf conf;
+    conf.simplify_at_startup = true;
+    SATSolver s(&conf);
+
+    s.new_vars(30);
+    s.add_clause(str_to_cl("1, 2, 3, 4"));
+    s.add_clause(str_to_cl("-5, 6"));
+
+    vector<uint32_t> x{4U};
+    s.set_independent_vars(&x);
+
+    lbool ret = s.solve(NULL, true);
+    EXPECT_EQ(ret, l_True);
+    EXPECT_EQ(s.get_model()[0], l_Undef);
+    EXPECT_EQ(s.get_model()[1], l_Undef);
+    EXPECT_NE(s.get_model()[4], l_Undef);
+
+    ret = s.solve();
+    EXPECT_EQ(ret, l_True);
+    EXPECT_NE(s.get_model()[0], l_Undef);
+    EXPECT_NE(s.get_model()[1], l_Undef);
+    EXPECT_NE(s.get_model()[4], l_Undef);
+}
+
+TEST(independent, indep2)
+{
+    SolverConf conf;
+    conf.simplify_at_startup = true;
+    SATSolver s(&conf);
+
+    s.new_vars(30);
+    s.add_clause(str_to_cl("1, 2, 3, 4"));
+    s.add_clause(str_to_cl("-5, 6"));
+
+    vector<uint32_t> x{0U,1U,2U,3U,4U,5U};
+    s.set_independent_vars(&x);
+
+    lbool ret = s.solve(NULL, true);
+    EXPECT_EQ(ret, l_True);
+    for(uint32_t i = 0; i < 6; i++) {
+        EXPECT_NE(s.get_model()[i], l_Undef);
+    }
+    EXPECT_EQ(s.get_model()[6], l_Undef);
+}
+
+
+
+TEST(xor_recovery, find_1_3_xor)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U}, false);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(false);
+    EXPECT_EQ(xors.size(), 1);
+}
+
+TEST(xor_recovery, find_1_3_xor2)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U}, true);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(false);
+    EXPECT_EQ(xors.size(), 1);
+}
+
+TEST(xor_recovery, find_2_3_xor)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_clause(str_to_cl("1,2,3,4,5"));
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U}, false);
+    s.add_xor_clause(vector<unsigned>{0U, 2U, 3U}, false);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(false);
+    EXPECT_EQ(xors.size(), 2);
+}
+
+TEST(xor_recovery, find_2_3_xor_elongate)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_clause(str_to_cl("1,2,3,4,5"));
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U}, false);
+    s.add_xor_clause(vector<unsigned>{0U, 3U, 4U}, false);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(true);
+    EXPECT_EQ(xors.size(), 1);
+    EXPECT_EQ(xors[0].first, (vector<uint32_t>{1U, 2U, 3U, 4U}));
+    EXPECT_EQ(xors[0].second, false);
+}
+
+TEST(xor_recovery, find_1_3_xor_exact)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U}, false);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(false);
+    EXPECT_EQ(xors.size(), 1);
+    EXPECT_EQ(xors[0].first, (vector<uint32_t>{0U, 1U, 2U}));
+    EXPECT_EQ(xors[0].second, false);
+}
+
+TEST(xor_recovery, find_1_3_xor_exact2)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U}, true);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(false);
+    EXPECT_EQ(xors.size(), 1);
+    EXPECT_EQ(xors[0].first, (vector<uint32_t>{0U, 1U, 2U}));
+    EXPECT_EQ(xors[0].second, true);
+}
+
+TEST(xor_recovery, find_1_4_xor_exact)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U, 3U}, false);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(false);
+    EXPECT_EQ(xors.size(), 1);
+    EXPECT_EQ(xors[0].first, (vector<uint32_t>{0U, 1U, 2U, 3U}));
+}
+
+TEST(xor_recovery, find_xor_one_only)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U, 3U, 4U, 5U}, false);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(true);
+    EXPECT_EQ(xors.size(), 1);
+    EXPECT_EQ(xors[0].first, (vector<uint32_t>{0U, 1U, 2U, 3U, 4U, 5U}));
+}
+
+TEST(xor_recovery, find_xor_none_because_internal_var)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U, 3U, 4U, 5U}, true);
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(false);
+    EXPECT_EQ(xors.size(), 0);
+}
+
+//TODO the renubmering make 31 out of 3 and then it's not "outside" anymore...
+TEST(xor_recovery, DISABLED_find_xor_renumber)
+{
+    SATSolver s;
+    s.new_vars(30);
+    s.set_no_bve();
+    s.set_verbosity(5);
+
+    s.add_xor_clause(vector<unsigned>{0U, 1U}, false);
+    s.add_xor_clause(vector<unsigned>{0U, 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U}, true);
+    s.simplify();
+    s.simplify();
+
+    vector<std::pair<vector<uint32_t>, bool> > xors = s.get_recovered_xors(true);
+    EXPECT_EQ(xors.size(), 1);
+    EXPECT_EQ(xors[0].first, (vector<uint32_t>{1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U}));
 }
 
 

@@ -50,7 +50,7 @@ added back to the problem.
 class CompHandler
 {
     public:
-        CompHandler(Solver* solver);
+        explicit CompHandler(Solver* solver);
         ~CompHandler();
 
         struct RemovedClauses {
@@ -66,7 +66,7 @@ class CompHandler
         void addSavedState(vector<lbool>& solution);
         void readdRemovedClauses();
         const RemovedClauses& getRemovedClauses() const;
-        void dump_removed_clauses(std::ostream* outfile) const;
+        uint32_t dump_removed_clauses(std::ostream* outfile) const;
         size_t get_num_vars_removed() const;
         size_t get_num_components_solved() const;
         size_t mem_used() const;
@@ -135,17 +135,6 @@ class CompHandler
             ,  Watched *i
             , const Lit lit
         );
-        void move_tri_clause(
-            SATSolver* newSolver
-            , const uint32_t comp
-            ,  Watched *i
-            , const Lit lit
-        );
-        void remove_tri_except_for_lit1(
-            const Lit lit
-            , const Lit lit2
-            , const Lit lit3
-        );
         void remove_bin_except_for_lit1(const Lit lit, const Lit lit2);
 
         Solver* solver;
@@ -183,8 +172,6 @@ class CompHandler
 
         uint32_t numRemovedHalfIrred = 0;
         uint32_t numRemovedHalfRed = 0;
-        uint32_t numRemovedThirdIrred = 0;
-        uint32_t numRemovedThirdRed = 0;
         vector<Lit> tmp_lits;
 };
 
