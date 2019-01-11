@@ -150,6 +150,10 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
         }
     } else {
         independent_vars.swap(parser.independent_vars);
+        jaccard_vars.swap(parser.jaccard_vars);
+        jaccard_vars2.swap(parser.jaccard_vars2);
+        ob_vars.swap(parser.ob_vars);
+        attack_vars.swap(parser.attack_vars);
     }
 
     if (independent_vars.empty()) {

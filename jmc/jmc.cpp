@@ -1990,12 +1990,10 @@ void JaccardMC::setDiffOb()
 		vars.clear();
 		vars.push_back(Lit(act_var, false));
 		vars.push_back(Lit(ob_vars[i], true));
-		vars.push_back(Lit(ob_vars2[i], true));
 		solver->add_clause(vars);
 		vars.clear();
 		vars.push_back(Lit(act_var, false));
 		vars.push_back(Lit(ob_vars[i], false));
-		vars.push_back(Lit(ob_vars2[i], false));
 		solver->add_clause(vars);
 	}
 	solver->add_clause(assumps);
@@ -2257,28 +2255,8 @@ void JaccardMC::solver_init()
 	}
 	check_num_threads_sanity(num_threads);
 	solver->set_num_threads(num_threads);
-	if (sql == 1) {
-		solver->set_mysql(sqlServer
-			, sqlUser
-			, sqlPass
-			, sqlDatabase);
-	} else if (sql == 2) {
-		solver->set_sqlite(sqlite_filename);
-	}
-
-	solver->add_sql_tag("commandline", commandLine);
-	solver->add_sql_tag("verbosity", lexical_cast<string>(conf.verbosity));
-	solver->add_sql_tag("threads", lexical_cast<string>(num_threads));
-	solver->add_sql_tag("version", solver->get_version());
-	solver->add_sql_tag("SHA-revision", solver->get_version_sha1());
-	solver->add_sql_tag("env", solver->get_compilation_env());
-#ifdef __GNUC__
-	solver->add_sql_tag("compiler", "gcc-" __VERSION__);
-#else
-	solver->add_sql_tag("compiler", "non-gcc");
-#endif
 	if (unset_vars) {
-		solver->set_greedy_undef();
+		//solver->set_greedy_undef();
 	}
 	vector<unsigned> original_independent_vars = independent_vars;
 	parseInAllFiles(solver);
@@ -2287,8 +2265,6 @@ void JaccardMC::solver_init()
 	int pos = 0;
 	if (is_diff) {
 		ob_vars = jaccard_vars;
-		ob_vars2 = jaccard_vars2;
-		assert(ob_vars.size() == ob_vars2.size());
 	}
 
 	if (is_diff && ob_vars.size() > 0) {
@@ -2348,8 +2324,6 @@ int JaccardMC::solve()
 	//printVersionInfo();
 
 
-	originalPC_size = solver->get_Nclause();
-	cout << "original size=" << originalPC_size << "\n";
 	if (startIteration > independent_vars.size()) {
 		cout << "ERROR: Manually-specified startIteration"
 			"is larger than the size of the independent set.\n" << endl;
@@ -2470,7 +2444,7 @@ void JaccardMC::call_after_parse()
 
 }
 /*set concrete samples for s, s'*/
-static void JaccardMC::SetSampledJaccardHatHash(unsigned clausNum, vector<vector<Lit>>&assumps, SATSolver* solver)
+ void JaccardMC::SetSampledJaccardHatHash(unsigned clausNum, vector<vector<Lit>>&assumps, SATSolver* solver)
 {
 	//assumps[0]: constrain secret s in S
 	//assumps[1]: constrain secret s' in S'
@@ -2487,7 +2461,11 @@ static void JaccardMC::SetSampledJaccardHatHash(unsigned clausNum, vector<vector
 	solver->new_var();
 	unsigned two_var = solver->nVars() - 1;
 	vector<Lit> out_var;
-	auto variables;
+	vector<uint32_t> variables;
+	while(assumps.size()<3){
+		vector<Lit> tmp;
+		assumps.push_back(tmp);
+	}
 	for (int i = 0; i < 3; ++i)
 		assumps[i].push_back(Lit(two_var, false));
 	out_var.push_back(Lit(two_var, true));
@@ -2563,10 +2541,13 @@ bool JaccardMC::SSetTwoHashSample(unsigned num_xor_cls, vector<Lit>& assumps, SA
 		}
 		return true;
 	}
-	if(!notSampled){
-		SetSampledJaccardHatHash(num_xor_cls,assumps,solver);
-		return true;
-	}
+	/*elseif(!notSampled){
+		vector<vector<Lit>>assumps3;
+		SetSampledJaccardHatHash(num_xor_cls,assumps3,solver);
+		for (int i=0;i<2;++i){
+			assumps+=assumps3[i];
+		}
+	}*/
 	vector<unsigned> vars, vars2;
 	for (unsigned i = 0; i < num_xor_cls; i++) {
 		//new activation variable

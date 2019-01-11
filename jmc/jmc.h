@@ -111,14 +111,20 @@ public:
 class JaccardMC : public Main
 {
 	private:
+		/*
 		vector<uint32_t> jaccard_vars;
+		vector<uint32_t> jaccard_var2;
+		std::vector<uint32_t> ob_vars2;
+		std::vector<uint32_t> ob_vars;
+		std::vector<uint32_t> attack_vars;*/
 		std::string jaccard_vars_str = "";
 		unsigned CountOnOut = 0;
 		std::set<std::string> cachedSolutions;
 		std::vector<std::string> cachedSubSolutions[3];
 		std::vector<std::string> cachedFullSolutions[3];
-		std::vector<unsigned> independent_vars0;
-		std::vector<unsigned> ob_vars2;
+		std::vector<uint32_t> independent_vars0;
+	
+
 		std::set<std::string> independent_samples;
 		std::set<std::string> jaccard_samples;
 		std::string logFileName = "cusp_log.txt";
@@ -175,7 +181,7 @@ class JaccardMC : public Main
     void cache_clear();
     void SetJaccardHash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, vector<Lit>& assumps, vector<Lit>& assumps2, CMSat::SATSolver* solver);
     void SetJaccard2Hash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, vector<Lit>& assumps, CMSat::SATSolver* solver);
-
+void SetSampledJaccardHatHash(unsigned int, std::vector<std::vector<CMSat::Lit>>&, CMSat::SATSolver*);
     int BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, const vector<Lit> jassumps, int resultIndex, CMSat::SATSolver * solver);
 
     int BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> assumps, CMSat::SATSolver * solver);

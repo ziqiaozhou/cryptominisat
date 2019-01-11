@@ -44,7 +44,6 @@ class DimacsParser
         vector<uint32_t> independent_vars;
         vector<uint32_t> dependent_vars;
         vector<uint32_t> jaccard_vars;
-
         vector<uint32_t> jaccard_vars2;
 		vector<uint32_t> attack_vars;
 		vector<uint32_t> ob_vars;

@@ -58,6 +58,7 @@ class Main
         virtual int solve();
         SolverConf conf;
 
+        void check_num_threads_sanity(const unsigned thread_num) const;
     private:
         //arguments
         int argc;
@@ -69,7 +70,7 @@ class Main
         void handle_drat_option();
         void parse_restart_type();
         void parse_polarity_type();
-        void check_num_threads_sanity(const unsigned thread_num) const;
+
 
         po::positional_options_description p;
         po::options_description all_options;
@@ -114,6 +115,10 @@ class Main
         int sql = 0;
         string sqlite_filename;
         vector<uint32_t> independent_vars;
+        vector<uint32_t> jaccard_vars;
+        vector<uint32_t> jaccard_vars2;
+        vector<uint32_t> ob_vars;
+        vector<uint32_t> attack_vars;
         std::string independent_vars_str = "";
         bool only_indep_solution = false;
 
