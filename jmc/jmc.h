@@ -110,50 +110,62 @@ public:
 
 class JaccardMC : public Main
 {
-private:
-    unsigned CountOnOut = 0;
-    std::set<std::string> cachedSolutions;
-    std::vector<std::string> cachedSubSolutions[3];
-    std::vector<std::string> cachedFullSolutions[3];
-    std::vector<unsigned> independent_vars0;
-    std::vector<unsigned> ob_vars2;
-    std::set<std::string> independent_samples;
-    std::set<std::string> jaccard_samples;
-    std::string logFileName = "cusp_log.txt";
-    bool useWeight=false;
-    unsigned singleIndex = 0;
-    double startTime;
-    std::map< std::string, std::vector<unsigned> > globalSolutionMap;
-    bool openLogFile();
-    std::atomic<bool> must_interrupt;
-    string dFilename="";
-    std::map<unsigned,float> distribution;
-    double wsolution=0;
-    void readDFile();
-public:
+	private:
+		vector<uint32_t> jaccard_vars;
+		std::string jaccard_vars_str = "";
+		unsigned CountOnOut = 0;
+		std::set<std::string> cachedSolutions;
+		std::vector<std::string> cachedSubSolutions[3];
+		std::vector<std::string> cachedFullSolutions[3];
+		std::vector<unsigned> independent_vars0;
+		std::vector<unsigned> ob_vars2;
+		std::set<std::string> independent_samples;
+		std::set<std::string> jaccard_samples;
+		std::string logFileName = "cusp_log.txt";
+		bool useWeight=false;
+		unsigned singleIndex = 0;
+		double startTime;
+		std::map< std::string, std::vector<unsigned> > globalSolutionMap;
+		bool openLogFile();
+		std::atomic<bool> must_interrupt;
+		string dFilename="";
+		std::map<unsigned,float> distribution;
+		double wsolution=0;
+		void readDFile();
+	public:
 
-    std::vector<CMSat::SATSolver*> solvers;
-    int solve() override;
-    void add_supported_options() override;
+		std::vector<CMSat::SATSolver*> solvers;
+		int solve() override;
+		void add_supported_options() override;
 
-    po::options_description approxMCOptions;
+		po::options_description approxMCOptions;
 
-    JaccardMC(int argc, char** argv) :
-    Main(argc, argv)
-    , approxMCOptions("ApproxMC options")
-    {
-        must_interrupt.store(false, std::memory_order_relaxed);
-    }
+		JaccardMC(int argc, char** argv) :
+			Main(argc, argv)
+			, approxMCOptions("ApproxMC options")
+	{
+		must_interrupt.store(false, std::memory_order_relaxed);
+		std::stringstream ss(jaccard_vars_str);
+		uint32_t i;
+		while (ss >> i)
+		{
+			const uint32_t var = i-1;
+			jaccard_vars.push_back(var);
 
-private:
+			if (ss.peek() == ',' || ss.peek() == ' ')
+			  ss.ignore();
+		}
+	}
 
-    void add_approxmc_options();
-    void solver_init();
-    bool JaccardApproxMC(std::map<unsigned, SATCount>& count);
-    void setDiffOb();
-    bool JaccardHatApproxMC(std::map<unsigned, SATCount>& count);
-    bool ScalApproxMC(SATCount& count);
-    bool ApproxMC(SATCount& count);
+	private:
+
+		void add_approxmc_options();
+		void solver_init();
+		bool JaccardApproxMC(std::map<unsigned, SATCount>& count);
+		void setDiffOb();
+		bool JaccardHatApproxMC(std::map<unsigned, SATCount>& count);
+		bool ScalApproxMC(SATCount& count);
+		bool ApproxMC(SATCount& count);
     bool SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, std::vector<XorClause>&, CMSat::SATSolver* solver);
     bool SSetTwoHashSample(unsigned num_xor_cls, std::vector<Lit>& assumps, CMSat::SATSolver* solver);
     bool AddHash(unsigned num_xor_cls, vector<Lit>& assumps, CMSat::SATSolver* solver);

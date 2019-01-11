@@ -107,8 +107,6 @@ void JaccardMC::add_approxmc_options()
 		"prefix for output filename")
 		("mode", po::value(&searchMode)->default_value(searchMode)
 		, "Seach mode:  Jn Mode (JaccardMC): =1, \\hat{Jn} Mode: = 3")
-		("JaccardXorMax", po::value(&jaccardXorMax)->default_value(1000)
-		, "default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
 		("XorMax", po::value(&XorMax)->default_value(1000)
 		, "default =1000, if xor is eceed this value, trim the xor by change the ratio for randombits")
 		("JaccardXorRate", po::value(&jaccardXorRate)->default_value(jaccardXorRate)
@@ -2784,7 +2782,7 @@ void JaccardMC::SetHash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, ve
 		independent_vars0 = independent_vars;
 	}
 	int var_size = independent_vars0.size();
-	if (unsigned(clausNum * var_size)>unsigned(XorMax)) {//don't allow too many xor
+	if (XorMax>0 and unsigned(clausNum * var_size)>unsigned(XorMax)) {//don't allow too many xor
 		ratio = (1.0 * XorMax) / (clausNum * var_size);
 		//ratio=(ratio<XorRate)?XorRate:0.5;
 	}
