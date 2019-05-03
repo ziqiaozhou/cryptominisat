@@ -129,6 +129,7 @@ class JaccardMC : public Main
 		std::set<std::string> jaccard_samples;
 		std::string logFileName = "cusp_log.txt";
 		bool useWeight=false;
+		bool make_initial_check=false;
 		unsigned singleIndex = 0;
 		double startTime;
 		std::map< std::string, std::vector<unsigned> > globalSolutionMap;
