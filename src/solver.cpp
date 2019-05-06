@@ -936,7 +936,7 @@ bool Solver::renumber_variables(bool must_renumber)
     //Tests
     test_renumbering();
 	test_reflectivity_of_renumbering();
-	std::ofstream f,removedF;
+/*	std::ofstream f,removedF;
 	f.open("renumber.map");
 	removedF.open("removed.map");
 	for(unsigned i=0;i< outerToInter.size();++i){
@@ -946,7 +946,7 @@ bool Solver::renumber_variables(bool must_renumber)
 		  removedF<<i<<"\n";
 	}
 	f.close();
-	removedF.close();
+	removedF.close();*/
 
     //Print results
     const double time_used = cpuTime() - myTime;
