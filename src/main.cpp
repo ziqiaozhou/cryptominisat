@@ -163,14 +163,14 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
         }
     } else {
         solver2->set_independent_vars(&independent_vars);
-        cout << "c Independent vars set: ";
+        /*cout << "c Independent vars set: ";
         for(size_t i = 0; i < independent_vars.size(); i++) {
             const uint32_t v = independent_vars[i];
             cout << v+1;
             if (i+1 != independent_vars.size())
                 cout << ",";
         }
-        cout << endl;
+        cout << endl;*/
     }
     call_after_parse();
 
