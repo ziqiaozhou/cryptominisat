@@ -30,7 +30,8 @@ THE SOFTWARE.
 #include "watchalgos.h"
 #include "varupdatehelper.h"
 #include "time_mem.h"
-
+#include <iostream>
+#include <fstream>
 using namespace CMSat;
 
 void CNF::new_var(const bool bva, const uint32_t orig_outer)
@@ -225,7 +226,7 @@ void CNF::updateVars(
     const vector<uint32_t>& outerToInter
     , const vector<uint32_t>& interToOuter
 ) {
-    updateArray(interToOuterMain, interToOuter);
+	    updateArray(interToOuterMain, interToOuter);
     updateArrayMapCopy(outerToInterMain, outerToInter);
 }
 

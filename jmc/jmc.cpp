@@ -2295,8 +2295,15 @@ void JaccardMC::readDFile(){
 int JaccardMC::solve()
 {
 	if (!gauss_manual) {
+		uint32_t xor_cut = 4;
 		conf.reconfigure_at = 0;
 		conf.reconfigure_val = 15;
+		conf.xor_var_per_cut = xor_cut-2;
+		conf.varElimRatioPerIter = 1;
+		conf.maple = 0;
+        conf.do_simplify_problem = true;
+		conf.global_multiplier_multiplier_max = 3;
+		conf.global_timeout_multiplier_multiplier = 1.5;
 		conf.gaussconf.max_matrix_rows = 3000;
 		conf.gaussconf.decision_until = 3000;
 		conf.gaussconf.max_num_matrixes = 4;

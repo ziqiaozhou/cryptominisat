@@ -32,7 +32,7 @@ THE SOFTWARE.
 #include <vector>
 #include <complex>
 #include <locale>
-
+#include <iostream>
 #include "varreplacer.h"
 #include "time_mem.h"
 #include "searcher.h"
@@ -935,7 +935,18 @@ bool Solver::renumber_variables(bool must_renumber)
 
     //Tests
     test_renumbering();
-    test_reflectivity_of_renumbering();
+	test_reflectivity_of_renumbering();
+	std::ofstream f,removedF;
+	f.open("renumber.map");
+	removedF.open("removed.map");
+	for(unsigned i=0;i< outerToInter.size();++i){
+		if(interToOuter[outerToInter[i]]==i)
+			f<<i<<" "<<outerToInter[i]<<"\n";
+		else
+		  removedF<<i<<"\n";
+	}
+	f.close();
+	removedF.close();
 
     //Print results
     const double time_used = cpuTime() - myTime;
