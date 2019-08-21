@@ -275,30 +275,49 @@ bool JaccardMC::AddHash(unsigned num_xor_cls, vector<Lit>& assumps, CMSat::SATSo
 void JaccardMC::trimVar(vector<unsigned> &vars)
 {
 	vector<unsigned> new_vars;
+	map<unsigned,std::set<bool>> solution;
+	lbool checkSAT = solver->solve();
+	if (checkSAT != l_True) {
+		cerr<<"error in trim. cannot find a solution for the constraint";
+
+	}
+	for (const unsigned var : vars) {
+		if (solver->get_model()[var] != l_Undef) {
+			solution[var].insert((solver->get_model()[var] == l_True));
+			cerr<<"trim: var"<<var<<"\t"<<((solver->get_model()[var] == l_True)?"true":"false")<<"\n";
+		} 
+	}
 	for (unsigned i = 0; i < vars.size(); ++i) {
 		unsigned var = vars[i];
 		vector<Lit>assume;
-		std::cerr << "var=" << var;
+		assert(solution.count(var)>0);
 		assume.clear();
-		assume.push_back(Lit(var, true));
-		double start = cpuTimeTotal();
-		lbool ret0 = solver->solve(&assume);
-		std::cerr << "\ntime:" << cpuTimeTotal() - start;
-		assume.clear();
-		std::cerr << "!var=" << var;
-		assume.push_back(Lit(var, false));
-		lbool ret1 = solver->solve(&assume);
-		if (ret0 != ret1) {
-			std::cerr << "delete " << var << "\n";
-		} else {
-			std::cerr << ((ret0 == l_True) ? "ret0=true" : "ret0!=true") << ((ret1 == l_True) ? "ret1=true" : "ret1!=true");
+		if (solution[var].size()==2){
 			new_vars.push_back(var);
+			continue;
+		}
+		//Check whether var can be assigned to another value;
+		assume.push_back(Lit(var, *solution[var].begin()));
+		lbool ret1 = solver->solve(&assume);
+		if (ret1==l_True){	
+			new_vars.push_back(var);
+		}else{
+			cerr<<"Constant:"<<var+1<<"\n";
 		}
 	}
 	vars = new_vars;
+	std::ofstream ff;
+	std::ostringstream filename("");
+	filename << "trimed.txt";
+	ff.open(filename.str(), std::ofstream::out);
+	ff << "c ind ";
+	for (auto var : independent_vars) {
+		ff << var + 1 << " ";
+	}
+	ff<<"0";
+	ff.close();
 
 }
-
 int JaccardMC::SampledBoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, const vector<Lit> jassumps, CMSat::SATSolver* solver)
 {
 	size_t size = independent_vars.size();
@@ -575,18 +594,6 @@ int JaccardMC::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> as
 		}
 		solver->set_timeout_all_calls(this_iter_timeout);
 		ret = solver->solve(&new_assumps);
-		/*if(firstround){
-			for (const unsigned i: dependent_vars) {
-				vector<lit> eqlits;
-				bool value=(rand()%2==1);
-				eqlits.push_back(lit(act_var,false));
-				eqlits.push_back(lit(i,solver->get_model()[i]==l_false));
-				solver->add_clause(eqlits);
-				naddedclause++;
-			}
-			firstround=false;
-		}*/
-
 		if (ret != l_True)
 			break;
 
@@ -1343,7 +1350,7 @@ TOO_SMALL_ENTRY:
 		if (resultIndex == 0) {
 			std::ofstream f;
 			std::ostringstream filename("");
-					filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t0";
+			filename<<outPrefix<<"count_j"<<jaccardHashCount<<"_t0";
 			f.open(filename.str(), std::ofstream::out | std::ofstream::app);
 			unsigned i = scounts[0].size();
 			if (i > 0) {
@@ -2049,18 +2056,8 @@ bool JaccardMC::JaccardHatApproxMC(map<unsigned, SATCount>& count)
 
 	if (trimOnly) {
 		trimVar(independent_vars);
-		std::ofstream ff;
-		std::ostringstream filename("");
-		filename << "trimed.txt";
-		ff.open(filename.str(), std::ofstream::out | std::ofstream::app);
-		ff << "c ind ";
-		for (auto var : independent_vars) {
-			ff << var + 1 << " ";
-		}
-		ff.close();
 		exit(0);
 	}
-	//	trimVar(&jaccard_vars);
 	double std_error = tStdError;
 	for (unsigned j = 0; (j < tJaccardMC) || (std_error >= tStdError); j++) {
 		/*	if(j==0)	{
@@ -2107,6 +2104,11 @@ bool JaccardMC::JaccardApproxMC(map<unsigned, SATCount>& count)
 	assert(singleIndex <= jaccard_vars.size());
 	jaccardHashCount = singleIndex;
 	double myTime = cpuTimeTotal();
+	if (trimOnly) {
+		trimVar(independent_vars);
+		exit(0);
+	}
+
 	cerr<<"start initial boundedSATCount\n";
 	if (make_initial_check){
 		int checkSAT = BoundedSATCount(pivotApproxMC + 1, assumps, solver);
@@ -2130,20 +2132,7 @@ bool JaccardMC::JaccardApproxMC(map<unsigned, SATCount>& count)
 	//check_num_threads_sanity(num_threads);
 	//after warm up
 
-	if (trimOnly) {
-		trimVar(independent_vars);
-		std::ofstream ff;
-		std::ostringstream filename("");
-		filename << "trimed.txt";
-		ff.open(filename.str(), std::ofstream::out | std::ofstream::app);
-		ff << "c ind ";
-		for (auto var : independent_vars) {
-			ff << var + 1 << " ";
-		}
-		ff.close();
-		exit(0);
-	}
-	//	trimVar(&jaccard_vars);
+		//	trimVar(&jaccard_vars);
 	//Start counting
 	for (unsigned j = 0; j < tJaccardMC; j++) {
 		cerr << "Jaccard count=" << j;

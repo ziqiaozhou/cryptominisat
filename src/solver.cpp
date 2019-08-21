@@ -1859,6 +1859,7 @@ bool Solver::execute_inprocess_strategy(
             conf.independent_vars == NULL //no point finding, cannot be handled
         ) {
             if (get_num_free_vars() < conf.compVarLimit*solver->conf.var_and_mem_out_mult) {
+				cout<<"start find\n";
                 CompFinder findParts(this);
                 findParts.find_components();
             }

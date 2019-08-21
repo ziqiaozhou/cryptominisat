@@ -32,7 +32,8 @@ THE SOFTWARE.
 #include "clausecleaner.h"
 #include "clauseallocator.h"
 #include "sqlstats.h"
-
+#include <iostream>
+#include <fstream>
 using namespace CMSat;
 
 using std::set;
@@ -58,12 +59,20 @@ void CompFinder::print_found_components() const
     size_t notPrinted = 0;
     size_t totalSmallSize = 0;
     size_t i = 0;
-    size_t print_limit = 300;
+	size_t print_limit = 300;
+	std::ofstream myfile;
+	myfile.open ("component.txt");
     for(map<uint32_t, vector<uint32_t> >::const_iterator
         it = reverseTable.begin(), end = reverseTable.end()
         ; it != end
         ; ++it, i++
     ) {
+		for(auto node : it->second ){
+			myfile<<node+1<<" ";
+			cout<<node+1<<" ";
+		}
+		myfile<<"\n";
+		cout<<"\n";
         if (it->second.size() < print_limit || solver->conf.verbosity >= 3) {
             totalSmallSize += it->second.size();
             notPrinted++;
@@ -74,7 +83,7 @@ void CompFinder::print_found_components() const
             << endl;
         }
     }
-
+	myfile.close();
     if (solver->conf.verbosity < 3 && notPrinted > 0) {
         cout
         << "c [comp] Unprinted small (<" << print_limit << " var) components:" << notPrinted
@@ -120,9 +129,14 @@ void CompFinder::find_components()
     add_clauses_to_component(solver->longIrredCls);
     addToCompImplicits();
     if (timedout) {
+		cout<<"timeout comp find\n";
         reverseTable.clear();
     }
+	cout<<"comp find result:\n";
     print_and_add_to_sql_result(myTime);
+	/*if (reverseTable.size() > 1) {
+            print_found_components();
+    }*/
 
     assert(solver->okay());
 }

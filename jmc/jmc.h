@@ -20,7 +20,8 @@
 #define GOT_RESULT_LOWER -32
 #define TOO_MUCH -8
 #define DEBUG_VAR_LEVEL 2
-
+#define FIXED_VAR_FILE "fixed_var.txt"
+#define INFIXED_VAR_FILE "infixed_var.txt"
 #define DEBUG_HASH_LEVEL 3
 #define VAR_MESSAGE(s) if(debug>DEBUG_VAR_LEVEL)std::cout<<s;
 
