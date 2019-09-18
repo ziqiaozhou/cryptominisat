@@ -1482,7 +1482,10 @@ lbool Solver::solve_with_assumptions(
             "but putting simplified CNF to file" << endl;
         }
         save_state(conf.saved_state_file, status);
-        ClauseDumper dumper(this);
+
+        CompFinder findParts(this);
+        findParts.find_components();
+        ClauseDumper dumper(this,&findParts);
         if (status == l_False) {
             dumper.open_file_and_write_unsat(conf.simplified_cnf);
         } else {
@@ -3389,7 +3392,7 @@ void Solver::save_all(  lbool status)const
 }
 lbool Solver::load_state(const string& fname)
 {
-	
+
 	SimpleInFile f;
     f.start(fname);
 
