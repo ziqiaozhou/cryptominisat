@@ -62,33 +62,33 @@ void CompFinder::print_found_components() const
 	size_t print_limit = 300;
 	std::ofstream myfile;
 	myfile.open ("component.txt");
-    for(map<uint32_t, vector<uint32_t> >::const_iterator
-        it = reverseTable.begin(), end = reverseTable.end()
-        ; it != end
-        ; ++it, i++
-    ) {
+	for(map<uint32_t, vector<uint32_t> >::const_iterator
+			it = reverseTable.begin(), end = reverseTable.end()
+			; it != end
+			; ++it, i++
+	   ) {
 		for(auto node : it->second ){
 			myfile<<node+1<<" ";
 			cout<<node+1<<" ";
 		}
 		myfile<<"\n";
 		cout<<"\n";
-        if (it->second.size() < print_limit || solver->conf.verbosity >= 3) {
-            totalSmallSize += it->second.size();
-            notPrinted++;
-        } else {
-            cout
-            << "c [comp] large component " << std::setw(5) << i
-            << " size: " << std::setw(10) << it->second.size()
-            << endl;
-        }
-    }
+		if (it->second.size() < print_limit || solver->conf.verbosity >= 3) {
+			totalSmallSize += it->second.size();
+			notPrinted++;
+		} else {
+			cout
+				<< "c [comp] large component " << std::setw(5) << i
+				<< " size: " << std::setw(10) << it->second.size()
+				<< endl;
+		}
+	}
 	myfile.close();
-    if (solver->conf.verbosity < 3 && notPrinted > 0) {
-        cout
-        << "c [comp] Unprinted small (<" << print_limit << " var) components:" << notPrinted
-        << " vars: " << totalSmallSize
-        << endl;
+	if (solver->conf.verbosity < 3 && notPrinted > 0) {
+		cout
+			<< "c [comp] Unprinted small (<" << print_limit << " var) components:" << notPrinted
+			<< " vars: " << totalSmallSize
+			<< endl;
     }
 }
 
@@ -132,11 +132,11 @@ void CompFinder::find_components()
 		cout<<"timeout comp find\n";
         reverseTable.clear();
     }
-	cout<<"comp find result:\n";
+    cout<<"comp find result:\n";
     print_and_add_to_sql_result(myTime);
-	/*if (reverseTable.size() > 1) {
-            print_found_components();
-    }*/
+    if (reverseTable.size() >= 1) {
+	    print_found_components();
+    }
 
     assert(solver->okay());
 }
@@ -249,14 +249,12 @@ bool CompFinder::belong_to_same_component(const T& cl)
     if (table[cl[0].var()] != std::numeric_limits<uint32_t>::max()) {
         bogoprops_remain -= (int64_t)cl.size()/2 + 1;
         const uint32_t comp = table[cl[0].var()];
-
-        for (const Lit l: cl) {
-            if (table[l.var()] != comp) {
-                return false;
-            }
-        }
-
-        return true;
+	for (const Lit l: cl) {
+		if (table[l.var()] != comp) {
+			return false;
+		}
+	}
+	return true;
     }
 
     return false;
@@ -302,10 +300,14 @@ void CompFinder::add_clause_to_component(const T& cl)
     newSet.clear();
 
     if (belong_to_same_component(cl)) {
-        return;
+	    return;
     }
-
-    fill_newset_and_tomerge(cl);
+    /*std::cout<<"continue add ";
+    for (const Lit l: cl) {
+	    std::cout<<l<<" ";
+    }
+    std::cout<<"\n";
+    */fill_newset_and_tomerge(cl);
 
     //no sets to merge, only merge the clause into one tree
     if (tomerge.size() == 1) {

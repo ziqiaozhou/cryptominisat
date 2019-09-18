@@ -925,7 +925,7 @@ void Main::handle_drat_option()
             << "c Component finding & solving is not supported during DRAT, turning it off"
             << endl;
         }
-        conf.doCompHandler = false;
+      //  conf.doCompHandler = false;
     }
 }
 
@@ -977,9 +977,9 @@ void Main::manually_parse_some_options()
         conf.varelim_time_limitM *= 5;
         conf.orig_global_timeout_multiplier *= 1.5;
         if (conf.doCompHandler) {
-            conf.doCompHandler = false;
+            //conf.doCompHandler = false;
             if (conf.verbosity) {
-                cout << "c Cannot handle components when preprocessing. Turning it off." << endl;
+                cout << "c Cannot handle components when preprocessing. Please turning it off." << endl;
             }
         }
 

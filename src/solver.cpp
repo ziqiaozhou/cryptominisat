@@ -1498,7 +1498,12 @@ lbool Solver::solve_with_assumptions(
     assumptions.clear();
     conf.max_confl = std::numeric_limits<long>::max();
     conf.maxTime = std::numeric_limits<double>::max();
+
+    if(conf.preprocess!=1)
+    	open_file_and_dump_irred_clauses("outer.cnf");
     drat->flush();
+
+
     return status;
 }
 
@@ -1866,7 +1871,7 @@ bool Solver::execute_inprocess_strategy(
         } else if (token == "handle-comps") {
             if (compHandler
                 && conf.doCompHandler
-                && conf.independent_vars == NULL
+               // && conf.independent_vars == NULL
                 && get_num_free_vars() < conf.compVarLimit*solver->conf.var_and_mem_out_mult
                 && solveStats.numSimplify >= conf.handlerFromSimpNum
                 //Only every 2nd, since it can be costly to find parts
