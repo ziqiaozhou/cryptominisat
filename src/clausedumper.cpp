@@ -111,11 +111,11 @@ size_t ClauseDumper::get_preprocessor_num_cls(bool outer_numbering) {
 }
 void ClauseDumper::dump_symbol_vars(std::ostream *out) {
   for (auto one_symbol_vars : *solver->conf.symbol_vars) {
-    *out << "c " << one_symbol_vars.first <<" --> [";
-    for(auto var: one_symbol_vars.second){
-      *out <<" " << var;
+    *out << "c " << one_symbol_vars.first << " --> [";
+    for (auto var : one_symbol_vars.second) {
+      *out << " " << var;
     }
-    *out<<"]\n";
+    *out << "]\n";
   }
 }
 void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
@@ -126,6 +126,7 @@ void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
          << get_preprocessor_num_cls(false) << "\n";
 
     dump_irred_cls_for_preprocessor(out, false);
+    std::cout << "dump symbol\n";
     dump_symbol_vars(out);
   }
 }
@@ -133,6 +134,7 @@ void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
 void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
     const string &irredDumpFname) {
   indCompSet.clear();
+  std::cout << "dump--\n";
   if (solver->conf.independent_vars && compFinder) {
     for (uint32_t var : *solver->conf.independent_vars) {
       if (solver->value(var) != l_Undef) {
@@ -149,6 +151,8 @@ void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
       std::cout << c << "--\n";
     for (uint32_t var : *solver->conf.independent_vars) {
       auto comp = compFinder->getVarComp(var);
+      if (comp == 0)
+        continue;
       if (IndCompVars[comp].size() == 1 && solver->value(var) != l_Undef) {
         cout << "free var:" << var + 1 << "\n";
       }
@@ -156,6 +160,7 @@ void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
   }
   open_dump_file(irredDumpFname);
   try {
+    std::cout << "dump file 2--\n";
     dump_irred_clauses_preprocessor(outfile);
   } catch (std::ifstream::failure &e) {
     cout << "Error writing clause dump to file: " << e.what() << endl;

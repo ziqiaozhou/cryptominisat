@@ -169,7 +169,6 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
         }
     } else {
         solver2->set_independent_vars(&independent_vars);
-          solver2->set_symbol_vars(&symbol_vars);
         /*cout << "c Independent vars set: ";
         for(size_t i = 0; i < independent_vars.size(); i++) {
             const uint32_t v = independent_vars[i];
@@ -179,6 +178,7 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
         }
         cout << endl;*/
     }
+    solver2->set_symbol_vars(&symbol_vars);
     call_after_parse();
 
     #ifndef USE_ZLIB

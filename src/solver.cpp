@@ -689,7 +689,7 @@ void Solver::test_renumbering() const {
     } else {
       // cout << " non-removed" << endl;
     }
-    if (std::find(conf.independent_vars->begin(), conf.independent_vars->end(),
+    if (conf.independent_vars && std::find(conf.independent_vars->begin(), conf.independent_vars->end(),
                   i) == conf.independent_vars->end()) {
       uninteresting = false;
     }
@@ -699,7 +699,7 @@ void Solver::test_renumbering() const {
       problem = true;
     }
   }
-  assert(!problem && "We renumbered the variables in the wrong order!");
+  assert(!problem && ("We renumbered the variables in the wrong order!"));
 }
 
 void Solver::renumber_clauses(const vector<uint32_t> &outerToInter) {
