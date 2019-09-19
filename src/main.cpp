@@ -150,6 +150,7 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
         }
     } else {
         independent_vars.swap(parser.independent_vars);
+        symbol_vars.swap(parser.symbol_vars);
         jaccard_vars.swap(parser.jaccard_vars);
         jaccard_vars2.swap(parser.jaccard_vars2);
         ob_vars.swap(parser.ob_vars);
@@ -163,6 +164,7 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
         }
     } else {
         solver2->set_independent_vars(&independent_vars);
+          solver2->set_symbol_vars(&symbol_vars);
         /*cout << "c Independent vars set: ";
         for(size_t i = 0; i < independent_vars.size(); i++) {
             const uint32_t v = independent_vars[i];

@@ -108,7 +108,7 @@ void VarReplacer::printReplaceStats() const {
        ++it, i++) {
     if (it->var() == i)
       continue;
-    cout << "Replacing var " << i + 1 << " with Lit " << *it << endl;
+    //cout << "Replacing var " << i + 1 << " with Lit " << *it << endl;
   }
 }
 

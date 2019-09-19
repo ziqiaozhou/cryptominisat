@@ -109,7 +109,15 @@ size_t ClauseDumper::get_preprocessor_num_cls(bool outer_numbering) {
 
   return num_cls;
 }
-
+void ClauseDumper::dump_symbol_vars(std::ostream *out) {
+  for (auto one_symbol_vars : *solver->conf.symbol_vars) {
+    *out << "c " << one_symbol_vars.first <<" --> [";
+    for(auto var: one_symbol_vars.second){
+      *out <<" " << var;
+    }
+    *out<<"]\n";
+  }
+}
 void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
   if (!solver->okay()) {
     write_unsat(out);
@@ -118,6 +126,7 @@ void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
          << get_preprocessor_num_cls(false) << "\n";
 
     dump_irred_cls_for_preprocessor(out, false);
+    dump_symbol_vars(out);
   }
 }
 
@@ -126,18 +135,22 @@ void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
   indCompSet.clear();
   if (solver->conf.independent_vars && compFinder) {
     for (uint32_t var : *solver->conf.independent_vars) {
-      if(solver->value(var)!=l_Undef){
-        cout<<"fix var:"<<var+1<<"\n";
+      if (solver->value(var) != l_Undef) {
+        indFixSet.insert(var);
+        cout << "fix var:" << var + 1 << "\n";
       }
-      auto comp=compFinder->getVarComp(var);
-      indCompSet.insert(comp);
-      IndCompVars[comp].push_back(var);
+      auto comp = compFinder->getVarComp(var);
+      if (comp != -1) {
+        indCompSet.insert(comp);
+        IndCompVars[comp].push_back(var);
+      }
     }
+    for (auto c : indCompSet)
+      std::cout << c << "--\n";
     for (uint32_t var : *solver->conf.independent_vars) {
-      auto comp=compFinder->getVarComp(var);
-
-      if(IndCompVars[comp].size()==1 && solver->value(var)!=l_Undef){
-        cout<<"free var:"<<var+1<<"\n";
+      auto comp = compFinder->getVarComp(var);
+      if (IndCompVars[comp].size() == 1 && solver->value(var) != l_Undef) {
+        cout << "free var:" << var + 1 << "\n";
       }
     }
   }
@@ -196,18 +209,18 @@ void ClauseDumper::dump_irred_cls(std::ostream *out, bool outer_numbering) {
 
 void ClauseDumper::dump_unit_cls(std::ostream *out, bool outer_numbering) {
   *out << "c --------- unit clauses" << endl;
+  vector<Lit> lits;
   if (outer_numbering) {
     //'trail' cannot be trusted between 0....size()
-    vector<Lit> lits = solver->get_zero_assigned_lits();
-    for (Lit lit : lits) {
-      *out << lit << " 0\n";
-    }
+    lits = solver->get_zero_assigned_lits();
   } else {
-    vector<Lit> units = solver->get_toplevel_units_internal(false);
-    for (Lit l : units) {
-      *out << l << " 0"
-           << "\n";
-    }
+    lits = solver->get_toplevel_units_internal(false);
+  }
+  for (Lit lit : lits) {
+    uint32_t comp = BelongsToIndComp(lit);
+    if (!comp && indFixSet.count(lit.var()) == 0)
+      continue;
+    *out << lit << " 0\n";
   }
 }
 
@@ -292,7 +305,7 @@ void ClauseDumper::dump_bin_cls(std::ostream *out, const bool dumpRed,
 
 void ClauseDumper::dump_eq_lits(std::ostream *out, bool outer_numbering) {
   *out << "c ------------ equivalent literals" << endl;
-  solver->varReplacer->print_equivalent_literals(outer_numbering, out,this);
+  solver->varReplacer->print_equivalent_literals(outer_numbering, out, this);
 }
 
 void ClauseDumper::dump_clauses(std::ostream *out, const vector<ClOffset> &cls,
@@ -300,7 +313,8 @@ void ClauseDumper::dump_clauses(std::ostream *out, const vector<ClOffset> &cls,
   for (vector<ClOffset>::const_iterator it = cls.begin(), end = cls.end();
        it != end; ++it) {
     Clause *cl = solver->cl_alloc.ptr(*it);
-    uint32_t comp=BelongsToIndComp((*cl)[0]);
+    uint32_t comp = BelongsToIndComp((*cl)[0]);
+    std::cout << (*cl)[0] << "fix \n";
     if (!comp)
       continue;
     comp_clauses_sizes[comp]++;

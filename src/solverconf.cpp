@@ -25,6 +25,8 @@ THE SOFTWARE.
 #include <limits>
 #include <iomanip>
 #include <sstream>
+
+
 using namespace CMSat;
 
 DLL_PUBLIC SolverConf::SolverConf() :
@@ -253,6 +255,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         //Greedy Undef
         , greedy_undef(false)
         , independent_vars(NULL)
+        ,symbol_vars(NULL)
 
         //Timeouts
         , orig_global_timeout_multiplier(4.0)
