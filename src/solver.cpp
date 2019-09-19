@@ -733,7 +733,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     if (value(i) != l_Undef || varData[i].removed == Removed::elimed ||
         varData[i].removed == Removed::replaced ||
         varData[i].removed == Removed::decomposed) {
-      if (std::find(conf.independent_vars->begin(),
+      if (conf.independent_vars == nullptr || std::find(conf.independent_vars->begin(),
                     conf.independent_vars->end(),
                     i) == conf.independent_vars->end()) {
         useless.push_back(i);
