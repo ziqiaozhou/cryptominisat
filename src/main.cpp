@@ -151,7 +151,7 @@ void Main::readInAFile(SATSolver* solver2, const string& filename)
     } else {
         independent_vars.swap(parser.independent_vars);
         symbol_vars.swap(parser.symbol_vars);
-        if(conf.preprocess==1){
+        if(conf.keep_symbol){
           for(auto one_symbol_vars: symbol_vars){
             independent_vars.insert(independent_vars.end(),one_symbol_vars.second.begin(),one_symbol_vars.second.end());
           }
@@ -444,6 +444,8 @@ void Main::add_supported_options()
 
     po::options_description simplificationOptions("Simplification options");
     simplificationOptions.add_options()
+    ("keepsymbol", po::value(&conf.keep_symbol)->default_value(false)
+        , "Perform simplification but keep symbol variable in final cnf.")
     ("schedsimp", po::value(&conf.do_simplify_problem)->default_value(conf.do_simplify_problem)
         , "Perform simplification rounds. If 0, we never perform any.")
     ("presimp", po::value(&conf.simplify_at_startup)->default_value(conf.simplify_at_startup)

@@ -690,7 +690,7 @@ void Solver::test_renumbering() const {
       // cout << " non-removed" << endl;
     }
     if (conf.independent_vars && std::find(conf.independent_vars->begin(), conf.independent_vars->end(),
-                  i) == conf.independent_vars->end()) {
+                  i) != conf.independent_vars->end()) {
       uninteresting = false;
     }
     if (value(i) == l_Undef && varData[i].removed != Removed::elimed &&
@@ -867,11 +867,6 @@ bool Solver::renumber_variables(bool must_renumber) {
   datasync->updateVars(outerToInter, interToOuter);
 
   // Tests
-  test_renumbering();
-  test_reflectivity_of_renumbering();
-  std::ofstream f, removedF;
-  f.open("renumber.map");
-  removedF.open("removed.map");
   if (conf.independent_vars) {
     map_user_specified_vars(conf.independent_vars,outerToInter,numEffectiveVars);
   }
@@ -879,6 +874,12 @@ bool Solver::renumber_variables(bool must_renumber) {
     for (auto &one_symbol_vars : *conf.symbol_vars) {
       map_user_specified_vars(&one_symbol_vars.second,outerToInter,numEffectiveVars);
     }
+  test_renumbering();
+  test_reflectivity_of_renumbering();
+  std::ofstream f, removedF;
+  f.open("renumber.map");
+  removedF.open("removed.map");
+
   for (unsigned i = 0; i < outerToInter.size(); ++i) {
     if (outerToInter[i] < numEffectiveVars)
       f << i << " " << outerToInter[i] << "\n";
