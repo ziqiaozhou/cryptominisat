@@ -134,12 +134,12 @@ void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
 void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
     const string &irredDumpFname) {
   indCompSet.clear();
-  std::cout << "dump--\n";
+//  std::cout << "dump--\n";
   if (solver->conf.independent_vars && compFinder) {
     for (uint32_t var : *solver->conf.independent_vars) {
       if (solver->value(var) != l_Undef) {
         indFixSet.insert(var);
-        cout << "fix var:" << var + 1 << "\n";
+        //cout << "fix var:" << var + 1 << "\n";
       }
       auto comp = compFinder->getVarComp(var);
       if (comp != -1) {
@@ -147,14 +147,14 @@ void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
         IndCompVars[comp].push_back(var);
       }
     }
-    for (auto c : indCompSet)
-      std::cout << c << "--\n";
+  /*  for (auto c : indCompSet)
+      std::cout << c << "--\n";*/
     for (uint32_t var : *solver->conf.independent_vars) {
       auto comp = compFinder->getVarComp(var);
       if (comp == 0)
         continue;
       if (IndCompVars[comp].size() == 1 && solver->value(var) != l_Undef) {
-        cout << "free var:" << var + 1 << "\n";
+      //  cout << "free var:" << var + 1 << "\n";
       }
     }
   }
