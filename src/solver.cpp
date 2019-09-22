@@ -729,18 +729,32 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
   size_t at = 0;
   vector<uint32_t> useless;
   size_t numEffectiveVars = 0;
+  if (conf.independent_vars != nullptr){
+    for(auto &i: *conf.independent_vars){
+      //std::cout<<"ind:"<<i<<"\n";
+      if(varData[i].removed== Removed::replaced){
+        unsigned replaced_with=varReplacer->get_var_replaced_with(i);
+        //std::cout<<i<<"is replace with "<< replaced_with<<"\n";
+        i=replaced_with;
+      }
+      assert(varData[i].removed!= Removed::replaced);
+      assert(varData[i].removed!= Removed::elimed);
+      assert(varData[i].removed!= Removed::decomposed);
+      if(outerToInter[i]!=-1) continue;
+      outerToInter[i] = at;
+      interToOuter[at] = i;
+      at++;
+      numEffectiveVars++;
+    }
+  }
   for (size_t i = 0; i < nVars(); i++) {
+    if(outerToInter[i]!=-1) continue;
     if (value(i) != l_Undef || varData[i].removed == Removed::elimed ||
         varData[i].removed == Removed::replaced ||
         varData[i].removed == Removed::decomposed) {
-      if (conf.independent_vars == nullptr || std::find(conf.independent_vars->begin(),
-                    conf.independent_vars->end(),
-                    i) == conf.independent_vars->end()) {
-        useless.push_back(i);
-        continue;
-      }
+      useless.push_back(i);
+      continue;
     }
-
     outerToInter[i] = at;
     interToOuter[at] = i;
     at++;
@@ -755,6 +769,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     interToOuter[at] = *it;
     at++;
   }
+//  std::cout<< at<<" at != nvars()"<<nVars()<<"\n";
   assert(at == nVars());
 
   // Extend to nVarsOuter() --> these are just the identity transformation
@@ -762,7 +777,6 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     outerToInter[i] = i;
     interToOuter[i] = i;
   }
-
   return numEffectiveVars;
 }
 
@@ -837,8 +851,8 @@ bool Solver::renumber_variables(bool must_renumber) {
   }
 
   // outerToInter[10] = 0 ---> what was 10 is now 0.
-  vector<uint32_t> outerToInter(nVarsOuter());
-  vector<uint32_t> interToOuter(nVarsOuter());
+  vector<uint32_t> outerToInter(nVarsOuter(),-1);
+  vector<uint32_t> interToOuter(nVarsOuter(),-1);
 
   size_t numEffectiveVars =
       calculate_interToOuter_and_outerToInter(outerToInter, interToOuter);
