@@ -689,7 +689,8 @@ void Solver::test_renumbering() const {
     } else {
       // cout << " non-removed" << endl;
     }
-    if (conf.independent_vars && std::find(conf.independent_vars->begin(), conf.independent_vars->end(),
+    if (conf.independent_vars &&
+        std::find(conf.independent_vars->begin(), conf.independent_vars->end(),
                   i) != conf.independent_vars->end()) {
       uninteresting = false;
     }
@@ -729,18 +730,19 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
   size_t at = 0;
   vector<uint32_t> useless;
   size_t numEffectiveVars = 0;
-  if (conf.independent_vars != nullptr){
-    for(auto &i: *conf.independent_vars){
-      //std::cout<<"ind:"<<i<<"\n";
-      if(varData[i].removed== Removed::replaced){
-        unsigned replaced_with=varReplacer->get_var_replaced_with(i);
-        //std::cout<<i<<"is replace with "<< replaced_with<<"\n";
-        i=replaced_with;
+  if (conf.independent_vars != nullptr) {
+    for (auto &i : *conf.independent_vars) {
+      // std::cout<<"ind:"<<i<<"\n";
+      if (varData[i].removed == Removed::replaced) {
+        unsigned replaced_with = varReplacer->get_var_replaced_with(i);
+        // std::cout<<i<<"is replace with "<< replaced_with<<"\n";
+        i = replaced_with;
       }
-      assert(varData[i].removed!= Removed::replaced);
-      assert(varData[i].removed!= Removed::elimed);
-      assert(varData[i].removed!= Removed::decomposed);
-      if(outerToInter[i]!=-1) continue;
+      assert(varData[i].removed != Removed::replaced);
+      assert(varData[i].removed != Removed::elimed);
+      assert(varData[i].removed != Removed::decomposed);
+      if (outerToInter[i] != -1)
+        continue;
       outerToInter[i] = at;
       interToOuter[at] = i;
       at++;
@@ -748,7 +750,8 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     }
   }
   for (size_t i = 0; i < nVars(); i++) {
-    if(outerToInter[i]!=-1) continue;
+    if (outerToInter[i] != -1)
+      continue;
     if (value(i) != l_Undef || varData[i].removed == Removed::elimed ||
         varData[i].removed == Removed::replaced ||
         varData[i].removed == Removed::decomposed) {
@@ -769,7 +772,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     interToOuter[at] = *it;
     at++;
   }
-//  std::cout<< at<<" at != nvars()"<<nVars()<<"\n";
+  //  std::cout<< at<<" at != nvars()"<<nVars()<<"\n";
   assert(at == nVars());
 
   // Extend to nVarsOuter() --> these are just the identity transformation
@@ -817,16 +820,32 @@ bool Solver::clean_xor_clauses_from_duplicate_and_set_vars() {
   return okay();
 }
 static void map_user_specified_vars(std::vector<uint32_t> *vars,
-                                    const vector<uint32_t> &outerToInter,int numEffectiveVars) {
+                                    const vector<uint32_t> &outerToInter,
+                                    int numEffectiveVars) {
   for (int i = 0; i < vars->size(); ++i) {
     auto old_var = (*vars)[i];
     if (outerToInter.size() > old_var &&
         outerToInter[old_var] < numEffectiveVars) {
       (*vars)[i] = outerToInter[old_var];
     } else {
-      std::cout << "removed" << old_var << "\n";
+      {
+        std::cout << "removed" << old_var << "\n";
+        assert(false);
+      }
     }
   }
+}
+
+bool Solver::EnsureUnRemovedTrackedVars(vector<uint32_t> *vars) {
+  for (auto &i : *vars)
+    if (varData[i].removed == Removed::replaced) {
+      unsigned replaced_with = varReplacer->get_var_replaced_with(i);
+      // std::cout<<i<<"is replace with "<< replaced_with<<"\n";
+      i = replaced_with;
+    } else {
+      assert(varData[i].removed != Removed::elimed);
+      assert(varData[i].removed != Removed::decomposed);
+    }
 }
 // Beware. Cannot be called while Searcher is running.
 bool Solver::renumber_variables(bool must_renumber) {
@@ -851,8 +870,15 @@ bool Solver::renumber_variables(bool must_renumber) {
   }
 
   // outerToInter[10] = 0 ---> what was 10 is now 0.
-  vector<uint32_t> outerToInter(nVarsOuter(),-1);
-  vector<uint32_t> interToOuter(nVarsOuter(),-1);
+  vector<uint32_t> outerToInter(nVarsOuter(), -1);
+  vector<uint32_t> interToOuter(nVarsOuter(), -1);
+  /*replace the removed vars*/
+  if (conf.symbol_vars)
+    for (auto &one_symbol_vars : *conf.symbol_vars) {
+      EnsureUnRemovedTrackedVars(&one_symbol_vars.second);
+    }
+  if (conf.independent_vars)
+    EnsureUnRemovedTrackedVars(conf.independent_vars);
 
   size_t numEffectiveVars =
       calculate_interToOuter_and_outerToInter(outerToInter, interToOuter);
@@ -882,11 +908,13 @@ bool Solver::renumber_variables(bool must_renumber) {
 
   // Tests
   if (conf.independent_vars) {
-    map_user_specified_vars(conf.independent_vars,outerToInter,numEffectiveVars);
+    map_user_specified_vars(conf.independent_vars, outerToInter,
+                            numEffectiveVars);
   }
   if (conf.symbol_vars)
     for (auto &one_symbol_vars : *conf.symbol_vars) {
-      map_user_specified_vars(&one_symbol_vars.second,outerToInter,numEffectiveVars);
+      map_user_specified_vars(&one_symbol_vars.second, outerToInter,
+                              numEffectiveVars);
     }
   test_renumbering();
   test_reflectivity_of_renumbering();

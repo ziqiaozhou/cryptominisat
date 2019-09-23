@@ -168,7 +168,7 @@ class Solver : public Searcher
         void update_assumptions_after_varreplace();
 
         //State load/unload
-        
+
         void save_all(lbool status) const;
 		void save_state(const string& fname, const lbool status) const;
         lbool load_state(const string& fname);
@@ -269,6 +269,7 @@ class Solver : public Searcher
         #ifdef CMS_TESTING_ENABLED
         FRIEND_TEST(SearcherTest, pickpolar_auto_not_changed_by_simp);
         #endif
+        bool EnsureUnRemovedTrackedVars(vector<uint32_t> * vars);
 
         vector<Lit> add_clause_int_tmp_cl;
         lbool iterate_until_solved();
