@@ -684,7 +684,6 @@ void Solver::test_renumbering() const {
     if (varData[i].removed == Removed::elimed ||
         varData[i].removed == Removed::replaced ||
         varData[i].removed == Removed::decomposed) {
-      cout << "elimited" << i << "\n";
       uninteresting = true;
       // cout << " removed" << endl;
     } else {
@@ -753,10 +752,10 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
   size_t numEffectiveVars = 0;
   if (conf.independent_vars != nullptr) {
     for (auto &i : *conf.independent_vars) {
-      std::cout << "ind:" << i << "\n";
+      //std::cout << "ind:" << i << "\n";
       if (varData[i].removed == Removed::replaced) {
         unsigned replaced_with = varReplacer->get_var_replaced_with(i);
-        std::cout << i << "is replace with " << replaced_with << "\n";
+      //  std::cout << i << "is replace with " << replaced_with << "\n";
         i = replaced_with;
       }
       assert(varData[i].removed != Removed::replaced);
@@ -767,14 +766,14 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
       outerToInter[i] = at;
       interToOuter[at] = i;
       at++;
-      std::cout << "update ind:" << i << "\n";
+    //  std::cout << "update ind:" << i << "\n";
       numEffectiveVars++;
     }
   }
   for (size_t i = 0; i < nVars(); i++) {
     if (outerToInter[i] != -1)
       continue;
-    std::cout <<"update " << i << "\n";
+    //std::cout <<"update " << i << "\n";
     if (value(i) != l_Undef || varData[i].removed == Removed::elimed ||
         varData[i].removed == Removed::replaced ||
         varData[i].removed == Removed::decomposed) {
@@ -795,7 +794,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     interToOuter[at] = *it;
     at++;
   }
-  std::cout << at << " at != nvars()" << nVars() << "\n";
+  //std::cout << at << " at != nvars()" << nVars() << "\n";
   assert(at == nVars());
 
   // Extend to nVarsOuter() --> these are just the identity transformation

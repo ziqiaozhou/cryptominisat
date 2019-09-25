@@ -17,7 +17,9 @@ void Compose::add_compose_options() {
       "init", po::value(&init_file_)->default_value(""),
       "Initilization constraint file.")(
       "composedfile", po::value(&out_file_)->default_value(""),
-      "Composed filename.");
+      "Composed filename.")("simplify_interval",
+                            po::value(&simplify_interval_)->default_value(1),
+                            "n: simplify the cnf per n cycle.");
   help_options_simple.add(composeOptions_);
   help_options_complicated.add(composeOptions_);
 }
@@ -120,11 +122,11 @@ void Compose::createNextState(
   std::cerr << "old nvar is " << solver2->nVars() << "\n";
   int nvar = createReplaceTable(solver2->nVars(), trans_symbol_vars,
                                 symbol_vars2, table);
-  cout << "Table details:\n";
+/*  cout << "Table details:\n";
   for (int i = 0; i < table.size(); ++i) {
     cout << i << ":" << table[i] << "\n";
   }
-
+*/
   if (solver2->nVars() < nvar)
     solver2->new_vars(nvar - solver2->nVars());
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
@@ -228,6 +230,7 @@ void Compose::readInAFileToCache(SATSolver *solver2, const string &filename) {
 void Compose::run() {
   transition_solver_ = new SATSolver((void *)&conf);
   SolverConf conf2 = conf;
+  SolverConf conf_copy = conf;
   vector<uint32_t> ind_vars;
   conf2.doRenumberVars = false;
   SATSolver *init_solver = new SATSolver((void *)&conf2);
@@ -244,6 +247,7 @@ void Compose::run() {
             << "\n";
   // read init CNF file;
   symbol_vars.clear();
+  independent_vars.clear();
   readInAFile(init_solver, init_file_);
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
@@ -257,8 +261,8 @@ void Compose::run() {
   for (auto vars : init_symbol_vars)
     ind_vars.insert(ind_vars.end(), vars.second.begin(), vars.second.end());
   init_solver->set_independent_vars(&ind_vars);
-  cout << "init_symbol_vars\n";
-  print_map(init_symbol_vars);
+  //cout << "init_symbol_vars\n";
+  //print_map(init_symbol_vars);
   init_solver->set_symbol_vars(&init_symbol_vars);
 
   std::cerr << "start dump\n";
@@ -301,19 +305,35 @@ void Compose::run() {
     init_solver->set_symbol_vars(&init_symbol_vars);
     ind_vars.clear();
     for (auto vars : init_symbol_vars)
-      ind_vars.insert(ind_vars.end(), vars.second.begin(), vars.second.end());
+      for (auto var : vars.second)
+        ind_vars.push_back(var);
     init_solver->set_independent_vars(&ind_vars);
-    cout << "init_symbol_vars\n";
-    print_map(init_symbol_vars);
-    init_solver->simplify();
+    //cout << "init_symbol_vars\n";
+    //print_map(init_symbol_vars);
+    if (i % simplify_interval_ == 0) {
+      init_solver->simplify();
+      init_solver->renumber_variables(true);
+    }
     std::ofstream finalout(current_state + ".cnf");
     init_solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
-    //init_solver->renumber_variables(true);
+    if (i % simplify_interval_ == 0) {
+      delete init_solver;
+      conf2 = conf_copy;
+      init_solver = new SATSolver((void *)&conf2);
+      symbol_vars.clear();
+      independent_vars.clear();
+      readInAFile(init_solver, current_state + ".cnf");
+      init_symbol_vars = symbol_vars;
+    }
+    // init_solver->renumber_variables(true);
     cout << "after renumber: init_symbol_vars\n";
     print_map(init_symbol_vars);
   }
-  init_solver->renumber_variables(true);
+  if (cycles_-1 % simplify_interval_ != 0){
+    init_solver->simplify();
+    init_solver->renumber_variables(true);
+  }
   std::ofstream finalout("final.cnf");
   init_solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();
