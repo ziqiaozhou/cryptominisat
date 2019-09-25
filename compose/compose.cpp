@@ -19,7 +19,12 @@ void Compose::add_compose_options() {
       "composedfile", po::value(&out_file_)->default_value(""),
       "Composed filename.")("simplify_interval",
                             po::value(&simplify_interval_)->default_value(1),
-                            "n: simplify the cnf per n cycle.");
+                            "n: simplify the cnf per n cycle.")(
+      "start_cycle", po::value(&start_cycle_)->default_value(0),
+      "set this if compose a multi-cycle CNF from an intermediate state. "
+      "For example, you already have cnf for state s8 and want to extend to s "
+      "20. "
+      "--start_cycle=8 --cycles=20");
   help_options_simple.add(composeOptions_);
   help_options_complicated.add(composeOptions_);
 }
@@ -122,11 +127,11 @@ void Compose::createNextState(
   std::cerr << "old nvar is " << solver2->nVars() << "\n";
   int nvar = createReplaceTable(solver2->nVars(), trans_symbol_vars,
                                 symbol_vars2, table);
-/*  cout << "Table details:\n";
-  for (int i = 0; i < table.size(); ++i) {
-    cout << i << ":" << table[i] << "\n";
-  }
-*/
+  /*  cout << "Table details:\n";
+    for (int i = 0; i < table.size(); ++i) {
+      cout << i << ":" << table[i] << "\n";
+    }
+  */
   if (solver2->nVars() < nvar)
     solver2->new_vars(nvar - solver2->nVars());
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
@@ -256,7 +261,7 @@ void Compose::run() {
   // merge init CNF to transition CNF;
   // createReplaceMap(init_solver, init_symbol_vars, trans_symbol_vars);
   // parseInAllFiles(init_solver);
-  createNextState(init_solver, trans_symbol_vars, init_symbol_vars);
+  /*createNextState(init_solver, trans_symbol_vars, init_symbol_vars);
   ind_vars.clear();
   for (auto vars : init_symbol_vars)
     ind_vars.insert(ind_vars.end(), vars.second.begin(), vars.second.end());
@@ -273,17 +278,18 @@ void Compose::run() {
   // std::cerr<<"end dump2\n";
   delete out;
   // dump clauses;
+init_symbol_vars.erase("s0");
+  */
   std::map<std::string, std::vector<uint32_t>> current_trans_symbol_vars;
   auto base_trans_symbol_vars = trans_symbol_vars;
-  init_symbol_vars.erase("s0");
-  for (int i = 1; i < cycles_; ++i) {
+
+  for (int i = start_cycle_; i < cycles_; ++i) {
     // compose;
     std::cerr << "cycle" << i << "\n";
-    std::string old_prev_state = "s" + std::to_string(i - 1);
     std::string prev_state = "s" + std::to_string(i);
     std::string current_state = "s" + std::to_string(i + 1);
-    /*    current_trans_symbol_vars.clear();
-        current_trans_symbol_vars[prev_state] =
+    current_trans_symbol_vars.clear();
+    /*    current_trans_symbol_vars[prev_state] =
             base_trans_symbol_vars[old_prev_state];
         current_trans_symbol_vars[current_state] =
             base_trans_symbol_vars[prev_state];
@@ -308,8 +314,8 @@ void Compose::run() {
       for (auto var : vars.second)
         ind_vars.push_back(var);
     init_solver->set_independent_vars(&ind_vars);
-    //cout << "init_symbol_vars\n";
-    //print_map(init_symbol_vars);
+    // cout << "init_symbol_vars\n";
+    // print_map(init_symbol_vars);
     if (i % simplify_interval_ == 0) {
       init_solver->simplify();
       init_solver->renumber_variables(true);
@@ -330,7 +336,7 @@ void Compose::run() {
     cout << "after renumber: init_symbol_vars\n";
     print_map(init_symbol_vars);
   }
-  if (cycles_-1 % simplify_interval_ != 0){
+  if (cycles_ - 1 % simplify_interval_ != 0) {
     init_solver->simplify();
     init_solver->renumber_variables(true);
   }

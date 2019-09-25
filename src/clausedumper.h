@@ -42,7 +42,13 @@ class ClauseDumper {
 public:
   explicit ClauseDumper(const Solver *_solver,
                         const CompFinder *_compFinder = nullptr)
-      : solver(_solver), compFinder(_compFinder) {}
+      : solver(_solver), compFinder(_compFinder) {
+        // do not use compFinder as it is timeout.
+    if (compFinder && compFinder->getTimedOut()){
+      std::cerr<<"!!!!!! attention, trying to use a timeout comp finder.";
+      compFinder = nullptr;
+    }
+  }
 
   ~ClauseDumper() {
     if (outfile) {
@@ -64,6 +70,7 @@ public:
   uint32_t BelongsToIndComp(const Lit &l);
   void dump_symbol_vars(std::ostream *out);
   void dump_irred_cls_for_preprocessor(std::ostream *out, bool outer_number);
+
 private:
   const Solver *solver;
   std::ofstream *outfile = NULL;

@@ -40,6 +40,7 @@ private:
   std::string out_file_;
   SolverConf init_conf_;
   int simplify_interval_;
+  int start_cycle_;
   vector<vector<Lit>> trans_clauses;
   vector<std::pair<vector<uint32_t>, bool>> trans_xor_clauses;
   int n_trans_vars;
