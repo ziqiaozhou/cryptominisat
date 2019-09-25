@@ -38,7 +38,9 @@ template <class C> class DimacsParser {
 public:
   DimacsParser(SATSolver *solver, const std::string *debugLib,
                unsigned _verbosity);
-
+  DimacsParser(SATSolver *_solver, const std::string *_debugLib,
+               unsigned _verbosity, vector<vector<Lit>> *_clauses,
+               vector<std::pair<vector<uint32_t>, bool>> *_xor_clauses);
   template <class T>
   bool parse_DIMACS(T input_stream, const bool strict_header);
   uint64_t max_var = std::numeric_limits<uint64_t>::max();
@@ -48,6 +50,9 @@ public:
   vector<uint32_t> jaccard_vars2;
   vector<uint32_t> attack_vars;
   vector<uint32_t> ob_vars;
+  vector<vector<Lit>> *clauses;
+  vector<std::pair<vector<uint32_t>, bool>> *xor_clauses;
+  bool cached;
   std::map<std::string, std::vector<uint32_t>> symbol_vars;
   const std::string dimacs_spec =
       "http://www.satcompetition.org/2009/format-benchmarks2009.html";
@@ -117,7 +122,20 @@ using std::vector;
 template <class C>
 DimacsParser<C>::DimacsParser(SATSolver *_solver, const std::string *_debugLib,
                               unsigned _verbosity)
-    : solver(_solver), verbosity(_verbosity), lineNum(0) {
+    : solver(_solver), verbosity(_verbosity), lineNum(0), clauses(nullptr),
+      xor_clauses(nullptr) {
+  if (_debugLib) {
+    debugLib = *_debugLib;
+  }
+}
+
+template <class C>
+DimacsParser<C>::DimacsParser(
+    SATSolver *_solver, const std::string *_debugLib, unsigned _verbosity,
+    vector<vector<Lit>> *_clauses,
+    vector<std::pair<vector<uint32_t>, bool>> *_xor_clauses)
+    : solver(_solver), verbosity(_verbosity), lineNum(0), clauses(_clauses),
+      xor_clauses(_xor_clauses) {
   if (_debugLib) {
     debugLib = *_debugLib;
   }
@@ -232,7 +250,9 @@ template <class C> bool DimacsParser<C>::printHeader(C &in) {
     }
 
     if (solver->nVars() < (size_t)num_header_vars) {
+      std::cerr << "new_vars\n";
       solver->new_vars(num_header_vars - solver->nVars());
+      std::cerr << "after new_vars\n";
     }
   } else {
     std::cerr << "PARSE ERROR! Unexpected char (hex: " << std::hex
@@ -403,6 +423,9 @@ template <class C> bool DimacsParser<C>::parse_and_add_clause(C &in) {
     return false;
   }
   lineNum++;
+  if (clauses) {
+    clauses->push_back(lits);
+  }
   solver->add_clause(lits);
   norm_clauses_added++;
   return true;
@@ -429,6 +452,9 @@ template <class C> bool DimacsParser<C>::parse_and_add_xor_clause(C &in) {
     }
   }
   solver->add_xor_clause(vars, rhs);
+  if (xor_clauses) {
+    xor_clauses->push_back(std::make_pair(vars, rhs));
+  }
   xor_clauses_added++;
   return true;
 }

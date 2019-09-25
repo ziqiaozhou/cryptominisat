@@ -105,7 +105,7 @@ class Solver : public Searcher
         void start_getting_small_clauses(uint32_t max_len, uint32_t max_glue);
         bool get_next_small_clause(std::vector<Lit>& out);
         void end_getting_small_clauses();
-
+        void dump_irred_clauses_ind_only(std::ostream *out);
         void dump_irred_clauses(std::ostream *out) const;
         void dump_red_clauses(std::ostream *out) const;
         void open_file_and_dump_irred_clauses(const std::string &fname) const;
@@ -262,7 +262,9 @@ class Solver : public Searcher
         //Helper
         void renumber_xors_to_outside(const vector<Xor>& xors, vector<Xor>& xors_ret);
         void testing_set_solver_not_fresh();
-
+        void renumber_clauses(const vector<uint32_t>& outerToInter);
+        void renumber_clauses_by_table(const std::vector<uint32_t> &outer,
+                                       const std::vector<uint32_t> &innner);
     private:
         friend class Prober;
         friend class ClauseDumper;
@@ -357,7 +359,6 @@ class Solver : public Searcher
             vector<uint32_t>& outerToInter
             , vector<uint32_t>& interToOuter
         );
-        void renumber_clauses(const vector<uint32_t>& outerToInter);
         void test_renumbering() const;
         bool clean_xor_clauses_from_duplicate_and_set_vars();
 

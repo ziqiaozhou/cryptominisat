@@ -774,7 +774,6 @@ bool OccSimplifier::can_eliminate_var(const uint32_t var) const
     ) {
         return false;
     }
-
     return true;
 }
 
@@ -2405,7 +2404,7 @@ void OccSimplifier::print_var_elim_complexity_stats(const uint32_t var) const
 void OccSimplifier::set_var_as_eliminated(const uint32_t var, const Lit lit)
 {
     if (solver->conf.verbosity >= 5) {
-        cout << "Elimination of var "
+        cout << "Elimination of var "<<var<<"\t "
         <<  solver->map_inter_to_outer(lit)
         << " finished " << endl;
     }

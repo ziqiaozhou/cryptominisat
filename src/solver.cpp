@@ -677,32 +677,53 @@ void Solver::test_renumbering() const {
   bool problem = false;
   for (size_t i = 0; i < nVars(); i++) {
     // cout << "val[" << i << "]: " << value(i);
-
-    if (value(i) != l_Undef)
-      uninteresting = true;
-
+    /*
+        if (value(i) != l_Undef)
+          uninteresting = true;
+    */
     if (varData[i].removed == Removed::elimed ||
         varData[i].removed == Removed::replaced ||
         varData[i].removed == Removed::decomposed) {
+      cout << "elimited" << i << "\n";
       uninteresting = true;
       // cout << " removed" << endl;
     } else {
       // cout << " non-removed" << endl;
     }
-    if (conf.independent_vars &&
-        std::find(conf.independent_vars->begin(), conf.independent_vars->end(),
-                  i) != conf.independent_vars->end()) {
-      uninteresting = false;
-    }
     if (value(i) == l_Undef && varData[i].removed != Removed::elimed &&
         varData[i].removed != Removed::replaced &&
         varData[i].removed != Removed::decomposed && uninteresting) {
+      cout << "nonremoved is ordered wrongly" << i << "\n";
       problem = true;
     }
   }
   assert(!problem && ("We renumbered the variables in the wrong order!"));
 }
+void Solver::renumber_clauses_by_table(const vector<uint32_t> &outerToInter,
+                                       const vector<uint32_t> &interToOuter) {
 
+  renumber_clauses(outerToInter);
+  vector<uint32_t> interToOuter2(interToOuter.size() * 2);
+  for (size_t i = 0; i < interToOuter.size(); i++) {
+    interToOuter2[i * 2] = interToOuter[i] * 2;
+    interToOuter2[i * 2 + 1] = interToOuter[i] * 2 + 1;
+  }
+  CNF::updateVars(outerToInter, interToOuter);
+
+  PropEngine::updateVars(outerToInter, interToOuter, interToOuter2);
+  Searcher::updateVars(outerToInter, interToOuter);
+  if (conf.doStamp) {
+    stamp.updateVars(outerToInter, interToOuter2, seen);
+  }
+
+  // Update sub-elements' vars
+  varReplacer->updateVars(outerToInter, interToOuter);
+  if (conf.doCache) {
+    implCache.updateVars(seen, outerToInter, interToOuter2,
+                         interToOuter.size());
+  }
+  datasync->updateVars(outerToInter, interToOuter);
+}
 void Solver::renumber_clauses(const vector<uint32_t> &outerToInter) {
   // Clauses' abstractions have to be re-calculated
   for (ClOffset offs : longIrredCls) {
@@ -732,10 +753,10 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
   size_t numEffectiveVars = 0;
   if (conf.independent_vars != nullptr) {
     for (auto &i : *conf.independent_vars) {
-      // std::cout<<"ind:"<<i<<"\n";
+      std::cout << "ind:" << i << "\n";
       if (varData[i].removed == Removed::replaced) {
         unsigned replaced_with = varReplacer->get_var_replaced_with(i);
-        // std::cout<<i<<"is replace with "<< replaced_with<<"\n";
+        std::cout << i << "is replace with " << replaced_with << "\n";
         i = replaced_with;
       }
       assert(varData[i].removed != Removed::replaced);
@@ -746,12 +767,14 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
       outerToInter[i] = at;
       interToOuter[at] = i;
       at++;
+      std::cout << "update ind:" << i << "\n";
       numEffectiveVars++;
     }
   }
   for (size_t i = 0; i < nVars(); i++) {
     if (outerToInter[i] != -1)
       continue;
+    std::cout <<"update " << i << "\n";
     if (value(i) != l_Undef || varData[i].removed == Removed::elimed ||
         varData[i].removed == Removed::replaced ||
         varData[i].removed == Removed::decomposed) {
@@ -772,7 +795,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     interToOuter[at] = *it;
     at++;
   }
-  //  std::cout<< at<<" at != nvars()"<<nVars()<<"\n";
+  std::cout << at << " at != nvars()" << nVars() << "\n";
   assert(at == nVars());
 
   // Extend to nVarsOuter() --> these are just the identity transformation
@@ -819,17 +842,19 @@ bool Solver::clean_xor_clauses_from_duplicate_and_set_vars() {
 
   return okay();
 }
-static void map_user_specified_vars(std::vector<uint32_t> *vars,
+static void map_user_specified_vars(Solver *solver, std::vector<uint32_t> *vars,
                                     const vector<uint32_t> &outerToInter,
                                     int numEffectiveVars) {
   for (int i = 0; i < vars->size(); ++i) {
     auto old_var = (*vars)[i];
+/*    uint32_t outer_var = solver->map_to_with_bva(old_var);
+    (*vars)[i] = solver->varReplacer->get_var_replaced_with_outer(outer_var);*/
     if (outerToInter.size() > old_var &&
         outerToInter[old_var] < numEffectiveVars) {
       (*vars)[i] = outerToInter[old_var];
     } else {
       {
-        std::cout << "removed" << old_var << "\n";
+        std::cerr << "removed" << old_var << "\n";
         assert(false);
       }
     }
@@ -844,6 +869,7 @@ bool Solver::EnsureUnRemovedTrackedVars(vector<uint32_t> *vars) {
       i = replaced_with;
     } else {
       assert(varData[i].removed != Removed::elimed);
+      assert(varData[i].removed != Removed::replaced);
       assert(varData[i].removed != Removed::decomposed);
     }
 }
@@ -908,12 +934,12 @@ bool Solver::renumber_variables(bool must_renumber) {
 
   // Tests
   if (conf.independent_vars) {
-    map_user_specified_vars(conf.independent_vars, outerToInter,
+    map_user_specified_vars(solver, conf.independent_vars, outerToInter,
                             numEffectiveVars);
   }
   if (conf.symbol_vars)
     for (auto &one_symbol_vars : *conf.symbol_vars) {
-      map_user_specified_vars(&one_symbol_vars.second, outerToInter,
+      map_user_specified_vars(solver, &one_symbol_vars.second, outerToInter,
                               numEffectiveVars);
     }
   test_renumbering();
@@ -978,7 +1004,6 @@ void Solver::new_vars(size_t n) {
   if (n == 0) {
     return;
   }
-
   check_switchoff_limits_newvar(n);
   Searcher::new_vars(n);
   varReplacer->new_vars(n);
@@ -3534,6 +3559,13 @@ vector<Lit> Solver::get_toplevel_units_internal(bool outer_numbering) const {
   }
 
   return units;
+}
+void Solver::dump_irred_clauses_ind_only(std::ostream *out) {
+  CompFinder findParts(this);
+  findParts.find_components();
+  ClauseDumper dumper(this, &findParts);
+  dumper.dump_irred_clauses_preprocessor(out);
+  //  dumper.dump_symbol_vars(out);
 }
 
 void Solver::dump_irred_clauses(std::ostream *out) const {

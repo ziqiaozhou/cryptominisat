@@ -87,7 +87,6 @@ void CNF::new_var(const bool bva, const uint32_t orig_outer)
 
         swapVars(z);
     }
-
     #ifdef SLOW_DEBUG
     test_reflectivity_of_renumbering();
     #endif

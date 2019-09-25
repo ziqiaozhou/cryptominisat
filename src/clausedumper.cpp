@@ -56,6 +56,8 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
   } else {
     dump_irred_cls(out, true);
   }
+  std::cout << "dump symbol\n";
+  dump_symbol_vars(out);
 }
 
 void ClauseDumper::open_file_and_dump_irred_clauses(
@@ -113,9 +115,16 @@ void ClauseDumper::dump_symbol_vars(std::ostream *out) {
   for (auto one_symbol_vars : *solver->conf.symbol_vars) {
     *out << "c " << one_symbol_vars.first << " --> [";
     for (auto var : one_symbol_vars.second) {
-      *out << " " << var+1;
+      *out << " " << var + 1;
     }
     *out << "]\n";
+  }
+  if (solver->conf.independent_vars) {
+    *out << "c ind ";
+    for (auto var : *solver->conf.independent_vars) {
+      *out << " " << var + 1;
+    }
+    *out << " 0\n";
   }
 }
 void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
@@ -133,31 +142,7 @@ void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
 
 void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
     const string &irredDumpFname) {
-  indCompSet.clear();
-//  std::cout << "dump--\n";
-  if (solver->conf.independent_vars && compFinder) {
-    for (uint32_t var : *solver->conf.independent_vars) {
-      if (solver->value(var) != l_Undef) {
-        indFixSet.insert(var);
-        //cout << "fix var:" << var + 1 << "\n";
-      }
-      auto comp = compFinder->getVarComp(var);
-      if (comp != -1) {
-        indCompSet.insert(comp);
-        IndCompVars[comp].push_back(var);
-      }
-    }
-  /*  for (auto c : indCompSet)
-      std::cout << c << "--\n";*/
-    for (uint32_t var : *solver->conf.independent_vars) {
-      auto comp = compFinder->getVarComp(var);
-      if (comp == 0)
-        continue;
-      if (IndCompVars[comp].size() == 1 && solver->value(var) != l_Undef) {
-      //  cout << "free var:" << var + 1 << "\n";
-      }
-    }
-  }
+
   open_dump_file(irredDumpFname);
   try {
     std::cout << "dump file 2--\n";
@@ -352,6 +337,32 @@ void ClauseDumper::dump_vars_appearing_inverted(std::ostream *out,
 
 void ClauseDumper::dump_irred_cls_for_preprocessor(std::ostream *out,
                                                    const bool outer_numbering) {
+  indCompSet.clear();
+  //  std::cout << "dump--\n";
+  if (solver->conf.independent_vars && compFinder) {
+    for (uint32_t var : *solver->conf.independent_vars) {
+      if (solver->value(var) != l_Undef) {
+        indFixSet.insert(var);
+        // cout << "fix var:" << var + 1 << "\n";
+      }
+      auto comp = compFinder->getVarComp(var);
+      if (comp != -1) {
+        indCompSet.insert(comp);
+        IndCompVars[comp].push_back(var);
+      }
+    }
+    /*  for (auto c : indCompSet)
+        std::cout << c << "--\n";*/
+    for (uint32_t var : *solver->conf.independent_vars) {
+      auto comp = compFinder->getVarComp(var);
+      if (comp == 0)
+        continue;
+      if (IndCompVars[comp].size() == 1 && solver->value(var) != l_Undef) {
+        //  cout << "free var:" << var + 1 << "\n";
+      }
+    }
+  }
+
   dump_unit_cls(out, outer_numbering);
 
   dump_vars_appearing_inverted(out, outer_numbering);

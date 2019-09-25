@@ -633,7 +633,7 @@ set(CRYPTOMINISAT5_EXPORT_NAME "cryptominisat5Targets")
 
 add_subdirectory(src cmsat5-src)
 add_subdirectory(jmc cmsat5-jmc)
-
+add_subdirectory(compose cmsat5-compose)
 # -----------------------------------------------------------------------------
 # Add uninstall target for makefiles
 # -----------------------------------------------------------------------------

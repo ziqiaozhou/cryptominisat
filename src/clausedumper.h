@@ -62,14 +62,13 @@ public:
   void open_file_and_dump_irred_clauses(const std::string &fname);
   void open_file_and_dump_red_clauses(const std::string &fname);
   uint32_t BelongsToIndComp(const Lit &l);
-
+  void dump_symbol_vars(std::ostream *out);
+  void dump_irred_cls_for_preprocessor(std::ostream *out, bool outer_number);
 private:
   const Solver *solver;
   std::ofstream *outfile = NULL;
 
   void open_dump_file(const std::string &filename);
-  void dump_symbol_vars(std::ostream *out);
-  void dump_irred_cls_for_preprocessor(std::ostream *out, bool outer_number);
   void dump_bin_cls(std::ostream *out, const bool dumpRed, const bool dumpIrred,
                     const bool outer_number);
   size_t get_preprocessor_num_cls(bool outer_numbering);
