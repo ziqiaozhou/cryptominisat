@@ -43,7 +43,6 @@ static int createReplaceTable(
     if (to_symbol_vars.count(sym_name) == 0)
       continue;
     for (int i = 0; i < vars.size(); ++i) {
-      std::cerr << vars[i] << ":" << to_symbol_vars[sym_name][i] << "\n";
       outerToInter[vars[i]] = to_symbol_vars[sym_name][i];
     }
   }
@@ -239,12 +238,9 @@ void Compose::run() {
   vector<uint32_t> ind_vars;
   conf2.doRenumberVars = false;
   SATSolver *init_solver = new SATSolver((void *)&conf2);
-  std::ofstream *out = new std::ofstream;
-  out->open(out_file_.c_str());
   // Read transition CNF
   std::cerr << "read1"
             << "\n";
-
   readInAFileToCache(transition_solver_, filesToRead[0]);
   n_trans_vars = transition_solver_->nVars();
   auto trans_symbol_vars = symbol_vars;
@@ -257,58 +253,22 @@ void Compose::run() {
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
             << "\nsym:" << conf.symbol_vars << "\t" << conf2.symbol_vars;
-
-  // merge init CNF to transition CNF;
-  // createReplaceMap(init_solver, init_symbol_vars, trans_symbol_vars);
-  // parseInAllFiles(init_solver);
-  /*createNextState(init_solver, trans_symbol_vars, init_symbol_vars);
-  ind_vars.clear();
-  for (auto vars : init_symbol_vars)
-    ind_vars.insert(ind_vars.end(), vars.second.begin(), vars.second.end());
-  init_solver->set_independent_vars(&ind_vars);
-  //cout << "init_symbol_vars\n";
-  //print_map(init_symbol_vars);
-  init_solver->set_symbol_vars(&init_symbol_vars);
-
-  std::cerr << "start dump\n";
-  init_solver->simplify();
-  init_solver->dump_irred_clauses_ind_only(out);
-  // std::cerr<<"start dump2\n";
-  // transition_solver_->dump_irred_clauses_no_head(out);
-  // std::cerr<<"end dump2\n";
-  delete out;
-  // dump clauses;
-init_symbol_vars.erase("s0");
-  */
   std::map<std::string, std::vector<uint32_t>> current_trans_symbol_vars;
+  current_trans_symbol_vars = trans_symbol_vars;
   auto base_trans_symbol_vars = trans_symbol_vars;
-
+  current_trans_symbol_vars.erase("s0");
+  current_trans_symbol_vars.erase("s1");
   for (int i = start_cycle_; i < cycles_; ++i) {
     // compose;
-    std::string state_path=out_dir_;
+    std::string state_path = out_dir_;
     std::cerr << "cycle" << i << "\n";
     std::string prev_state = "s" + std::to_string(i);
     std::string current_state = "s" + std::to_string(i + 1);
-    state_path = state_path + "//" +current_state+".cnf";
-    current_trans_symbol_vars.clear();
-    /*    current_trans_symbol_vars[prev_state] =
-            base_trans_symbol_vars[old_prev_state];
-        current_trans_symbol_vars[current_state] =
-            base_trans_symbol_vars[prev_state];
-        createReplaceMap(transition_solver_, current_trans_symbol_vars,
-                         base_trans_symbol_vars);
-        std::cerr << "cycle" << i << "replacing \n";
-        base_trans_symbol_vars = current_trans_symbol_vars;*/
+    state_path = state_path + "//" + current_state + ".cnf";
     current_trans_symbol_vars[prev_state] = trans_symbol_vars["s0"];
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
     createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
-
     current_trans_symbol_vars.erase(prev_state);
-    /*transition_solver_->set_symbol_vars(&current_trans_symbol_vars);
-    std::ofstream tmpout(".tmp.cnf");
-    transition_solver_->dump_irred_clauses_ind_only(&tmpout);
-    tmpout.close();
-    readInAFile(init_solver, ".tmp.cnf");*/
     if (prev_state != "s0")
       init_symbol_vars.erase(prev_state);
     init_solver->set_symbol_vars(&init_symbol_vars);
@@ -343,7 +303,7 @@ init_symbol_vars.erase("s0");
     init_solver->simplify();
     init_solver->renumber_variables(true);
   }
-  std::ofstream finalout("final.cnf");
+  std::ofstream finalout(out_dir_ + "//" + out_file_);
   init_solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();
 }
