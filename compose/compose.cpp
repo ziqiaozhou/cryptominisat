@@ -1,7 +1,6 @@
 #include "compose.h"
 #include "src/dimacsparser.h"
 #include <boost/lexical_cast.hpp>
-
 using boost::lexical_cast;
 void print_map(std::map<std::string, vector<uint32_t>> &map) {
   for (auto var : map) {
@@ -24,7 +23,8 @@ void Compose::add_compose_options() {
       "set this if compose a multi-cycle CNF from an intermediate state. "
       "For example, you already have cnf for state s8 and want to extend to s "
       "20. "
-      "--start_cycle=8 --cycles=20");
+      "--start_cycle=8 --cycles=20")(
+      "out", po::value(&out_dir_)->default_value("tmp"));
   help_options_simple.add(composeOptions_);
   help_options_complicated.add(composeOptions_);
 }
@@ -65,7 +65,7 @@ static int createReplaceTable(
   }
   return offset;
 }
-void Compose::createReplaceMap(
+/*void Compose::createReplaceMap(
     SATSolver *solver2, std::map<std::string, vector<uint32_t>> &symbol_vars2,
     std::map<std::string, vector<uint32_t>> &symbol_vars) {
   vector<uint32_t> outerToInter(solver2->nVars(), -1);
@@ -114,7 +114,7 @@ void Compose::createReplaceMap(
   assert(outerToInter.size() == new_var);
   solver2->renumber_clauses_by_table(outerToInter, interToOuter);
 }
-
+*/
 void Compose::createNextState(
     SATSolver *solver2,
     std::map<std::string, vector<uint32_t>> &trans_symbol_vars,
@@ -285,9 +285,11 @@ init_symbol_vars.erase("s0");
 
   for (int i = start_cycle_; i < cycles_; ++i) {
     // compose;
+    std::string state_path=out_dir_;
     std::cerr << "cycle" << i << "\n";
     std::string prev_state = "s" + std::to_string(i);
     std::string current_state = "s" + std::to_string(i + 1);
+    state_path = state_path + "//" +current_state+".cnf";
     current_trans_symbol_vars.clear();
     /*    current_trans_symbol_vars[prev_state] =
             base_trans_symbol_vars[old_prev_state];
@@ -307,7 +309,8 @@ init_symbol_vars.erase("s0");
     transition_solver_->dump_irred_clauses_ind_only(&tmpout);
     tmpout.close();
     readInAFile(init_solver, ".tmp.cnf");*/
-    init_symbol_vars.erase(prev_state);
+    if (prev_state != "s0")
+      init_symbol_vars.erase(prev_state);
     init_solver->set_symbol_vars(&init_symbol_vars);
     ind_vars.clear();
     for (auto vars : init_symbol_vars)
@@ -320,7 +323,7 @@ init_symbol_vars.erase("s0");
       init_solver->simplify();
       init_solver->renumber_variables(true);
     }
-    std::ofstream finalout(current_state + ".cnf");
+    std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
     if (i % simplify_interval_ == 0) {
@@ -329,7 +332,7 @@ init_symbol_vars.erase("s0");
       init_solver = new SATSolver((void *)&conf2);
       symbol_vars.clear();
       independent_vars.clear();
-      readInAFile(init_solver, current_state + ".cnf");
+      readInAFile(init_solver, state_path);
       init_symbol_vars = symbol_vars;
     }
     // init_solver->renumber_variables(true);

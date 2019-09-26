@@ -41,6 +41,7 @@ private:
   SolverConf init_conf_;
   int simplify_interval_;
   int start_cycle_;
+  std::string out_dir_;
   vector<vector<Lit>> trans_clauses;
   vector<std::pair<vector<uint32_t>, bool>> trans_xor_clauses;
   int n_trans_vars;
