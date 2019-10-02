@@ -304,7 +304,6 @@ void ClauseDumper::dump_clauses(std::ostream *out, const vector<ClOffset> &cls,
        it != end; ++it) {
     Clause *cl = solver->cl_alloc.ptr(*it);
     uint32_t comp = BelongsToIndComp((*cl)[0]);
-    std::cout << (*cl)[0] << "fix \n";
     if (!comp)
       continue;
     comp_clauses_sizes[comp]++;
