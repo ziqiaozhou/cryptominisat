@@ -226,8 +226,8 @@ void Compose::run() {
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
     createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
     current_trans_symbol_vars.erase(prev_state);
-    // if (prev_state != "s0")
-    //  init_symbol_vars.erase(prev_state);
+     if (prev_state != "s0")
+      init_symbol_vars.erase(prev_state);
     init_solver->set_symbol_vars(&init_symbol_vars);
     ind_vars.clear();
     for (auto lits : init_symbol_vars)
