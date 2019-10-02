@@ -116,7 +116,7 @@ class Main
         int sql = 0;
         string sqlite_filename;
         vector<uint32_t> independent_vars;
-        std::map<std::string,vector<uint32_t>> symbol_vars;
+        std::map<std::string,vector<Lit>> symbol_vars;
         vector<uint32_t> jaccard_vars;
         vector<uint32_t> jaccard_vars2;
         vector<uint32_t> ob_vars;

@@ -2,7 +2,7 @@
 #include "src/dimacsparser.h"
 #include <boost/lexical_cast.hpp>
 using boost::lexical_cast;
-void print_map(std::map<std::string, vector<uint32_t>> &map) {
+template <class T> void print_map(std::map<std::string, vector<T>> &map) {
   for (auto var : map) {
     cout << var.first << " ";
     for (auto i : var.second)
@@ -33,116 +33,74 @@ void Compose::add_supported_options() {
   add_compose_options();
 }
 
-static int createReplaceTable(
-    int offset, std::map<std::string, vector<uint32_t>> &original_symbol_vars,
-    std::map<std::string, vector<uint32_t>> &to_symbol_vars,
-    vector<uint32_t> &outerToInter) {
+static int
+createReplaceTable(int offset,
+                   std::map<std::string, vector<Lit>> &original_symbol_vars,
+                   std::map<std::string, vector<Lit>> &to_symbol_vars,
+                   vector<Lit> &outerToInter) {
   for (auto &symbols : original_symbol_vars) {
     std::string sym_name = symbols.first;
-    auto &vars = symbols.second;
+    auto &lits = symbols.second;
     if (to_symbol_vars.count(sym_name) == 0)
       continue;
-    for (int i = 0; i < vars.size(); ++i) {
-      outerToInter[vars[i]] = to_symbol_vars[sym_name][i];
+    cout << "going to map " << sym_name << "\n";
+    for (int i = 0; i < lits.size(); ++i) {
+      if (!lits[i].sign())
+        outerToInter[lits[i].var()] = to_symbol_vars[sym_name][i];
+      else
+        outerToInter[lits[i].var()] = ~to_symbol_vars[sym_name][i];
+      cout << lits[i] << " -> " << to_symbol_vars[sym_name][i] << "\n";
     }
   }
   for (int i = 0; i < outerToInter.size(); ++i) {
-    if (outerToInter[i] == -1) {
+    if (outerToInter[i] == Lit(-1, false)) {
       uint32_t new_var = offset++;
-      outerToInter[i] = new_var;
+      outerToInter[i] = Lit(new_var, false);
     }
   }
   for (auto &symbols : original_symbol_vars) {
     std::string sym_name = symbols.first;
-    auto &vars = symbols.second;
     if (to_symbol_vars.count(sym_name) == 0) {
       to_symbol_vars[sym_name] = original_symbol_vars[sym_name];
-      for (auto &var : to_symbol_vars[sym_name]) {
-        var = outerToInter[var];
+      for (auto &lit : to_symbol_vars[sym_name]) {
+        lit = lit.sign() ? ~outerToInter[lit.var()] : outerToInter[lit.var()];
       }
     }
   }
   return offset;
 }
-/*void Compose::createReplaceMap(
-    SATSolver *solver2, std::map<std::string, vector<uint32_t>> &symbol_vars2,
-    std::map<std::string, vector<uint32_t>> &symbol_vars) {
-  vector<uint32_t> outerToInter(solver2->nVars(), -1);
 
-  for (auto &symbols : symbol_vars2) {
-    std::string sym_name = symbols.first;
-    auto &vars = symbols.second;
-    if (symbol_vars.count(sym_name) == 0)
-      continue;
-    for (int i = 0; i < vars.size(); ++i) {
-      std::cerr << vars[i] << "\n";
-      outerToInter[vars[i]] = symbol_vars[sym_name][i];
-    }
-  }
-
-  for (int i = 0; i < outerToInter.size(); ++i) {
-    if (outerToInter[i] == -1) {
-      uint32_t new_var = transition_solver_->nVars();
-      transition_solver_->new_vars(1);
-      outerToInter[i] = new_var;
-    }
-  }
-  // Ensure variable number consistant.
-  if (solver2->nVars() < transition_solver_->nVars()) {
-    solver2->new_vars(transition_solver_->nVars() - solver2->nVars());
-  }
-  transition_solver_->add_clause({Lit(0, true), Lit(0, false)});
-  solver2->add_clause({Lit(0, true), Lit(0, false)});
-  vector<uint32_t> interToOuter(transition_solver_->nVars(), -1);
-  for (int i = 0; i < outerToInter.size(); ++i) {
-    interToOuter[outerToInter[i]] = i;
-  }
-  uint32_t new_var = outerToInter.size();
-  for (int i = 0; i < interToOuter.size(); ++i) {
-    if (interToOuter[i] == -1) {
-      interToOuter[i] = new_var++;
-      outerToInter.push_back(i);
-    }
-  }
-  for (auto &symbols : symbol_vars2) {
-    for (auto &var : symbols.second) {
-      var = outerToInter[var];
-    }
-  }
-
-  assert(outerToInter.size() == new_var);
-  solver2->renumber_clauses_by_table(outerToInter, interToOuter);
-}
-*/
 void Compose::createNextState(
-    SATSolver *solver2,
-    std::map<std::string, vector<uint32_t>> &trans_symbol_vars,
-    std::map<std::string, vector<uint32_t>> &symbol_vars2) {
+    SATSolver *solver2, std::map<std::string, vector<Lit>> &trans_symbol_vars,
+    std::map<std::string, vector<Lit>> &symbol_vars2) {
   cout << "------------\n";
   print_map(trans_symbol_vars);
   cout << "-->\n";
   print_map(symbol_vars2);
-  vector<uint32_t> table(n_trans_vars, -1);
+  vector<Lit> table(n_trans_vars, Lit(-1, false));
   std::cerr << "old nvar is " << solver2->nVars() << "\n";
   int nvar = createReplaceTable(solver2->nVars(), trans_symbol_vars,
                                 symbol_vars2, table);
-  /*  cout << "Table details:\n";
-    for (int i = 0; i < table.size(); ++i) {
-      cout << i << ":" << table[i] << "\n";
-    }
-  */
+  cout << "Table details:\n";
+  for (int i = 0; i < table.size(); ++i) {
+    cout << i << ":" << table[i] << "\n";
+  }
+
   if (solver2->nVars() < nvar)
     solver2->new_vars(nvar - solver2->nVars());
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
   for (auto lits : trans_clauses) {
+    cout << "old add clause" << lits << "\n";
     for (auto &lit : lits) {
-      lit = Lit(table[lit.var()], lit.sign());
+      lit = lit.sign() ? (~table[lit.var()]) : table[lit.var()];
     }
+    cout << "add clause" << lits << "\n";
     solver2->add_clause(lits);
   }
   for (auto xor_cl : trans_xor_clauses) {
     for (auto &var : xor_cl.first) {
-      var = table[var];
+      var = table[var].var();
+      xor_cl.second = table[var].sign() ? ~xor_cl.second : xor_cl.second;
     }
     solver2->add_xor_clause(xor_cl.first, xor_cl.second);
   }
@@ -200,9 +158,8 @@ void Compose::readInAFileToCache(SATSolver *solver2, const string &filename) {
   symbol_vars.insert(parser.symbol_vars.begin(), parser.symbol_vars.end());
   if (conf.keep_symbol) {
     for (auto one_symbol_vars : symbol_vars) {
-      independent_vars.insert(independent_vars.end(),
-                              one_symbol_vars.second.begin(),
-                              one_symbol_vars.second.end());
+      for (auto lit : one_symbol_vars.second)
+        independent_vars.push_back(lit.var());
     }
   }
   jaccard_vars.swap(parser.jaccard_vars);
@@ -253,7 +210,7 @@ void Compose::run() {
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
             << "\nsym:" << conf.symbol_vars << "\t" << conf2.symbol_vars;
-  std::map<std::string, std::vector<uint32_t>> current_trans_symbol_vars;
+  std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
   current_trans_symbol_vars = trans_symbol_vars;
   auto base_trans_symbol_vars = trans_symbol_vars;
   current_trans_symbol_vars.erase("s0");
@@ -269,13 +226,13 @@ void Compose::run() {
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
     createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
     current_trans_symbol_vars.erase(prev_state);
-    if (prev_state != "s0")
-      init_symbol_vars.erase(prev_state);
+    // if (prev_state != "s0")
+    //  init_symbol_vars.erase(prev_state);
     init_solver->set_symbol_vars(&init_symbol_vars);
     ind_vars.clear();
-    for (auto vars : init_symbol_vars)
-      for (auto var : vars.second)
-        ind_vars.push_back(var);
+    for (auto lits : init_symbol_vars)
+      for (auto lit : lits.second)
+        ind_vars.push_back(lit.var());
     init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);

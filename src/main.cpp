@@ -135,9 +135,8 @@ void Main::readInAFile(SATSolver *solver2, const string &filename) {
   symbol_vars.insert(parser.symbol_vars.begin(), parser.symbol_vars.end());
   if (conf.keep_symbol) {
     for (auto one_symbol_vars : symbol_vars) {
-      independent_vars.insert(independent_vars.end(),
-                              one_symbol_vars.second.begin(),
-                              one_symbol_vars.second.end());
+      for (auto lit : one_symbol_vars.second)
+      independent_vars.push_back(lit.var());
     }
   }
   jaccard_vars.swap(parser.jaccard_vars);

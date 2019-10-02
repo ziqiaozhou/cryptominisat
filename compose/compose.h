@@ -25,13 +25,14 @@ private:
   // constraint symbol_vars2: mapping from symbol to var for the existing
   // CNF in solver2;
   void
-  createNextState(SATSolver *solver2,
-                  std::map<std::string, vector<uint32_t>> &trans_symbol_vars,
-                  std::map<std::string, vector<uint32_t>> &symbol_vars2);
+  createNextState(
+      SATSolver *solver2,
+      std::map<std::string, vector<Lit>> &trans_symbol_vars,
+      std::map<std::string, vector<Lit>> &symbol_vars2);
 
   void createReplaceMap(SATSolver *solver2,
-                        std::map<std::string, vector<uint32_t>> &symbol_vars2,
-                        std::map<std::string, vector<uint32_t>> &symbol_vars);
+                        std::map<std::string, vector<Lit>> &symbol_vars2,
+                        std::map<std::string, vector<Lit>> &symbol_vars);
   SATSolver *transition_solver_;
   po::options_description composeOptions_;
   std::vector<int> replace_tables;

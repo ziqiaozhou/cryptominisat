@@ -271,7 +271,8 @@ class Solver : public Searcher
         #ifdef CMS_TESTING_ENABLED
         FRIEND_TEST(SearcherTest, pickpolar_auto_not_changed_by_simp);
         #endif
-        bool EnsureUnRemovedTrackedVars(vector<uint32_t> * vars);
+        void EnsureUnRemovedTrackedVars(vector<uint32_t> * lits);
+        void EnsureUnRemovedTrackedLits(vector<Lit> * lits);
 
         vector<Lit> add_clause_int_tmp_cl;
         lbool iterate_until_solved();

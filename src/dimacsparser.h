@@ -53,7 +53,7 @@ public:
   vector<vector<Lit>> *clauses;
   vector<std::pair<vector<uint32_t>, bool>> *xor_clauses;
   bool cached;
-  std::map<std::string, std::vector<uint32_t>> symbol_vars;
+  std::map<std::string, std::vector<Lit>> symbol_vars;
   const std::string dimacs_spec =
       "http://www.satcompetition.org/2009/format-benchmarks2009.html";
   const std::string please_read_dimacs =
@@ -594,7 +594,7 @@ bool DimacsParser<C>::parseSymbol(std::string symbol, C &in) {
       break;
     }
     uint32_t var = std::abs(parsed_lit) - 1;
-    symbol_vars[symbol].push_back(var);
+    symbol_vars[symbol].push_back(Lit(var,parsed_lit<0));
     std::cout << symbol << ":" << var;
   }
   return true;

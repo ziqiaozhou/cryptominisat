@@ -578,7 +578,7 @@ DLL_PUBLIC void SATSolver::set_independent_vars(vector<uint32_t> *ind_vars) {
 }
 
 DLL_PUBLIC void SATSolver::set_symbol_vars(
-    std::map<std::string, std::vector<uint32_t>> *symbol_vars) {
+    std::map<std::string, std::vector<Lit>> *symbol_vars) {
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];
     s.conf.symbol_vars = symbol_vars;

@@ -115,7 +115,7 @@ void ClauseDumper::dump_symbol_vars(std::ostream *out) {
   for (auto one_symbol_vars : *solver->conf.symbol_vars) {
     *out << "c " << one_symbol_vars.first << " --> [";
     for (auto var : one_symbol_vars.second) {
-      *out << " " << var + 1;
+      *out << " " << var;
     }
     *out << "]\n";
   }
