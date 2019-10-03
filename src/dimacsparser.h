@@ -575,7 +575,6 @@ bool DimacsParser<C>::parseSymbol(std::string symbol, C &in) {
   std::string required;
   in.skipWhitespace();
   in.parseString(required);
-  std::cout << "required: " << required;
   if (required != "-->")
     return false;
   in.skipWhitespace();
@@ -595,7 +594,6 @@ bool DimacsParser<C>::parseSymbol(std::string symbol, C &in) {
     }
     uint32_t var = std::abs(parsed_lit) - 1;
     symbol_vars[symbol].push_back(Lit(var,parsed_lit<0));
-    std::cout << symbol << ":" << var;
   }
   return true;
 }
