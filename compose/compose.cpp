@@ -43,13 +43,13 @@ createReplaceTable(int offset,
     auto &lits = symbols.second;
     if (to_symbol_vars.count(sym_name) == 0)
       continue;
-    cout << "going to map " << sym_name << "\n";
+    // cout << "going to map " << sym_name << "\n";
     for (int i = 0; i < lits.size(); ++i) {
       if (!lits[i].sign())
         outerToInter[lits[i].var()] = to_symbol_vars[sym_name][i];
       else
         outerToInter[lits[i].var()] = ~to_symbol_vars[sym_name][i];
-      cout << lits[i] << " -> " << to_symbol_vars[sym_name][i] << "\n";
+      // cout << lits[i] << " -> " << to_symbol_vars[sym_name][i] << "\n";
     }
   }
   for (int i = 0; i < outerToInter.size(); ++i) {
@@ -73,28 +73,31 @@ createReplaceTable(int offset,
 void Compose::createNextState(
     SATSolver *solver2, std::map<std::string, vector<Lit>> &trans_symbol_vars,
     std::map<std::string, vector<Lit>> &symbol_vars2) {
-  cout << "------------\n";
-  print_map(trans_symbol_vars);
-  cout << "-->\n";
-  print_map(symbol_vars2);
+  if (conf.verbosity > 1) {
+    cout << "------------\n";
+    print_map(trans_symbol_vars);
+    cout << "-->\n";
+    print_map(symbol_vars2);
+  }
   vector<Lit> table(n_trans_vars, Lit(-1, false));
-  std::cerr << "old nvar is " << solver2->nVars() << "\n";
+  // std::cerr << "old nvar is " << solver2->nVars() << "\n";
   int nvar = createReplaceTable(solver2->nVars(), trans_symbol_vars,
                                 symbol_vars2, table);
-  cout << "Table details:\n";
-  for (int i = 0; i < table.size(); ++i) {
-    cout << i << ":" << table[i] << "\n";
+  if (conf.verbosity > 1) {
+    cout << "Table details:\n";
+    for (int i = 0; i < table.size(); ++i) {
+      cout << i << ":" << table[i] << "\n";
+    }
   }
-
   if (solver2->nVars() < nvar)
     solver2->new_vars(nvar - solver2->nVars());
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
   for (auto lits : trans_clauses) {
-    //cout << "old add clause" << lits << "\n";
+    // cout << "old add clause" << lits << "\n";
     for (auto &lit : lits) {
       lit = lit.sign() ? (~table[lit.var()]) : table[lit.var()];
     }
-    //cout << "add clause" << lits << "\n";
+    // cout << "add clause" << lits << "\n";
     solver2->add_clause(lits);
   }
   for (auto xor_cl : trans_xor_clauses) {
@@ -226,8 +229,8 @@ void Compose::run() {
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
     createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
     current_trans_symbol_vars.erase(prev_state);
-     //if (prev_state != "s0")
-      init_symbol_vars.erase(prev_state);
+    // if (prev_state != "s0")
+    init_symbol_vars.erase(prev_state);
     init_solver->set_symbol_vars(&init_symbol_vars);
     ind_vars.clear();
     for (auto lits : init_symbol_vars)
@@ -236,14 +239,14 @@ void Compose::run() {
     init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    if (i>0 && i % simplify_interval_ == 0) {
+    if (i > 0 && i % simplify_interval_ == 0) {
       init_solver->simplify();
       init_solver->renumber_variables(true);
     }
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
-    if (i>0 && i % simplify_interval_ == 0) {
+    if (i > 0 && i % simplify_interval_ == 0) {
       delete init_solver;
       conf2 = conf_copy;
       init_solver = new SATSolver((void *)&conf2);
@@ -253,8 +256,10 @@ void Compose::run() {
       init_symbol_vars = symbol_vars;
     }
     // init_solver->renumber_variables(true);
-    cout << "after renumber: init_symbol_vars\n";
-    print_map(init_symbol_vars);
+    if (conf.verbosity > 1) {
+      cout << "after renumber: init_symbol_vars\n";
+      print_map(init_symbol_vars);
+    }
   }
   if ((cycles_ - 1) % simplify_interval_ != 0) {
     init_solver->simplify();
