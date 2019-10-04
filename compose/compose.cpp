@@ -226,7 +226,7 @@ void Compose::run() {
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
     createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
     current_trans_symbol_vars.erase(prev_state);
-     if (prev_state != "s0")
+     //if (prev_state != "s0")
       init_symbol_vars.erase(prev_state);
     init_solver->set_symbol_vars(&init_symbol_vars);
     ind_vars.clear();
@@ -236,14 +236,14 @@ void Compose::run() {
     init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    if (i % simplify_interval_ == 0) {
+    if (i>0 && i % simplify_interval_ == 0) {
       init_solver->simplify();
       init_solver->renumber_variables(true);
     }
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
-    if (i % simplify_interval_ == 0) {
+    if (i>0 && i % simplify_interval_ == 0) {
       delete init_solver;
       conf2 = conf_copy;
       init_solver = new SATSolver((void *)&conf2);
@@ -256,7 +256,7 @@ void Compose::run() {
     cout << "after renumber: init_symbol_vars\n";
     print_map(init_symbol_vars);
   }
-  if (cycles_ - 1 % simplify_interval_ != 0) {
+  if ((cycles_ - 1) % simplify_interval_ != 0) {
     init_solver->simplify();
     init_solver->renumber_variables(true);
   }
