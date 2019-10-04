@@ -119,9 +119,13 @@ void ClauseDumper::dump_symbol_vars(std::ostream *out) {
     }
     *out << "]\n";
   }
-  if (solver->conf.independent_vars) {
+  if (solver->conf.dump_ind && solver->conf.independent_vars) {
     *out << "c ind ";
+    vector<uint32_t> used(solver->nVars(), false);
     for (auto var : *solver->conf.independent_vars) {
+      if (used[var])
+        continue;
+      used[var] = true;
       *out << " " << var + 1;
     }
     *out << " 0\n";
