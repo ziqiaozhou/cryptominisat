@@ -134,7 +134,7 @@ void CompFinder::find_components()
     }
     cout<<"comp find result:\n";
     print_and_add_to_sql_result(myTime);
-    if (reverseTable.size() >= 1) {
+    if (reverseTable.size() >= 1 && solver->conf.verbosity>1) {
 	    print_found_components();
     }
 
