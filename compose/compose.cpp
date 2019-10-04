@@ -90,11 +90,11 @@ void Compose::createNextState(
     solver2->new_vars(nvar - solver2->nVars());
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
   for (auto lits : trans_clauses) {
-    cout << "old add clause" << lits << "\n";
+    //cout << "old add clause" << lits << "\n";
     for (auto &lit : lits) {
       lit = lit.sign() ? (~table[lit.var()]) : table[lit.var()];
     }
-    cout << "add clause" << lits << "\n";
+    //cout << "add clause" << lits << "\n";
     solver2->add_clause(lits);
   }
   for (auto xor_cl : trans_xor_clauses) {
