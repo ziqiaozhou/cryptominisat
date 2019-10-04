@@ -157,7 +157,7 @@ void CompFinder::print_and_add_to_sql_result(const double myTime) const
         << solver->conf.print_times(time_used, timedout, time_remain)
         << endl;
 
-        if (reverseTable.size() > 1) {
+        if (reverseTable.size() > 1 && solver->conf.verbosity>1) {
             print_found_components();
         }
     }
