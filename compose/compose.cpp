@@ -15,7 +15,7 @@ void Compose::add_compose_options() {
                                 "Number of composition cycles.")(
       "init", po::value(&init_file_)->default_value(""),
       "Initilization constraint file.")(
-      "composedfile", po::value(&out_file_)->default_value(""),
+      "composedfile", po::value(&out_file_)->default_value("out"),
       "Composed filename.")("simplify_interval",
                             po::value(&simplify_interval_)->default_value(1),
                             "n: simplify the cnf per n cycle.")(
@@ -24,9 +24,13 @@ void Compose::add_compose_options() {
       "For example, you already have cnf for state s8 and want to extend to s "
       "20. "
       "--start_cycle=8 --cycles=20")(
-      "out", po::value(&out_dir_)->default_value("tmp"));
-  help_options_simple.add(composeOptions_);
-  help_options_complicated.add(composeOptions_);
+      "out", po::value(&out_dir_)->default_value("tmp"))(
+      "compose_mode", po::value(&mode_)->default_value("inc"),
+      "mode: inc-> incrementally compose multicycle condition; copy: add a "
+      "copy of instance; noninterference: add a copy of instance and add "
+      "noninterference constraint");
+      help_options_simple.add(composeOptions_);
+      help_options_complicated.add(composeOptions_);
 }
 void Compose::add_supported_options() {
   Main::add_supported_options();
@@ -190,8 +194,87 @@ void Compose::readInAFileToCache(SATSolver *solver2, const string &filename) {
 #endif
   cout << "parse finish and close\n";
 }
+void Compose::copy_compose() {
+  transition_solver_ = new SATSolver((void *)&conf);
+  SolverConf conf2 = conf;
+  SolverConf conf_copy = conf;
+  vector<uint32_t> ind_vars;
+  conf2.doRenumberVars = false;
+  SATSolver *init_solver = new SATSolver((void *)&conf2);
+  // Read transition CNF
+  std::cerr << "read1"
+            << "\n";
+  readInAFileToCache(transition_solver_, filesToRead[0]);
+  n_trans_vars = transition_solver_->nVars();
+  auto trans_symbol_vars = symbol_vars;
+  std::cerr << "read2"
+            << "\n";
+  // read init CNF file;
+  symbol_vars.clear();
+  independent_vars.clear();
+  // readInAFile(init_solver, init_file_);
+  auto init_symbol_vars = symbol_vars;
+  std::cerr << "after read2"
+            << "\nsym:" << conf.symbol_vars << "\t" << conf2.symbol_vars;
+  std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
 
-void Compose::run() {
+  auto base_trans_symbol_vars = trans_symbol_vars;
+  for (int i = 0; i < 2; ++i) {
+    current_trans_symbol_vars = trans_symbol_vars;
+    for (auto name_vars : trans_symbol_vars) {
+      std::ostringstream newname;
+      newname << name_vars.first << "_" << i;
+      current_trans_symbol_vars[newname.str()]= name_vars.second;
+      current_trans_symbol_vars.erase(name_vars.first);
+    }
+    // compose;
+    std::string state_path = out_dir_;
+    std::cerr << "cycle" << i << "\n";
+    std::string prev_state = "s" + std::to_string(i);
+    std::string current_state = "s" + std::to_string(i + 1);
+    state_path = state_path + "//" + current_state + ".cnf";
+    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
+    current_trans_symbol_vars.erase(prev_state);
+    // if (prev_state != "s0")
+    init_solver->set_symbol_vars(&init_symbol_vars);
+    ind_vars.clear();
+    for (auto lits : init_symbol_vars)
+      for (auto lit : lits.second)
+        ind_vars.push_back(lit.var());
+    init_solver->set_independent_vars(&ind_vars);
+    // cout << "init_symbol_vars\n";
+    // print_map(init_symbol_vars);
+    if (i > 0 && i % simplify_interval_ == 0) {
+      init_solver->simplify();
+      init_solver->renumber_variables(true);
+    }
+    std::ofstream finalout(state_path);
+    init_solver->dump_irred_clauses_ind_only(&finalout);
+    finalout.close();
+    if (i % simplify_interval_ == 0) {
+      delete init_solver;
+      conf2 = conf_copy;
+      init_solver = new SATSolver((void *)&conf2);
+      symbol_vars.clear();
+      independent_vars.clear();
+      readInAFile(init_solver, state_path);
+      init_symbol_vars = symbol_vars;
+    }
+    // init_solver->renumber_variables(true);
+    if (conf.verbosity > 1) {
+      cout << "after renumber: init_symbol_vars\n";
+      print_map(init_symbol_vars);
+    }
+  }
+  if ((cycles_ - 1) % simplify_interval_ != 0) {
+    init_solver->simplify();
+    init_solver->renumber_variables(true);
+  }
+  std::ofstream finalout(out_dir_ + "//" + out_file_);
+  init_solver->dump_irred_clauses_ind_only(&finalout);
+  finalout.close();
+}
+void Compose::incremental_compose() {
   transition_solver_ = new SATSolver((void *)&conf);
   SolverConf conf2 = conf;
   SolverConf conf_copy = conf;
@@ -269,6 +352,12 @@ void Compose::run() {
   init_solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();
 }
+void Compose::run(){
+  if (mode_ == "inc")
+    incremental_compose();
+  if (mode_ == "copy")
+    copy_compose();
+}
 int main(int argc, char **argv) {
   Compose compose(argc, argv);
   compose.conf.verbosity = 1;
@@ -277,4 +366,5 @@ int main(int argc, char **argv) {
   compose.conf.doRenumberVars = false;
   compose.parseCommandLine();
   compose.run();
+
 }
