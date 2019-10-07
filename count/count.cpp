@@ -111,6 +111,7 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
   string randomBits_rhs = GenerateRandomBits(num_xor_cls);
   vector<uint32_t> lits;
   // assert watch=0;
+  assert(watch.size()==alllits.size());
   if (watch.size() < num_xor_cls) {
 
     int diff = num_xor_cls - watch.size();
@@ -125,19 +126,21 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
     lits.clear();
     if (alllits.size() > i) {
       // reuse generated xor lits;
-      lits = alllits[i];
+      //lits = alllits[i];
+      continue;
     } else {
       for (unsigned j = 0; j < vars.size(); j++) {
         if (randomBits[i * vars.size() + j] == '1')
           lits.push_back(vars[j]);
       }
+      alllits.push_back(lits);
+      // 0 xor 1 = 1, 0 xor 0= 0, thus,we add watch=0 => xor(1,2,4) = r
+      lits.push_back(watch[i].var());
+      // e.g., xor watch 1 2 4 ..
+      solver->add_xor_clause(lits, randomBits_rhs[i] == '1');
     }
-    alllits.push_back(lits);
 
-    // 0 xor 1 = 1, 0 xor 0= 0, thus,we add watch=0 => xor(1,2,4) = r
-    lits.push_back(watch[i].var());
-    // e.g., xor watch 1 2 4 ..
-    solver->add_xor_clause(lits, randomBits_rhs[i] == '1');
+
   }
 }
 static void RecordCount(int sol, int hash_count, ofstream *count_f) {
@@ -254,13 +257,14 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
     added_count_lits.clear();
     count_watch.clear();
     prev_hash_count = 0;
+    vector<Lit> assump;
     while (left < right) {
-      hash_count = (left + right) / 2;
-      if (hash_count > prev_hash_count)
-        Sample(solver, count_vars, hash_count - prev_hash_count, count_watch,
-               added_count_lits);
-      vector<Lit> assump(count_watch.begin(), count_watch.begin() + hash_count);
-      assump.insert(assump.end(), secret_watch.begin(), secret_watch.end());
+      hash_count = left + (right - left) / 2;
+      Sample(solver, count_vars, hash_count, count_watch, added_count_lits);
+      assump.clear();
+      assump= secret_watch;
+      assump.insert(assump.end(),count_watch.begin(), count_watch.begin() + hash_count);
+      cout<<assump.size();
       nsol = bounded_sol_count(solver, max_sol_, assump, true);
       if (nsol >= max_sol_) {
         left = hash_count + 1;
@@ -271,13 +275,14 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
         left = hash_count;
       }
       solutions[hash_count] = nsol;
-      cout << "hash_count=" << hash_count;
+      cout << "hash_count=" << hash_count << ", nsol=" << nsol
+           << "left=" << left << "right=" << right << "\n";
       prev_hash_count = hash_count;
-      left = hash_count - hash_count / 2;
-      right = hash_count + hash_count / 2;
     }
     cout << "found solution" << solutions[right] << "* 2^" << right;
     RecordCount(solutions[right], right, count_f);
+    left = hash_count - hash_count / 2;
+    right = std::min(int(count_vars.size()), hash_count + hash_count / 2);
   }
 }
 
