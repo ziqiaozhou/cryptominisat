@@ -1496,7 +1496,7 @@ end:
   conf.max_confl = std::numeric_limits<long>::max();
   conf.maxTime = std::numeric_limits<double>::max();
 
-  if (conf.preprocess != 1)
+  if (conf.preprocess != 1 && conf.verbosity>=2)
     open_file_and_dump_irred_clauses("outer.cnf");
   drat->flush();
 
