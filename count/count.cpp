@@ -39,6 +39,9 @@ void Count::add_count_options() {
   countOptions_.add_options()("symmap",
                               po::value(&symmap_file_)->default_value(""),
                               "Initilization constraint file.");
+  countOptions_.add_options()("initfile",
+                              po::value(&init_file_)->default_value(""),
+                              "Initilization constraint file.");
   countOptions_.add_options()("count_out",
                               po::value(&out_file_)->default_value("out"),
                               "Countd filename.");
@@ -88,6 +91,11 @@ void Count::readVictimModel() {
     }
     if (!IsValidVictimLabel(tokens[0])) {
       cerr << "Error Victim Label " << tokens[0];
+      exit(1);
+    }
+    if (symbol_vars[name].size() < size) {
+      cerr << "Error symbol " << name << " " << symbol_vars[name].size() << " "
+           << size << "\n";
       exit(1);
     }
     for (int i = offset; i < offset + size; ++i) {
@@ -193,9 +201,13 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
 }
 void Count::run() {
   solver = new SATSolver((void *)&conf);
-  readInAFile(solver, filesToRead[0]);
+
+  if (init_file_.length() > 0)
+    readInAFile(solver, init_file_);
   readInAFile(solver, symmap_file_);
+  cerr << "read model\n";
   readVictimModel();
+  cerr << "end model\n";
   std::ofstream count_f(out_file_);
   vector<uint32_t> secret_vars(victim_model_[SECRET_].begin(),
                                victim_model_[SECRET_].end());
@@ -205,18 +217,26 @@ void Count::run() {
                     victim_model_[OBSERVABLE_].end());
   count_vars.insert(count_vars.end(), victim_model_[OTHER_].begin(),
                     victim_model_[OTHER_].end());
-  count(solver, secret_vars, count_vars, &count_f);
-  solver = new SATSolver((void *)&conf);
+  cerr << "size=" << count_vars.size();
   readInAFile(solver, filesToRead[0]);
+  count(solver, secret_vars, count_vars, &count_f);
+
+  /*solver = new SATSolver((void *)&conf);
+  parseInAllFiles(solver, filesToRead[0]);*/
 }
-void Count::count(SATSolver *solver, vector<uint32_t> secret_vars,
-           vector<uint32_t> count_vars, std::ofstream *count_f) {
+void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
+                  vector<uint32_t> &count_vars, std::ofstream *count_f) {
   solver->set_independent_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
+  cerr << "Sample\n";
   Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits);
+  cerr << "Sample end\n";
+
   //  solver->add_clause(secret_watch);
+  cerr << "coutn\n";
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
+  cerr << "count end\n";
   vector<Lit> count_watch;
   int prev_hash_count = 0, hash_count = 0;
   int left = 0, right = count_vars.size();
@@ -253,8 +273,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> secret_vars,
       solutions[hash_count] = nsol;
       cout << "hash_count=" << hash_count;
       prev_hash_count = hash_count;
-      left = hash_count-hash_count/2;
-      right= hash_count+ hash_count/2;
+      left = hash_count - hash_count / 2;
+      right = hash_count + hash_count / 2;
     }
     cout << "found solution" << solutions[right] << "* 2^" << right;
     RecordCount(solutions[right], right, count_f);

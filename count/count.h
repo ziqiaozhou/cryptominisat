@@ -33,8 +33,8 @@ private:
               vector<Lit> &watch, vector<vector<uint32_t>> &alllits);
   int64_t bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
-  void count(SATSolver *solver, vector<uint32_t> secret_vars,
-             vector<uint32_t> count_vars, std::ofstream *count_f);
+  void count(SATSolver *solver, vector<uint32_t>& secret_vars,
+             vector<uint32_t>& count_vars, std::ofstream *count_f);
   bool IsValidVictimLabel(std::string label) {
     static std::unordered_set<std::string> labels = {SECRET_, CONTROLLED_,
                                                      OBSERVABLE_, OTHER_};
@@ -48,6 +48,7 @@ private:
   int cycles_;
   std::string symmap_file_;
   std::string out_file_;
+  std::string init_file_;
   SolverConf init_conf_;
   std::string out_dir_;
   std::string victim_model_config_;

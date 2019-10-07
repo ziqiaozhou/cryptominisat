@@ -583,6 +583,7 @@ bool DimacsParser<C>::parseSymbol(std::string symbol, C &in) {
   }
   int32_t parsed_lit;
   for (;;) {
+    in.skipWhitespace();
     if (*in == ']')
       break;
     if (!in.parseInt(parsed_lit, lineNum)) {
