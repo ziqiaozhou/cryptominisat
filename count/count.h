@@ -30,7 +30,7 @@ private:
   const std::string OBSERVABLE_ = "observe";
   const std::string OTHER_ = "other";
   void Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
-              vector<Lit> &watch, vector<vector<uint32_t>> &alllits);
+              vector<Lit> &watch, vector<vector<uint32_t>> &alllits, bool addInner=false);
   int64_t bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
   void count(SATSolver *solver, vector<uint32_t>& secret_vars,
@@ -42,7 +42,7 @@ private:
       return false;
     return true;
   }
-  void readVictimModel();
+  void readVictimModel(SATSolver * solver);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;
@@ -52,7 +52,7 @@ private:
   SolverConf init_conf_;
   std::string out_dir_;
   std::string victim_model_config_;
-  std::map<std::string, std::unordered_set<uint32_t>> victim_model_;
+  std::map<std::string, std::vector<uint32_t>> victim_model_;
   vector<vector<Lit>> trans_clauses;
   vector<std::pair<vector<uint32_t>, bool>> trans_xor_clauses;
   int n_trans_vars;

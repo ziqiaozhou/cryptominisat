@@ -6,6 +6,7 @@
 using boost::lexical_cast;
 using std::cerr;
 using std::exit;
+using std::map;
 using std::ofstream;
 using std::unordered_map;
 static string GenerateRandomBits_prob(unsigned size, double prob) {
@@ -67,10 +68,12 @@ void Count::add_supported_options() {
   Main::add_supported_options();
   add_count_options();
 }
-void Count::readVictimModel() {
+void Count::readVictimModel(SATSolver *solver) {
   std::ifstream vconfig_f;
   vconfig_f.open(victim_model_config_);
+  map<string, vector<Lit>> new_symbol_vars;
   string line;
+  vector<uint32_t> ind_vars;
   while (std::getline(vconfig_f, line)) {
     std::stringstream ss(line);
     std::string token;
@@ -99,20 +102,47 @@ void Count::readVictimModel() {
       exit(1);
     }
     for (int i = offset; i < offset + size; ++i) {
-      victim_model_[tokens[0]].insert(symbol_vars[name][i].var());
+      victim_model_[tokens[0]].push_back(symbol_vars[name][i].var());
+      new_symbol_vars[tokens[0]].push_back(symbol_vars[name][i]);
     }
   }
+  solver->set_symbol_vars(&new_symbol_vars);
+  ind_vars.clear();
+  for (auto lits : new_symbol_vars)
+    for (auto lit : lits.second)
+      ind_vars.push_back(lit.var());
+  solver->set_independent_vars(&ind_vars);
+  solver->simplify();
+  solver->renumber_variables(true);
+  string victim_cnf_file = out_dir_ + "//" + out_file_ + ".simp";
+  std::ofstream finalout(victim_cnf_file);
+  solver->dump_irred_clauses_ind_only(&finalout);
+  finalout.close();
+  delete solver;
+  solver = new SATSolver((void *)&conf);
+  symbol_vars.clear();
+  independent_vars.clear();
+  readInAFile(solver, victim_cnf_file);
+  /*
+  vector<uint32_t> secret_vars(victim_model_[SECRET_].begin(),
+                               victim_model_[SECRET_].end());
+  count_vars.insert(count_vars.end(), victim_model_[CONTROLLED_].begin(),
+                    victim_model_[CONTROLLED_].end());
+  count_vars.insert(count_vars.end(), victim_model_[OBSERVABLE_].begin(),
+                    victim_model_[OBSERVABLE_].end());
+  count_vars.insert(count_vars.end(), victim_model_[OTHER_].begin(),
+                    victim_model_[OTHER_].end());*/
 }
 void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
                    int num_xor_cls, vector<Lit> &watch,
-                   vector<vector<uint32_t>> &alllits) {
+                   vector<vector<uint32_t>> &alllits, bool addInner) {
   string randomBits =
       GenerateRandomBits_prob((vars.size()) * num_xor_cls, xor_ratio_);
   string randomBits_rhs = GenerateRandomBits(num_xor_cls);
   vector<uint32_t> lits;
-  // assert watch=0;
-  assert(watch.size()==alllits.size());
-  if (watch.size() < num_xor_cls) {
+  // assert watch=0;?
+  assert(addInner || watch.size() == alllits.size());
+  if (!addInner && watch.size() < num_xor_cls) {
 
     int diff = num_xor_cls - watch.size();
     int base = watch.size();
@@ -126,7 +156,7 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
     lits.clear();
     if (alllits.size() > i) {
       // reuse generated xor lits;
-      //lits = alllits[i];
+      // lits = alllits[i];
       continue;
     } else {
       for (unsigned j = 0; j < vars.size(); j++) {
@@ -135,12 +165,11 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
       }
       alllits.push_back(lits);
       // 0 xor 1 = 1, 0 xor 0= 0, thus,we add watch=0 => xor(1,2,4) = r
-      lits.push_back(watch[i].var());
+      if (!addInner)
+        lits.push_back(watch[i].var());
       // e.g., xor watch 1 2 4 ..
       solver->add_xor_clause(lits, randomBits_rhs[i] == '1');
     }
-
-
   }
 }
 static void RecordCount(int sol, int hash_count, ofstream *count_f) {
@@ -155,7 +184,8 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
   solver->new_var();
   uint32_t act_var = solver->nVars() - 1;
   new_assumps.push_back(Lit(act_var, true));
-  // solver->simplify(&new_assumps);
+  if (new_assumps.size() > 1)
+    solver->simplify(&new_assumps);
 
   uint64_t solutions = 0;
   lbool ret;
@@ -187,6 +217,26 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
           assert(false);
         }
       }
+      cout << "====result==="
+           << "\n";
+      for (int k = 0; k < 8; ++k) {
+        uint64_t val = 0, base = 1;
+        for (int i = 0; i < 100; ++i) {
+          if (i % 32 == 0) {
+            val = 0;
+            base = 1;
+          }
+          val = val * 2 + lits[1 + i + k * 100].sign() ? base : 0;
+          base *= 2;
+          if (i % 32 == 31) {
+            cout << std::setbase(16);
+            cout << val << " ";
+          }
+        }
+        cout << std::setbase(16);
+        cout << val << " ";
+        cout << "\n";
+      }
       if (conf.verbosity > 0) {
         cout << "[appmc] Adding banning clause: " << lits << endl;
       }
@@ -202,26 +252,36 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
   assert(ret != l_Undef);
   return solutions;
 }
+
 void Count::run() {
   solver = new SATSolver((void *)&conf);
+  readInAFile(solver, filesToRead[0]);
 
   if (init_file_.length() > 0)
     readInAFile(solver, init_file_);
+  symbol_vars.clear();
+  independent_vars.clear();
   readInAFile(solver, symmap_file_);
   cerr << "read model\n";
-  readVictimModel();
+  readVictimModel(solver);
   cerr << "end model\n";
-  std::ofstream count_f(out_file_);
-  vector<uint32_t> secret_vars(victim_model_[SECRET_].begin(),
-                               victim_model_[SECRET_].end());
-  count_vars.insert(count_vars.end(), victim_model_[CONTROLLED_].begin(),
-                    victim_model_[CONTROLLED_].end());
-  count_vars.insert(count_vars.end(), victim_model_[OBSERVABLE_].begin(),
-                    victim_model_[OBSERVABLE_].end());
-  count_vars.insert(count_vars.end(), victim_model_[OTHER_].begin(),
-                    victim_model_[OTHER_].end());
-  cerr << "size=" << count_vars.size();
-  readInAFile(solver, filesToRead[0]);
+  std::ofstream count_f(out_file_ + ".count");
+  vector<uint32_t> secret_vars, count_vars;
+  for (auto lit : symbol_vars[SECRET_]) {
+    secret_vars.push_back(lit.var());
+  }
+  for (auto lit : symbol_vars[CONTROLLED_]) {
+    count_vars.push_back(lit.var());
+  }
+  for (auto lit : symbol_vars[OBSERVABLE_]) {
+    count_vars.push_back(lit.var());
+  }
+  for (auto lit : symbol_vars[OTHER_]) {
+    count_vars.push_back(lit.var());
+  }
+  cerr << "secret size=" << secret_vars.size();
+
+  cerr << "count size=" << count_vars.size();
   count(solver, secret_vars, count_vars, &count_f);
 
   /*solver = new SATSolver((void *)&conf);
@@ -229,18 +289,22 @@ void Count::run() {
 }
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
                   vector<uint32_t> &count_vars, std::ofstream *count_f) {
+  cerr << "coun\n"<<solver;
   solver->set_independent_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
   cerr << "Sample\n";
-  Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits);
+  Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
+         true);
   cerr << "Sample end\n";
-
   //  solver->add_clause(secret_watch);
   cerr << "coutn\n";
+  solver->simplify();
+
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
   cerr << "count end\n";
   vector<Lit> count_watch;
+  // solver->add_clause(secret_watch);
   int prev_hash_count = 0, hash_count = 0;
   int left = 0, right = count_vars.size();
   vector<vector<uint32_t>> added_count_lits;
@@ -262,9 +326,10 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
       hash_count = left + (right - left) / 2;
       Sample(solver, count_vars, hash_count, count_watch, added_count_lits);
       assump.clear();
-      assump= secret_watch;
-      assump.insert(assump.end(),count_watch.begin(), count_watch.begin() + hash_count);
-      cout<<assump.size();
+      assump = secret_watch;
+      assump.insert(assump.end(), count_watch.begin(),
+                    count_watch.begin() + hash_count);
+      cout << assump.size();
       nsol = bounded_sol_count(solver, max_sol_, assump, true);
       if (nsol >= max_sol_) {
         left = hash_count + 1;
