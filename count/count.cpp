@@ -181,6 +181,7 @@ static void RecordCount(int sol, int hash_count, ofstream *count_f) {
   *count_f << sol << "\t" << hash_count << "\n";
 }
 void Count::RecordSolution() {
+if(!record_solution_) return;
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
@@ -287,10 +288,12 @@ void Count::run() {
 
   if (init_file_.length() > 0)
     readInAFile(solver, init_file_);
-  symbol_vars.clear();
-  independent_vars.clear();
-  if (symmap_file_.length() > 0)
+
+  if (symmap_file_.length() > 0){
+    symbol_vars.clear();
+    independent_vars.clear();
     readInAFile(solver, symmap_file_);
+  }
   cerr << "read model\n";
   readVictimModel(solver);
   cerr << "end model\n";
@@ -343,6 +346,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
   cerr << "count size=" << count_vars.size();
 
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
+  RecordSolution();
   cerr << "count end\n";
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
