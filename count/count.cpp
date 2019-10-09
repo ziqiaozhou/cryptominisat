@@ -35,7 +35,7 @@ void Count::add_count_options() {
   countOptions_.add_options()("cycles", po::value(&cycles_)->default_value(1),
                               "Number of composition cycles.");
   countOptions_.add_options()(
-      "victim", po::value(&victim_model_config_)->default_value("victim.conf"),
+      "victim", po::value(&victim_model_config_)->default_value(""),
       "Victim model config: secret  sym_name offset size\n observe: "
       "(sym_name,offset,size)\n control: (sym_name,offset,size) ");
   countOptions_.add_options()("symmap",
@@ -58,8 +58,11 @@ void Count::add_count_options() {
   countOptions_.add_options()("max_count_times",
                               po::value(&max_count_times_)->default_value(10));
   countOptions_.add_options()("count_mode",
-                              po::value(&mode_)->default_value("nonblock"),
+                              po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
+  countOptions_.add_options()("record_solution",
+                             po::value(&record_solution_)->default_value(true),
+                             "True: write solutions; false: do not write solutions");
   help_options_simple.add(countOptions_);
   help_options_complicated.add(countOptions_);
 }
@@ -69,6 +72,8 @@ void Count::add_supported_options() {
 }
 void Count::readVictimModel(SATSolver *&solver) {
   std::ifstream vconfig_f;
+  if (victim_model_config_.length() == 0)
+    return;
   vconfig_f.open(victim_model_config_);
   map<string, vector<Lit>> new_symbol_vars;
   string line;
@@ -175,16 +180,22 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
 static void RecordCount(int sol, int hash_count, ofstream *count_f) {
   *count_f << sol << "\t" << hash_count << "\n";
 }
+void Count::RecordSolution() {
+  std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
+                           std::ofstream::out | std::ofstream::app);
+  for (auto lit : solution_lits)
+    solution_f << lit << "\n";
+  solution_f.close();
+}
 int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
-  if(mode_=="nonblock")
-  {
-      for (const uint32_t var : count_vars) {
-        solver->set_decision_var(var);
-      }
-     solver->solve(&assumps,only_ind);
-     return solver->n_seareched_solutions();
-   }
+  if (mode_ == "nonblock") {
+    for (const uint32_t var : count_vars) {
+      solver->set_decision_var(var);
+    }
+    solver->solve(&assumps, only_ind);
+    return solver->n_seareched_solutions();
+  }
   // Set up things for adding clauses that can later be removed
   vector<lbool> model;
   vector<Lit> new_assumps(assumps);
@@ -216,11 +227,12 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
     model = solver->get_model();
 
     if (solutions < maxSolutions) {
-      vector<Lit> lits;
+      vector<Lit> lits, solution;
       lits.push_back(Lit(act_var, false));
       for (const uint32_t var : count_vars) {
         if (solver->get_model()[var] != l_Undef) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
+          solution.push_back(Lit(var, solver->get_model()[var] == l_False));
         } else {
           assert(false);
         }
@@ -250,6 +262,8 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
         cout << "[appmc] Adding banning clause: " << lits << endl;
       }
       solver->add_clause(lits);
+      if (record_solution_)
+        solution_lits.push_back(solution);
     }
     solutions += solver->n_seareched_solutions();
   }
@@ -275,11 +289,13 @@ void Count::run() {
     readInAFile(solver, init_file_);
   symbol_vars.clear();
   independent_vars.clear();
-  readInAFile(solver, symmap_file_);
+  if (symmap_file_.length() > 0)
+    readInAFile(solver, symmap_file_);
   cerr << "read model\n";
   readVictimModel(solver);
   cerr << "end model\n";
-  std::ofstream count_f(out_file_ + ".count");
+  std::ofstream count_f(out_file_ + ".count",
+                        std::ofstream::out | std::ofstream::app);
   vector<uint32_t> secret_vars;
   for (auto lit : symbol_vars[SECRET_]) {
     secret_vars.push_back(lit.var());
@@ -347,6 +363,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
     count_watch.clear();
     prev_hash_count = 0;
     vector<Lit> assump;
+    solution_lits.clear();
     while (left < right) {
       hash_count = left + (right - left) / 2;
       Sample(solver, count_vars, hash_count, count_watch, added_count_lits);
@@ -371,6 +388,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
     }
     cout << "found solution" << solutions[right] << "* 2^" << right;
     RecordCount(solutions[right], right, count_f);
+    RecordSolution();
     left = hash_count - hash_count / 2;
     right = std::min(int(count_vars.size()), hash_count + hash_count / 2);
   }
@@ -382,7 +400,7 @@ int main(int argc, char **argv) {
   Count.conf.verbosity = 1;
   Count.conf.verbStats = 1;
   Count.conf.preprocess = 0;
-  Count.conf.restart_first=1000000;
+  Count.conf.restart_first = 1000000;
   Count.conf.doRenumberVars = false;
   Count.parseCommandLine();
   Count.run();

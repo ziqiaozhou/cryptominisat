@@ -43,6 +43,7 @@ private:
       return false;
     return true;
   }
+  void RecordSolution();
   void readVictimModel(SATSolver *&solver);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
@@ -64,5 +65,7 @@ private:
   int num_xor_cls_;
   int max_sol_;
   int max_count_times_;
+  bool record_solution_;
+  vector<vector<Lit>> solution_lits;
 };
 #endif // COMPOSE_H
