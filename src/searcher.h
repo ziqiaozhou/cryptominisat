@@ -68,6 +68,8 @@ struct VariableVariance
 class Searcher : public HyperEngine
 {
     public:
+      template<bool update_bogoprops>
+        void backtrack(int level);
         Searcher(const SolverConf* _conf, Solver* solver, std::atomic<bool>* _must_interrupt_inter);
         virtual ~Searcher();
         ///////////////////////////////
@@ -451,6 +453,10 @@ class Searcher : public HyperEngine
 
         double   startTime; ///<When solve() was started
         SearchStats stats;
+        vector<int> ind_level;
+        set<uint32_t> used_ind_decision;
+        set<uint32_t> independent_set;
+        bool normal_state;
 };
 
 inline uint32_t Searcher::abstractLevel(const uint32_t x) const

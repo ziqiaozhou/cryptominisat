@@ -9,6 +9,7 @@ using std::exit;
 using std::map;
 using std::ofstream;
 using std::unordered_map;
+using std::unordered_set;
 static string GenerateRandomBits_prob(unsigned size, double prob) {
   string randomBits = "";
   unsigned base = 100000;
@@ -56,11 +57,9 @@ void Count::add_count_options() {
                               po::value(&max_sol_)->default_value(1));
   countOptions_.add_options()("max_count_times",
                               po::value(&max_count_times_)->default_value(10));
-  countOptions_.add_options()(
-      "Count_mode", po::value(&mode_)->default_value("inc"),
-      "mode: inc-> incrementally Count multicycle condition; copy: add a "
-      "copy of instance; noninterference: add a copy of instance and add "
-      "noninterference constraint");
+  countOptions_.add_options()("count_mode",
+                              po::value(&mode_)->default_value("nonblock"),
+                              "mode: nonblock-> backtrack, block -> block");
   help_options_simple.add(countOptions_);
   help_options_complicated.add(countOptions_);
 }
@@ -68,7 +67,7 @@ void Count::add_supported_options() {
   Main::add_supported_options();
   add_count_options();
 }
-void Count::readVictimModel(SATSolver *solver) {
+void Count::readVictimModel(SATSolver *&solver) {
   std::ifstream vconfig_f;
   vconfig_f.open(victim_model_config_);
   map<string, vector<Lit>> new_symbol_vars;
@@ -119,7 +118,8 @@ void Count::readVictimModel(SATSolver *solver) {
   solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();
   delete solver;
-  solver = new SATSolver((void *)&conf);
+  auto newconf = conf;
+  solver = new SATSolver((void *)&newconf);
   symbol_vars.clear();
   independent_vars.clear();
   readInAFile(solver, victim_cnf_file);
@@ -177,7 +177,14 @@ static void RecordCount(int sol, int hash_count, ofstream *count_f) {
 }
 int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
-
+  if(mode_=="nonblock")
+  {
+      for (const uint32_t var : count_vars) {
+        solver->set_decision_var(var);
+      }
+     solver->solve(&assumps,only_ind);
+     return solver->n_seareched_solutions();
+   }
   // Set up things for adding clauses that can later be removed
   vector<lbool> model;
   vector<Lit> new_assumps(assumps);
@@ -203,6 +210,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
     }
 
     if (ret != l_True) {
+      solutions += solver->n_seareched_solutions();
       break;
     }
     model = solver->get_model();
@@ -217,32 +225,33 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
           assert(false);
         }
       }
-      cout << "====result==="
-           << "\n";
-      for (int k = 0; k < 8; ++k) {
-        uint64_t val = 0, base = 1;
-        for (int i = 0; i < 100; ++i) {
-          if (i % 32 == 0) {
-            val = 0;
-            base = 1;
-          }
-          val = val * 2 + lits[1 + i + k * 100].sign() ? base : 0;
-          base *= 2;
-          if (i % 32 == 31) {
-            cout << std::setbase(16);
-            cout << val << " ";
-          }
-        }
-        cout << std::setbase(16);
-        cout << val << " ";
-        cout << "\n";
-      }
       if (conf.verbosity > 0) {
+        cout << "====result==="
+             << "\n";
+        cout << std::setbase(16);
+
+        for (int k = 0; k < 8; ++k) {
+          long long val = 0, base = 1;
+          for (int i = 0; i < 100; ++i) {
+            if (i % 32 == 0) {
+              val = 0;
+            }
+            val = (val << 1) + (lits[1 + i + k * 100].sign() ? 1 : 0);
+            if (i % 32 == 31) {
+              cout << val << " ";
+            }
+          }
+          cout << std::setbase(16);
+          cout << val << " ";
+          cout << "\n";
+        }
+        cout << std::setbase(10);
+        cout << std::setbase(10);
         cout << "[appmc] Adding banning clause: " << lits << endl;
       }
       solver->add_clause(lits);
     }
-    solutions++;
+    solutions += solver->n_seareched_solutions();
   }
   // Remove clauses added
   vector<Lit> cl_that_removes;
@@ -254,6 +263,11 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
 }
 
 void Count::run() {
+  if (mode_ == "nonblock")
+    conf.max_sol_ = max_sol_;
+  else {
+    conf.max_sol_ = 1;
+  }
   solver = new SATSolver((void *)&conf);
   readInAFile(solver, filesToRead[0]);
 
@@ -266,7 +280,7 @@ void Count::run() {
   readVictimModel(solver);
   cerr << "end model\n";
   std::ofstream count_f(out_file_ + ".count");
-  vector<uint32_t> secret_vars, count_vars;
+  vector<uint32_t> secret_vars;
   for (auto lit : symbol_vars[SECRET_]) {
     secret_vars.push_back(lit.var());
   }
@@ -280,16 +294,16 @@ void Count::run() {
     count_vars.push_back(lit.var());
   }
   cerr << "secret size=" << secret_vars.size();
-
   cerr << "count size=" << count_vars.size();
-  count(solver, secret_vars, count_vars, &count_f);
+  count(solver, secret_vars, &count_f);
 
   /*solver = new SATSolver((void *)&conf);
   parseInAllFiles(solver, filesToRead[0]);*/
 }
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
-                  vector<uint32_t> &count_vars, std::ofstream *count_f) {
-  cerr << "coun\n"<<solver;
+                  std::ofstream *count_f) {
+  cerr << "count\n" << solver;
+
   solver->set_independent_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
@@ -298,8 +312,19 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
          true);
   cerr << "Sample end\n";
   //  solver->add_clause(secret_watch);
-  cerr << "coutn\n";
   solver->simplify();
+  std::unordered_set<uint32_t> fixed_var_set;
+  for (auto lit : solver->get_zero_assigned_lits()) {
+    fixed_var_set.insert(lit.var());
+  }
+  vector<uint32_t> new_count_vars;
+  for (auto var : count_vars) {
+    if (fixed_var_set.count(var) > 0)
+      continue;
+    new_count_vars.push_back(var);
+  }
+  std::swap(new_count_vars, count_vars);
+  cerr << "count size=" << count_vars.size();
 
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
   cerr << "count end\n";
@@ -357,6 +382,7 @@ int main(int argc, char **argv) {
   Count.conf.verbosity = 1;
   Count.conf.verbStats = 1;
   Count.conf.preprocess = 0;
+  Count.conf.restart_first=1000000;
   Count.conf.doRenumberVars = false;
   Count.parseCommandLine();
   Count.run();

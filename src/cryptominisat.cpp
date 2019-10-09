@@ -576,12 +576,21 @@ DLL_PUBLIC void SATSolver::set_independent_vars(vector<uint32_t> *ind_vars) {
     s.conf.independent_vars = ind_vars;
   }
 }
+DLL_PUBLIC int SATSolver::n_seareched_solutions() {
+  return data->solvers[data->which_solved]->conf.nsol;
+}
 
 DLL_PUBLIC void SATSolver::set_symbol_vars(
     std::map<std::string, std::vector<Lit>> *symbol_vars) {
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];
     s.conf.symbol_vars = symbol_vars;
+  }
+}
+DLL_PUBLIC void SATSolver::set_decision_var(uint32_t var){
+  for (size_t i = 0; i < data->solvers.size(); ++i) {
+    Solver &s = *data->solvers[i];
+    s.set_decision_var(var);
   }
 }
 
@@ -1034,7 +1043,8 @@ DLL_PUBLIC void SATSolver::dump_irred_clauses(std::ostream *out) const {
   data->solvers[data->which_solved]->dump_irred_clauses(out);
 }
 
-DLL_PUBLIC void SATSolver::dump_irred_clauses_ind_only(std::ostream *out) const {
+DLL_PUBLIC void
+SATSolver::dump_irred_clauses_ind_only(std::ostream *out) const {
   data->solvers[data->which_solved]->dump_irred_clauses_ind_only(out);
 }
 
@@ -1076,10 +1086,10 @@ void DLL_PUBLIC SATSolver::renumber_clauses(const vector<uint32_t> &table) {
 void DLL_PUBLIC SATSolver::renumber_clauses_by_table(
     const std::vector<uint32_t> &outer, const std::vector<uint32_t> &inner) {
   for (int i = 0; i < data->solvers.size(); ++i)
-    data->solvers[0]->renumber_clauses_by_table(outer,inner);
+    data->solvers[0]->renumber_clauses_by_table(outer, inner);
 }
 
-void DLL_PUBLIC SATSolver::renumber_variables(bool must_renumber){
+void DLL_PUBLIC SATSolver::renumber_variables(bool must_renumber) {
   for (int i = 0; i < data->solvers.size(); ++i)
     data->solvers[0]->renumber_variables(must_renumber);
 }

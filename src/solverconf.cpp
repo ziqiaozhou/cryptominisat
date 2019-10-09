@@ -59,7 +59,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , more_maple_bump_high_glue(false)
 
         //Restarting
-        , restart_first(100)
+        , restart_first(1000)
         , restart_inc(1.1)
         , restartType(Restart::glue_geom)
         , do_blocking_restart(1)
@@ -257,6 +257,9 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , greedy_undef(false)
         , independent_vars(NULL)
         ,symbol_vars(NULL)
+        ,keep_symbol(true)
+        ,max_sol_(1)
+        ,nsol(0)
 
         //Timeouts
         , orig_global_timeout_multiplier(4.0)

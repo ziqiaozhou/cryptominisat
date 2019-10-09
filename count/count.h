@@ -30,11 +30,12 @@ private:
   const std::string OBSERVABLE_ = "observe";
   const std::string OTHER_ = "other";
   void Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
-              vector<Lit> &watch, vector<vector<uint32_t>> &alllits, bool addInner=false);
+              vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
+              bool addInner = false);
   int64_t bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
-  void count(SATSolver *solver, vector<uint32_t>& secret_vars,
-             vector<uint32_t>& count_vars, std::ofstream *count_f);
+  void count(SATSolver *solver, vector<uint32_t> &secret_vars,
+             std::ofstream *count_f);
   bool IsValidVictimLabel(std::string label) {
     static std::unordered_set<std::string> labels = {SECRET_, CONTROLLED_,
                                                      OBSERVABLE_, OTHER_};
@@ -42,7 +43,7 @@ private:
       return false;
     return true;
   }
-  void readVictimModel(SATSolver * solver);
+  void readVictimModel(SATSolver *&solver);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;
