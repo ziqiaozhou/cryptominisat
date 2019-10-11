@@ -64,6 +64,8 @@ private:
   double xor_ratio_;
   int num_xor_cls_;
   int max_sol_;
+  int backtrack_;
+
   int max_count_times_;
   bool record_solution_;
   vector<vector<Lit>> solution_lits;

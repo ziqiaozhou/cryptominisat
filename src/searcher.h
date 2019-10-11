@@ -457,6 +457,7 @@ class Searcher : public HyperEngine
         set<uint32_t> used_ind_decision;
         set<uint32_t> independent_set;
         bool normal_state;
+        int backtrack_;
 };
 
 inline uint32_t Searcher::abstractLevel(const uint32_t x) const

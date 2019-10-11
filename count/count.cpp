@@ -10,6 +10,32 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
+static void trimVar(SATSolver *solver,vector<uint32_t> &secret_vars){
+  std::unordered_set<uint32_t> fixed_var_set;
+  vector<uint32_t> new_secret_vars;
+  for (auto lit : solver->get_zero_assigned_lits()) {
+    fixed_var_set.insert(lit.var());
+  }
+  for (auto var : secret_vars) {
+    if (fixed_var_set.count(var) > 0)
+      continue;
+    new_secret_vars.push_back(var);
+  }
+  std::swap(new_secret_vars, secret_vars);
+}
+static void trimVar(SATSolver *solver,vector<Lit> &secret_vars){
+  std::unordered_set<uint32_t> fixed_var_set;
+  vector<Lit> new_secret_vars;
+  for (auto lit : solver->get_zero_assigned_lits()) {
+    fixed_var_set.insert(lit.var());
+  }
+  for (auto lit : secret_vars) {
+    if (fixed_var_set.count(lit.var()) > 0)
+      continue;
+    new_secret_vars.push_back(lit);
+  }
+  std::swap(new_secret_vars, secret_vars);
+}
 static string GenerateRandomBits_prob(unsigned size, double prob) {
   string randomBits = "";
   unsigned base = 100000;
@@ -111,6 +137,8 @@ void Count::readVictimModel(SATSolver *&solver) {
     }
   }
   solver->set_symbol_vars(&new_symbol_vars);
+  for(auto &vars: new_symbol_vars)
+    trimVar(solver,vars.second);
   ind_vars.clear();
   for (auto lits : new_symbol_vars)
     for (auto lit : lits.second)
@@ -191,9 +219,6 @@ if(!record_solution_) return;
 int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
   if (mode_ == "nonblock") {
-    for (const uint32_t var : count_vars) {
-      solver->set_decision_var(var);
-    }
     solver->solve(&assumps, only_ind);
     return solver->n_seareched_solutions();
   }
@@ -319,6 +344,7 @@ void Count::run() {
   /*solver = new SATSolver((void *)&conf);
   parseInAllFiles(solver, filesToRead[0]);*/
 }
+
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
                   std::ofstream *count_f) {
   cerr << "count\n" << solver;
@@ -326,23 +352,14 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
   solver->set_independent_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
+  trimVar(solver,secret_vars);
   cerr << "Sample\n";
   Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
          true);
   cerr << "Sample end\n";
   //  solver->add_clause(secret_watch);
   solver->simplify();
-  std::unordered_set<uint32_t> fixed_var_set;
-  for (auto lit : solver->get_zero_assigned_lits()) {
-    fixed_var_set.insert(lit.var());
-  }
-  vector<uint32_t> new_count_vars;
-  for (auto var : count_vars) {
-    if (fixed_var_set.count(var) > 0)
-      continue;
-    new_count_vars.push_back(var);
-  }
-  std::swap(new_count_vars, count_vars);
+  trimVar(solver,count_vars);
   cerr << "count size=" << count_vars.size();
 
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
@@ -390,8 +407,10 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
            << "left=" << left << "right=" << right << "\n";
       prev_hash_count = hash_count;
     }
-    cout << "found solution" << solutions[right] << "* 2^" << right;
-    RecordCount(solutions[right], right, count_f);
+    hash_count=right;
+    while(solutions[hash_count]==0)hash_count--;
+    cout << "found solution" << solutions[hash_count] << "* 2^" << hash_count;
+    RecordCount(solutions[hash_count], hash_count, count_f);
     RecordSolution();
     left = hash_count - hash_count / 2;
     right = std::min(int(count_vars.size()), hash_count + hash_count / 2);
