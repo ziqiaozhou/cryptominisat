@@ -88,11 +88,11 @@ private:
   void dump_vars_appearing_inverted(std::ostream *out, bool outer_numbering);
   void dump_clauses(std::ostream *out, const vector<ClOffset> &cls,
                     const bool outer_number);
-
   vector<Lit> tmpCl;
   const CompFinder *compFinder;
   std::set<uint32_t> indCompSet;
   std::set<uint32_t> indFixSet;
+  std::map<uint32_t,bool> useless;
   std::map<uint32_t, std::vector<uint32_t>> IndCompVars;
   std::map<uint32_t, uint32_t> comp_clauses_sizes;
 };

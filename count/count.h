@@ -70,4 +70,5 @@ private:
   bool record_solution_;
   vector<vector<Lit>> solution_lits;
 };
+void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H

@@ -25,6 +25,7 @@ add_executable(count
 			${PROJECT_SOURCE_DIR}/src/main.cpp
 			${PROJECT_SOURCE_DIR}/src/signalcode.cpp
 			 count.cpp
+       component.cpp
 			)
 set(cryptoms_lib_link_libs "")
 	target_link_libraries(count

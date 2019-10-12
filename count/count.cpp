@@ -322,6 +322,8 @@ void Count::run() {
   cerr << "read model\n";
   readVictimModel(solver);
   cerr << "end model\n";
+  findComponent(solver);
+  exit(0);
   std::ofstream count_f(out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
   vector<uint32_t> secret_vars;

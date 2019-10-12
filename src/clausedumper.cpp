@@ -29,6 +29,86 @@ THE SOFTWARE.
 
 using namespace CMSat;
 
+class DisjointSet { // to represent disjoint set
+  vector<int> parent;
+
+public:
+  DisjointSet(int n) { parent.resize(n, -1); }
+  int Find(int l) { // Find the root of the set in which element l belongs
+    if (parent[l] == -1)
+      return l;
+    if (parent[l] == l) // if l is root
+      return l;
+    return Find(parent[l]); // recurs for parent till we find root
+  }
+  int Union(int m, int n) { // perform Union of two subsets m and n
+    int x = Find(m);
+    int y = Find(n);
+    if (y < x)
+      parent[x] = y;
+    else
+      parent[y] = x;
+    return std::min(x,y);
+  }
+};
+
+void AnalyzeClauses(const Solver *solver,const vector<ClOffset> &cls, DisjointSet &ds,  vector<int>& nclause) {
+  for (vector<ClOffset>::const_iterator it = cls.begin(), end = cls.end();
+       it != end; ++it) {
+    auto cl=solver->clause_outer_numbered(*(solver->cl_alloc.ptr(*it)));
+    int group= cl[0].var();
+    for(size_t i = 1; i < cl.size(); i++) {
+      group=ds.Union(group,cl[i].var());
+      nclause[cl[i].var()]++;
+    }
+  }
+}
+void findComponent(const Solver *solver,std::map<uint32_t,bool>& useless) {
+  cout << "try find component\n";
+  size_t nvar=solver->num_active_vars();
+
+  vector<int> nclause(nvar);
+  if (solver->conf.independent_vars == nullptr ||
+      solver->conf.independent_vars->size() == 0)
+    return;
+  size_t wsLit = 0;
+  DisjointSet ds(nvar);
+  auto first_var = solver->conf.independent_vars->at(0);
+  for (auto var : *solver->conf.independent_vars) {
+    ds.Union(first_var, var);
+  }
+  for (watch_array::const_iterator it = solver->watches.begin(),
+                                   end = solver->watches.end();
+       it != end; ++it, wsLit++) {
+    Lit lit = Lit::toLit(wsLit);
+    for (const Watched *it2 = it->begin(), *end2 = it->end(); it2 != end2;
+         it2++) {
+      if (it2->isBin() && lit < it2->lit2() && it2->red()) {
+        ds.Union(lit.var(), it2->lit2().var());
+        nclause[lit.var()]++;
+        nclause[it2->lit2().var()]++;
+      }
+    }
+  }
+  AnalyzeClauses(solver,solver->longIrredCls,ds,nclause);
+  int group = ds.Find(first_var);
+  int nirrel = 0;
+  for (uint32_t i = 0; i < nvar; ++i) {
+    if (ds.Find(i) != group) {
+      cout << " " << i << "\t";
+      useless[i]=1;
+      nirrel++;
+    }else if(nclause[i]<2){
+      cout << "<2 " << i << "\t";
+      useless[i]=1;
+      nirrel++;
+    }
+  }
+  for (auto var : *solver->conf.independent_vars)
+    useless[var] = 0;
+  cout << "number of unrelated vars:" << nirrel << "\n";
+}
+
 void ClauseDumper::write_unsat(std::ostream *out) {
   *out << "p cnf 0 1\n"
        << "0\n";
@@ -269,18 +349,23 @@ void ClauseDumper::dump_bin_cls(std::ostream *out, const bool dumpRed,
     Lit lit = Lit::toLit(wsLit);
     watch_subarray_const ws = *it;
     uint32_t comp = BelongsToIndComp(lit);
+    if(useless[lit.var()])
+    continue;
     if (!comp)
       continue;
     // Each element in the watchlist
     for (const Watched *it2 = ws.begin(), *end2 = ws.end(); it2 != end2;
          it2++) {
       // Only dump binaries
+
       if (it2->isBin() && lit < it2->lit2()) {
         bool toDump = false;
         if (it2->red() && dumpRed)
           toDump = true;
         if (!it2->red() && dumpIrred)
           toDump = true;
+        if(useless[it2->lit2().var()])
+          toDump=false;;
         if (toDump) {
           tmpCl.clear();
           tmpCl.push_back(lit);
@@ -308,6 +393,11 @@ void ClauseDumper::dump_clauses(std::ostream *out, const vector<ClOffset> &cls,
        it != end; ++it) {
     Clause *cl = solver->cl_alloc.ptr(*it);
     uint32_t comp = BelongsToIndComp((*cl)[0]);
+    for(int i=0;i<cl->size();++i){
+      if(useless[(*cl)[i].var()]==1){
+        continue;
+      }
+    }
     if (!comp)
       continue;
     comp_clauses_sizes[comp]++;
@@ -364,6 +454,7 @@ void ClauseDumper::dump_irred_cls_for_preprocessor(std::ostream *out,
         //  cout << "free var:" << var + 1 << "\n";
       }
     }
+    findComponent(solver,useless);
   }
 
   dump_unit_cls(out, outer_numbering);
