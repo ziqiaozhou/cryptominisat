@@ -244,7 +244,7 @@ void Compose::copy_compose() {
     init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    if (i > 0 && i % simplify_interval_ == 0) {
+    if (simplify_interval_<2 || (i > 0 && i % simplify_interval_ == 0)) {
       init_solver->simplify();
       init_solver->renumber_variables(true);
     }
