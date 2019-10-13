@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include <limits>
 #include <map>
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 using std::vector;
@@ -70,7 +71,7 @@ public:
   uint32_t BelongsToIndComp(const Lit &l);
   void dump_symbol_vars(std::ostream *out);
   void dump_irred_cls_for_preprocessor(std::ostream *out, bool outer_number);
-
+void findComponent(const Solver *solver,std::map<uint32_t,bool>& useless,bool outer_numbering);
 private:
   const Solver *solver;
   std::ofstream *outfile = NULL;
@@ -93,6 +94,7 @@ private:
   std::set<uint32_t> indCompSet;
   std::set<uint32_t> indFixSet;
   std::map<uint32_t,bool> useless;
+  std::unordered_set<uint32_t> independent_set;
   std::map<uint32_t, std::vector<uint32_t>> IndCompVars;
   std::map<uint32_t, uint32_t> comp_clauses_sizes;
 };

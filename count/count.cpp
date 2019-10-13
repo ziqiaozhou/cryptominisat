@@ -78,17 +78,20 @@ void Count::add_count_options() {
   countOptions_.add_options()("xor_ratio",
                               po::value(&xor_ratio_)->default_value(0.5));
   countOptions_.add_options()("num_xor_cls",
-                              po::value(&num_xor_cls_)->default_value(1));
+                              po::value(&num_xor_cls_)->default_value(0));
   countOptions_.add_options()("max_sol",
-                              po::value(&max_sol_)->default_value(1));
+                              po::value(&max_sol_)->default_value(64));
   countOptions_.add_options()("max_count_times",
                               po::value(&max_count_times_)->default_value(10));
   countOptions_.add_options()("count_mode",
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
-  countOptions_.add_options()("record_solution",
-                             po::value(&record_solution_)->default_value(true),
-                             "True: write solutions; false: do not write solutions");
+  countOptions_.add_options()(
+      "record_solution", po::value(&record_solution_)->default_value(true),
+      "True: write solutions; false: do not write solutions");
+  countOptions_.add_options()(
+      "search_all", po::value(&search_all)->default_value(false),
+      "True: write solutions; false: do not write solutions");
   help_options_simple.add(countOptions_);
   help_options_complicated.add(countOptions_);
 }
@@ -247,9 +250,9 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
     }
 
     if (ret != l_True) {
-      solutions += solver->n_seareched_solutions();
       break;
     }
+    solutions += std::max(1,solver->n_seareched_solutions());
     model = solver->get_model();
 
     if (solutions < maxSolutions) {
@@ -322,8 +325,6 @@ void Count::run() {
   cerr << "read model\n";
   readVictimModel(solver);
   cerr << "end model\n";
-  findComponent(solver);
-  exit(0);
   std::ofstream count_f(out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
   vector<uint32_t> secret_vars;
@@ -350,7 +351,6 @@ void Count::run() {
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
                   std::ofstream *count_f) {
   cerr << "count\n" << solver;
-
   solver->set_independent_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
@@ -375,9 +375,13 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
   cout << "size=" << count_vars.size() << " " << nsol << "\n";
   if (nsol == -1)
     return;
+  cout << "found solution" << nsol << "* 2^" << hash_count;
+
   if (nsol < max_sol_) {
-    cout << "found solution" << nsol << "* 2^" << hash_count;
     RecordCount(nsol, hash_count, count_f);
+    return;
+  }
+  if(search_all==false){
     return;
   }
   unordered_map<int, uint64_t> solutions;

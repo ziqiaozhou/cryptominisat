@@ -26,16 +26,18 @@ THE SOFTWARE.
 #include "occsimplifier.h"
 #include "solver.h"
 #include "varreplacer.h"
+#include"unordered_map"
 
 using namespace CMSat;
 
 class DisjointSet { // to represent disjoint set
-  vector<int> parent;
 
 public:
-  DisjointSet(int n) { parent.resize(n, -1); }
+  std::unordered_map<uint32_t,uint32_t> parent;
+
+  DisjointSet(int n) {}
   int Find(int l) { // Find the root of the set in which element l belongs
-    if (parent[l] == -1)
+    if (parent.count(l)==0)
       return l;
     if (parent[l] == l) // if l is root
       return l;
@@ -52,420 +54,446 @@ public:
   }
 };
 
-void AnalyzeClauses(const Solver *solver,const vector<ClOffset> &cls, DisjointSet &ds,  vector<int>& nclause) {
+void AnalyzeClauses(const Solver *solver, const vector<ClOffset> &cls,
+                    DisjointSet &ds, vector<int> &nclause,
+                    bool outer_numbering = false) {
   for (vector<ClOffset>::const_iterator it = cls.begin(), end = cls.end();
        it != end; ++it) {
-    auto cl=solver->clause_outer_numbered(*(solver->cl_alloc.ptr(*it)));
-    int group= cl[0].var();
-    for(size_t i = 1; i < cl.size(); i++) {
-      group=ds.Union(group,cl[i].var());
-      nclause[cl[i].var()]++;
-    }
-  }
-}
-void findComponent(const Solver *solver,std::map<uint32_t,bool>& useless) {
-  cout << "try find component\n";
-  size_t nvar=solver->num_active_vars();
+    if (outer_numbering) {
+      auto cl = solver->clause_outer_numbered(*(solver->cl_alloc.ptr(*it)));
+      int group = cl[0].var();
+      for (size_t i = 1; i < cl.size(); i++) {
+        group = ds.Union(group, cl[i].var());
+        nclause[cl[i].var()]++;
+      }
+    } else {
+      Clause &cl = *(solver->cl_alloc.ptr(*it));
 
-  vector<int> nclause(nvar);
-  if (solver->conf.independent_vars == nullptr ||
-      solver->conf.independent_vars->size() == 0)
-    return;
-  size_t wsLit = 0;
-  DisjointSet ds(nvar);
-  auto first_var = solver->conf.independent_vars->at(0);
-  for (auto var : *solver->conf.independent_vars) {
-    ds.Union(first_var, var);
-  }
-  for (watch_array::const_iterator it = solver->watches.begin(),
-                                   end = solver->watches.end();
-       it != end; ++it, wsLit++) {
-    Lit lit = Lit::toLit(wsLit);
-    for (const Watched *it2 = it->begin(), *end2 = it->end(); it2 != end2;
-         it2++) {
-      if (it2->isBin() && lit < it2->lit2() && it2->red()) {
-        ds.Union(lit.var(), it2->lit2().var());
-        nclause[lit.var()]++;
-        nclause[it2->lit2().var()]++;
+      int group = cl[0].var();
+      for (size_t i = 1; i < cl.size(); i++) {
+        group = ds.Union(group, cl[i].var());
+        nclause[cl[i].var()]++;
       }
     }
   }
-  AnalyzeClauses(solver,solver->longIrredCls,ds,nclause);
-  int group = ds.Find(first_var);
-  int nirrel = 0;
-  for (uint32_t i = 0; i < nvar; ++i) {
-    if (ds.Find(i) != group) {
-      cout << " " << i << "\t";
-      useless[i]=1;
-      nirrel++;
-    }else if(nclause[i]<2){
-      cout << "<2 " << i << "\t";
-      useless[i]=1;
-      nirrel++;
-    }
-  }
-  for (auto var : *solver->conf.independent_vars)
-    useless[var] = 0;
-  cout << "number of unrelated vars:" << nirrel << "\n";
 }
+void ClauseDumper::findComponent(const Solver *solver,
+                                   std::map<uint32_t, bool> &useless, bool outer_numbering) {
+    cout << "try find component\n";
+    size_t nvar = solver->nVarsOutside();
 
-void ClauseDumper::write_unsat(std::ostream *out) {
-  *out << "p cnf 0 1\n"
-       << "0\n";
-}
-
-void ClauseDumper::open_file_and_write_unsat(const std::string &fname) {
-  open_dump_file(fname);
-  write_unsat(outfile);
-  delete outfile;
-  outfile = NULL;
-}
-
-void ClauseDumper::write_sat(std::ostream *out) { *out << "p cnf 0 0\n"; }
-
-void ClauseDumper::open_file_and_write_sat(const std::string &fname) {
-  open_dump_file(fname);
-  write_sat(outfile);
-  delete outfile;
-  outfile = NULL;
-}
-
-void ClauseDumper::dump_irred_clauses(std::ostream *out) {
-  if (!solver->okay()) {
-    write_unsat(out);
-  } else {
-    dump_irred_cls(out, true);
-  }
-  std::cout << "dump symbol\n";
-  dump_symbol_vars(out);
-}
-
-void ClauseDumper::open_file_and_dump_irred_clauses(
-    const string &irredDumpFname) {
-  open_dump_file(irredDumpFname);
-  try {
-    dump_irred_clauses(outfile);
-  } catch (std::ifstream::failure &e) {
-    cout << "Error writing clause dump to file: " << e.what() << endl;
-    std::exit(-1);
-  }
-
-  delete outfile;
-  outfile = NULL;
-}
-
-void ClauseDumper::dump_red_clauses(std::ostream *out) {
-  if (!solver->okay()) {
-    write_unsat(out);
-  } else {
-    dump_red_cls(out, true);
-  }
-}
-
-void ClauseDumper::open_file_and_dump_red_clauses(const string &redDumpFname) {
-  open_dump_file(redDumpFname);
-  try {
-    dump_red_clauses(outfile);
-  } catch (std::ifstream::failure &e) {
-    cout << "Error writing clause dump to file: " << e.what() << endl;
-    std::exit(-1);
-  }
-  delete outfile;
-  outfile = NULL;
-}
-
-size_t ClauseDumper::get_preprocessor_num_cls(bool outer_numbering) {
-  size_t num_cls = 0;
-  num_cls += solver->longIrredCls.size();
-  num_cls += solver->binTri.irredBins;
-  if (!outer_numbering) {
-    vector<Lit> units = solver->get_toplevel_units_internal(false);
-    num_cls += units.size();
-  } else {
-    vector<Lit> units = solver->get_zero_assigned_lits();
-    num_cls += units.size();
-  }
-  num_cls += solver->undef_must_set_vars.size();
-  num_cls +=
-      solver->varReplacer->print_equivalent_literals(outer_numbering) * 2;
-
-  return num_cls;
-}
-void ClauseDumper::dump_symbol_vars(std::ostream *out) {
-  for (auto one_symbol_vars : *solver->conf.symbol_vars) {
-    *out << "c " << one_symbol_vars.first << " --> [";
-    for (auto var : one_symbol_vars.second) {
-      *out << " " << var;
-    }
-    *out << "]\n";
-  }
-  if (solver->conf.dump_ind && solver->conf.independent_vars) {
-    *out << "c ind ";
-    vector<uint32_t> used(solver->nVars(), false);
+    vector<int> nclause(nvar);
+    if (solver->conf.independent_vars == nullptr ||
+        solver->conf.independent_vars->size() == 0)
+      return;
+    size_t wsLit = 0;
+    DisjointSet ds(nvar);
+    auto first_var = solver->conf.independent_vars->at(0);
     for (auto var : *solver->conf.independent_vars) {
-      if (used[var])
-        continue;
-      used[var] = true;
-      *out << " " << var + 1;
+      ds.Union(first_var, var);
     }
-    *out << " 0\n";
+    for (watch_array::const_iterator it = solver->watches.begin(),
+                                     end = solver->watches.end();
+         it != end; ++it, wsLit++) {
+      Lit lit = Lit::toLit(wsLit);
+      for (const Watched *it2 = it->begin(), *end2 = it->end(); it2 != end2;
+           it2++) {
+        if (it2->isBin() && lit < it2->lit2() && it2->red()) {
+          auto var1= lit.var(), var2=it2->lit2().var();
+          if(outer_numbering){
+            var1=solver->map_inter_to_outer(var1);
+            var2=solver->map_inter_to_outer(var2);
+          }
+          ds.Union(lit.var(), it2->lit2().var());
+          nclause[lit.var()]++;
+          nclause[it2->lit2().var()]++;
+        }
+      }
+    }
+    AnalyzeClauses(solver, solver->longIrredCls, ds, nclause,outer_numbering);
+    int group = ds.Find(first_var);
+    int nirrel = 0;
+    for (auto var_group : ds.parent) {
+      auto i = var_group.first;
+      if (independent_set.count(i))
+        continue;
+      if (ds.Find(i) != group) {
+        cout << " " << i << "\t";
+        useless[i] = 1;
+        nirrel++;
+      } else if (nclause[i] < 2) {
+        cout << "<2 " << i << "\t";
+        useless[i] = 1;
+        nirrel++;
+      }
+    }
+    for (auto var : *solver->conf.independent_vars)
+      useless[var] = 0;
+    cout << "number of unrelated vars:" << nirrel << "\n";
   }
-}
-void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream *out) {
-  if (!solver->okay()) {
-    write_unsat(out);
-  } else {
-    *out << "p cnf " << solver->nVars() << " "
-         << get_preprocessor_num_cls(false) << "\n";
 
-    dump_irred_cls_for_preprocessor(out, false);
+  void ClauseDumper::write_unsat(std::ostream * out) {
+    *out << "p cnf 0 1\n"
+         << "0\n";
+  }
+
+  void ClauseDumper::open_file_and_write_unsat(const std::string &fname) {
+    open_dump_file(fname);
+    write_unsat(outfile);
+    delete outfile;
+    outfile = NULL;
+  }
+
+  void ClauseDumper::write_sat(std::ostream * out) { *out << "p cnf 0 0\n"; }
+
+  void ClauseDumper::open_file_and_write_sat(const std::string &fname) {
+    open_dump_file(fname);
+    write_sat(outfile);
+    delete outfile;
+    outfile = NULL;
+  }
+
+  void ClauseDumper::dump_irred_clauses(std::ostream * out) {
+    if (!solver->okay()) {
+      write_unsat(out);
+    } else {
+      dump_irred_cls(out, true);
+    }
     std::cout << "dump symbol\n";
     dump_symbol_vars(out);
   }
-}
 
-void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
-    const string &irredDumpFname) {
+  void ClauseDumper::open_file_and_dump_irred_clauses(
+      const string &irredDumpFname) {
+    open_dump_file(irredDumpFname);
+    try {
+      dump_irred_clauses(outfile);
+    } catch (std::ifstream::failure &e) {
+      cout << "Error writing clause dump to file: " << e.what() << endl;
+      std::exit(-1);
+    }
 
-  open_dump_file(irredDumpFname);
-  try {
-    std::cout << "dump file 2--\n";
-    dump_irred_clauses_preprocessor(outfile);
-  } catch (std::ifstream::failure &e) {
-    cout << "Error writing clause dump to file: " << e.what() << endl;
-    std::exit(-1);
-  }
-  cout << "======Dumped status:\n";
-  for (auto s : comp_clauses_sizes) {
-    cout << "comp-" << s.first << "\t:" << s.second << "\n";
-  }
-  delete outfile;
-  outfile = NULL;
-}
-
-void ClauseDumper::dump_red_cls(std::ostream *out, bool outer_numbering) {
-  if (solver->get_num_bva_vars() > 0) {
-    std::cerr << "ERROR: cannot make meaningful dump with BVA turned on."
-              << endl;
-    exit(-1);
+    delete outfile;
+    outfile = NULL;
   }
 
-  *out << "c --- c red bin clauses" << endl;
-  dump_bin_cls(out, true, false, outer_numbering);
-
-  *out << "c ----- red long cls locked in the DB" << endl;
-  dump_clauses(out, solver->longRedCls[0], outer_numbering);
-
-  dump_eq_lits(out, outer_numbering);
-}
-
-void ClauseDumper::dump_irred_cls(std::ostream *out, bool outer_numbering) {
-  if (solver->get_num_bva_vars() > 0) {
-    std::cerr << "ERROR: cannot make meaningful dump with BVA turned on."
-              << endl;
-    exit(-1);
+  void ClauseDumper::dump_red_clauses(std::ostream * out) {
+    if (!solver->okay()) {
+      write_unsat(out);
+    } else {
+      dump_red_cls(out, true);
+    }
   }
 
-  size_t num_cls = get_preprocessor_num_cls(outer_numbering);
-  num_cls += dump_blocked_clauses(NULL, outer_numbering);
-  num_cls += dump_component_clauses(NULL, outer_numbering);
-
-  *out << "p cnf " << solver->nVarsOutside() << " " << num_cls << "\n";
-
-  dump_irred_cls_for_preprocessor(out, outer_numbering);
-
-  *out << "c ------------------ previously eliminated variables" << endl;
-  dump_blocked_clauses(out, outer_numbering);
-
-  *out << "c ---------- clauses in components" << endl;
-  dump_component_clauses(out, outer_numbering);
-}
-
-void ClauseDumper::dump_unit_cls(std::ostream *out, bool outer_numbering) {
-  *out << "c --------- unit clauses" << endl;
-  vector<Lit> lits;
-  if (outer_numbering) {
-    //'trail' cannot be trusted between 0....size()
-    lits = solver->get_zero_assigned_lits();
-  } else {
-    lits = solver->get_toplevel_units_internal(false);
+  void ClauseDumper::open_file_and_dump_red_clauses(
+      const string &redDumpFname) {
+    open_dump_file(redDumpFname);
+    try {
+      dump_red_clauses(outfile);
+    } catch (std::ifstream::failure &e) {
+      cout << "Error writing clause dump to file: " << e.what() << endl;
+      std::exit(-1);
+    }
+    delete outfile;
+    outfile = NULL;
   }
-  for (Lit lit : lits) {
-    uint32_t comp = BelongsToIndComp(lit);
-    if (!comp && indFixSet.count(lit.var()) == 0)
-      continue;
-    *out << lit << " 0\n";
-  }
-}
 
-uint32_t ClauseDumper::dump_blocked_clauses(std::ostream *out,
-                                            bool outer_numbering) {
-  assert(outer_numbering);
-  uint32_t num_cls = 0;
-  if (solver->conf.perform_occur_based_simp) {
-    num_cls = solver->occsimplifier->dump_blocked_clauses(out);
-  }
-  return num_cls;
-}
+  size_t ClauseDumper::get_preprocessor_num_cls(bool outer_numbering) {
+    size_t num_cls = 0;
+    num_cls += solver->longIrredCls.size();
+    num_cls += solver->binTri.irredBins;
+    if (!outer_numbering) {
+      vector<Lit> units = solver->get_toplevel_units_internal(false);
+      num_cls += units.size();
+    } else {
+      vector<Lit> units = solver->get_zero_assigned_lits();
+      num_cls += units.size();
+    }
+    num_cls += solver->undef_must_set_vars.size();
+    num_cls +=
+        solver->varReplacer->print_equivalent_literals(outer_numbering) * 2;
 
-uint32_t ClauseDumper::dump_component_clauses(std::ostream *out,
+    return num_cls;
+  }
+  void ClauseDumper::dump_symbol_vars(std::ostream * out) {
+    for (auto one_symbol_vars : *solver->conf.symbol_vars) {
+      *out << "c " << one_symbol_vars.first << " --> [";
+      for (auto var : one_symbol_vars.second) {
+        *out << " " << var;
+      }
+      *out << "]\n";
+    }
+    if (solver->conf.dump_ind && solver->conf.independent_vars) {
+      *out << "c ind ";
+      vector<uint32_t> used(solver->nVars(), false);
+      for (auto var : *solver->conf.independent_vars) {
+        if (used[var])
+          continue;
+        used[var] = true;
+        *out << " " << var + 1;
+      }
+      *out << " 0\n";
+    }
+  }
+  void ClauseDumper::dump_irred_clauses_preprocessor(std::ostream * out) {
+    if (!solver->okay()) {
+      write_unsat(out);
+    } else {
+      *out << "p cnf " << solver->nVars() << " "
+           << get_preprocessor_num_cls(false) << "\n";
+
+      dump_irred_cls_for_preprocessor(out, false);
+      std::cout << "dump symbol\n";
+      dump_symbol_vars(out);
+    }
+  }
+
+  void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
+      const string &irredDumpFname) {
+
+    open_dump_file(irredDumpFname);
+    try {
+      std::cout << "dump file 2--\n";
+      dump_irred_clauses_preprocessor(outfile);
+    } catch (std::ifstream::failure &e) {
+      cout << "Error writing clause dump to file: " << e.what() << endl;
+      std::exit(-1);
+    }
+    cout << "======Dumped status:\n";
+    for (auto s : comp_clauses_sizes) {
+      cout << "comp-" << s.first << "\t:" << s.second << "\n";
+    }
+    delete outfile;
+    outfile = NULL;
+  }
+
+  void ClauseDumper::dump_red_cls(std::ostream * out, bool outer_numbering) {
+    if (solver->get_num_bva_vars() > 0) {
+      std::cerr << "ERROR: cannot make meaningful dump with BVA turned on."
+                << endl;
+      exit(-1);
+    }
+
+    *out << "c --- c red bin clauses" << endl;
+    dump_bin_cls(out, true, false, outer_numbering);
+
+    *out << "c ----- red long cls locked in the DB" << endl;
+    dump_clauses(out, solver->longRedCls[0], outer_numbering);
+
+    dump_eq_lits(out, outer_numbering);
+  }
+
+  void ClauseDumper::dump_irred_cls(std::ostream * out, bool outer_numbering) {
+    if (solver->get_num_bva_vars() > 0) {
+      std::cerr << "ERROR: cannot make meaningful dump with BVA turned on."
+                << endl;
+      exit(-1);
+    }
+
+    size_t num_cls = get_preprocessor_num_cls(outer_numbering);
+    num_cls += dump_blocked_clauses(NULL, outer_numbering);
+    num_cls += dump_component_clauses(NULL, outer_numbering);
+
+    *out << "p cnf " << solver->nVarsOutside() << " " << num_cls << "\n";
+
+    dump_irred_cls_for_preprocessor(out, outer_numbering);
+
+    *out << "c ------------------ previously eliminated variables" << endl;
+    dump_blocked_clauses(out, outer_numbering);
+
+    *out << "c ---------- clauses in components" << endl;
+    dump_component_clauses(out, outer_numbering);
+  }
+
+  void ClauseDumper::dump_unit_cls(std::ostream * out, bool outer_numbering) {
+    *out << "c --------- unit clauses" << endl;
+    vector<Lit> lits;
+    if (outer_numbering) {
+      //'trail' cannot be trusted between 0....size()
+      lits = solver->get_zero_assigned_lits();
+    } else {
+      lits = solver->get_toplevel_units_internal(false);
+    }
+    for (Lit lit : lits) {
+      uint32_t comp = BelongsToIndComp(lit);
+      if (!comp && indFixSet.count(lit.var()) == 0)
+        continue;
+      *out << lit << " 0\n";
+    }
+  }
+
+  uint32_t ClauseDumper::dump_blocked_clauses(std::ostream * out,
                                               bool outer_numbering) {
-  assert(outer_numbering);
-  uint32_t num_cls = 0;
-  if (solver->compHandler) {
-    num_cls = solver->compHandler->dump_removed_clauses(out);
+    assert(outer_numbering);
+    uint32_t num_cls = 0;
+    if (solver->conf.perform_occur_based_simp) {
+      num_cls = solver->occsimplifier->dump_blocked_clauses(out);
+    }
+    return num_cls;
   }
-  return num_cls;
-}
 
-void ClauseDumper::open_dump_file(const std::string &filename) {
-  delete outfile;
-  outfile = NULL;
-  std::ofstream *f = new std::ofstream;
-  f->open(filename.c_str());
-  if (!f->good()) {
-    cout << "Cannot open file '" << filename << "' for writing. exiting"
-         << endl;
-    std::exit(-1);
+  uint32_t ClauseDumper::dump_component_clauses(std::ostream * out,
+                                                bool outer_numbering) {
+    assert(outer_numbering);
+    uint32_t num_cls = 0;
+    if (solver->compHandler) {
+      num_cls = solver->compHandler->dump_removed_clauses(out);
+    }
+    return num_cls;
   }
-  f->exceptions(std::ifstream::failbit | std::ifstream::badbit);
-  outfile = f;
-}
-uint32_t ClauseDumper::BelongsToIndComp(const Lit &l) {
-  if (indCompSet.size() == 0)
-    return true;
-  if (compFinder == nullptr)
-    return true;
-  uint32_t comp = compFinder->getVarComp(l.var());
-  bool ret = indCompSet.count(comp) > 0;
-  return ret ? comp + 1 : 0;
-}
-void ClauseDumper::dump_bin_cls(std::ostream *out, const bool dumpRed,
-                                const bool dumpIrred, const bool outer_number) {
-  size_t wsLit = 0;
-  for (watch_array::const_iterator it = solver->watches.begin(),
-                                   end = solver->watches.end();
-       it != end; ++it, wsLit++) {
-    Lit lit = Lit::toLit(wsLit);
-    watch_subarray_const ws = *it;
-    uint32_t comp = BelongsToIndComp(lit);
-    if(useless[lit.var()])
-    continue;
-    if (!comp)
-      continue;
-    // Each element in the watchlist
-    for (const Watched *it2 = ws.begin(), *end2 = ws.end(); it2 != end2;
-         it2++) {
-      // Only dump binaries
 
-      if (it2->isBin() && lit < it2->lit2()) {
-        bool toDump = false;
-        if (it2->red() && dumpRed)
-          toDump = true;
-        if (!it2->red() && dumpIrred)
-          toDump = true;
-        if(useless[it2->lit2().var()])
-          toDump=false;;
-        if (toDump) {
-          tmpCl.clear();
-          tmpCl.push_back(lit);
-          tmpCl.push_back(it2->lit2());
-          if (outer_number) {
-            tmpCl[0] = solver->map_inter_to_outer(tmpCl[0]);
-            tmpCl[1] = solver->map_inter_to_outer(tmpCl[1]);
+  void ClauseDumper::open_dump_file(const std::string &filename) {
+    delete outfile;
+    outfile = NULL;
+    std::ofstream *f = new std::ofstream;
+    f->open(filename.c_str());
+    if (!f->good()) {
+      cout << "Cannot open file '" << filename << "' for writing. exiting"
+           << endl;
+      std::exit(-1);
+    }
+    f->exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    outfile = f;
+  }
+  uint32_t ClauseDumper::BelongsToIndComp(const Lit &l) {
+    if (indCompSet.size() == 0)
+      return true;
+    if (compFinder == nullptr)
+      return true;
+    uint32_t comp = compFinder->getVarComp(l.var());
+    bool ret = indCompSet.count(comp) > 0;
+    return ret ? comp + 1 : 0;
+  }
+  void ClauseDumper::dump_bin_cls(std::ostream * out, const bool dumpRed,
+                                  const bool dumpIrred,
+                                  const bool outer_number) {
+    size_t wsLit = 0;
+    for (watch_array::const_iterator it = solver->watches.begin(),
+                                     end = solver->watches.end();
+         it != end; ++it, wsLit++) {
+      Lit lit = Lit::toLit(wsLit);
+      watch_subarray_const ws = *it;
+      uint32_t comp = BelongsToIndComp(lit);
+      if (useless[lit.var()])
+        continue;
+      if (!comp)
+        continue;
+      // Each element in the watchlist
+      for (const Watched *it2 = ws.begin(), *end2 = ws.end(); it2 != end2;
+           it2++) {
+        // Only dump binaries
+
+        if (it2->isBin() && lit < it2->lit2()) {
+          bool toDump = false;
+          if (it2->red() && dumpRed)
+            toDump = true;
+          if (!it2->red() && dumpIrred)
+            toDump = true;
+          if (useless[it2->lit2().var()])
+            toDump = false;
+          ;
+          if (toDump) {
+            tmpCl.clear();
+            tmpCl.push_back(lit);
+            tmpCl.push_back(it2->lit2());
+            if (outer_number) {
+              tmpCl[0] = solver->map_inter_to_outer(tmpCl[0]);
+              tmpCl[1] = solver->map_inter_to_outer(tmpCl[1]);
+            }
+            comp_clauses_sizes[comp]++;
+            *out << tmpCl[0] << " " << tmpCl[1] << " 0\n";
           }
-          comp_clauses_sizes[comp]++;
-          *out << tmpCl[0] << " " << tmpCl[1] << " 0\n";
         }
       }
     }
   }
-}
 
-void ClauseDumper::dump_eq_lits(std::ostream *out, bool outer_numbering) {
-  *out << "c ------------ equivalent literals" << endl;
-  solver->varReplacer->print_equivalent_literals(outer_numbering, out, this);
-}
+  void ClauseDumper::dump_eq_lits(std::ostream * out, bool outer_numbering) {
+    *out << "c ------------ equivalent literals" << endl;
+    solver->varReplacer->print_equivalent_literals(outer_numbering, out, this);
+  }
 
-void ClauseDumper::dump_clauses(std::ostream *out, const vector<ClOffset> &cls,
-                                const bool outer_numbering) {
-  for (vector<ClOffset>::const_iterator it = cls.begin(), end = cls.end();
-       it != end; ++it) {
-    Clause *cl = solver->cl_alloc.ptr(*it);
-    uint32_t comp = BelongsToIndComp((*cl)[0]);
-    for(int i=0;i<cl->size();++i){
-      if(useless[(*cl)[i].var()]==1){
+  void ClauseDumper::dump_clauses(std::ostream * out,
+                                  const vector<ClOffset> &cls,
+                                  const bool outer_numbering) {
+    for (vector<ClOffset>::const_iterator it = cls.begin(), end = cls.end();
+         it != end; ++it) {
+      Clause *cl = solver->cl_alloc.ptr(*it);
+      uint32_t comp = BelongsToIndComp((*cl)[0]);
+      for (int i = 0; i < cl->size(); ++i) {
+        if (useless[(*cl)[i].var()] == 1) {
+          continue;
+        }
+      }
+      if (!comp)
+        continue;
+      comp_clauses_sizes[comp]++;
+      if (outer_numbering) {
+        *out << solver->clause_outer_numbered(*cl) << " 0\n";
+      } else {
+        *out << *cl << " 0\n";
+      }
+    }
+  }
+
+  void ClauseDumper::dump_vars_appearing_inverted(std::ostream * out,
+                                                  bool outer_numbering) {
+    *out << "c ------------ vars appearing inverted in cls" << endl;
+    for (size_t i = 0; i < solver->undef_must_set_vars.size(); i++) {
+      if (!solver->undef_must_set_vars[i] ||
+          solver->map_outer_to_inter(i) >= solver->nVars() ||
+          solver->value(solver->map_outer_to_inter(i)) != l_Undef) {
         continue;
       }
-    }
-    if (!comp)
-      continue;
-    comp_clauses_sizes[comp]++;
-    if (outer_numbering) {
-      *out << solver->clause_outer_numbered(*cl) << " 0\n";
-    } else {
-      *out << *cl << " 0\n";
+
+      Lit l = Lit(i, false);
+      if (!outer_numbering) {
+        l = solver->map_outer_to_inter(l);
+      }
+      *out << l << " " << ~l << " 0"
+           << "\n";
     }
   }
-}
 
-void ClauseDumper::dump_vars_appearing_inverted(std::ostream *out,
-                                                bool outer_numbering) {
-  *out << "c ------------ vars appearing inverted in cls" << endl;
-  for (size_t i = 0; i < solver->undef_must_set_vars.size(); i++) {
-    if (!solver->undef_must_set_vars[i] ||
-        solver->map_outer_to_inter(i) >= solver->nVars() ||
-        solver->value(solver->map_outer_to_inter(i)) != l_Undef) {
-      continue;
+  void ClauseDumper::dump_irred_cls_for_preprocessor(
+      std::ostream * out, const bool outer_numbering) {
+    indCompSet.clear();
+    //  std::cout << "dump--\n";
+    if (solver->conf.independent_vars && compFinder) {
+      for (uint32_t var : *solver->conf.independent_vars) {
+        if (solver->value(var) != l_Undef) {
+          indFixSet.insert(var);
+          // cout << "fix var:" << var + 1 << "\n";
+        }
+        auto comp = compFinder->getVarComp(var);
+        if (comp != -1) {
+          indCompSet.insert(comp);
+          IndCompVars[comp].push_back(var);
+        }
+      }
+      /*  for (auto c : indCompSet)
+          std::cout << c << "--\n";*/
+      for (uint32_t var : *solver->conf.independent_vars) {
+        independent_set.insert(var);
+        auto comp = compFinder->getVarComp(var);
+        if (comp == 0)
+          continue;
+        if (IndCompVars[comp].size() == 1 && solver->value(var) != l_Undef) {
+          //  cout << "free var:" << var + 1 << "\n";
+        }
+      }
+      findComponent(solver, useless,outer_numbering);
     }
 
-    Lit l = Lit(i, false);
-    if (!outer_numbering) {
-      l = solver->map_outer_to_inter(l);
-    }
-    *out << l << " " << ~l << " 0"
-         << "\n";
+    dump_unit_cls(out, outer_numbering);
+
+    dump_vars_appearing_inverted(out, outer_numbering);
+
+    *out << "c -------- irred bin cls" << endl;
+    dump_bin_cls(out, false, true, outer_numbering);
+
+    *out << "c -------- irred long cls" << endl;
+    dump_clauses(out, solver->longIrredCls, outer_numbering);
+
+    dump_eq_lits(out, outer_numbering);
   }
-}
-
-void ClauseDumper::dump_irred_cls_for_preprocessor(std::ostream *out,
-                                                   const bool outer_numbering) {
-  indCompSet.clear();
-  //  std::cout << "dump--\n";
-  if (solver->conf.independent_vars && compFinder) {
-    for (uint32_t var : *solver->conf.independent_vars) {
-      if (solver->value(var) != l_Undef) {
-        indFixSet.insert(var);
-        // cout << "fix var:" << var + 1 << "\n";
-      }
-      auto comp = compFinder->getVarComp(var);
-      if (comp != -1) {
-        indCompSet.insert(comp);
-        IndCompVars[comp].push_back(var);
-      }
-    }
-    /*  for (auto c : indCompSet)
-        std::cout << c << "--\n";*/
-    for (uint32_t var : *solver->conf.independent_vars) {
-      auto comp = compFinder->getVarComp(var);
-      if (comp == 0)
-        continue;
-      if (IndCompVars[comp].size() == 1 && solver->value(var) != l_Undef) {
-        //  cout << "free var:" << var + 1 << "\n";
-      }
-    }
-    findComponent(solver,useless);
-  }
-
-  dump_unit_cls(out, outer_numbering);
-
-  dump_vars_appearing_inverted(out, outer_numbering);
-
-  *out << "c -------- irred bin cls" << endl;
-  dump_bin_cls(out, false, true, outer_numbering);
-
-  *out << "c -------- irred long cls" << endl;
-  dump_clauses(out, solver->longIrredCls, outer_numbering);
-
-  dump_eq_lits(out, outer_numbering);
-}

@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ***********************************************/
-
+//#define DEBUG
 #include "searcher.h"
 #include "occsimplifier.h"
 #include "time_mem.h"
@@ -872,9 +872,7 @@ Clause* Searcher::analyze_conflict(
     }
 
     out_btlevel = find_backtrack_level_of_learnt();
-    if(out_btlevel< backtrack_){
-      std::cerr<<"out_btlevel< backtrack"<< out_btlevel<< " "<<backtrack_<<"\n";
-    }
+
     if (!update_bogoprops) {
         if (VSIDS) {
             bump_var_activities_based_on_implied_by_learnts<update_bogoprops>(out_btlevel);
@@ -1158,12 +1156,14 @@ void Searcher::backtrack(int level) {
   assert(value(last_lit.var()) != l_Undef);
   cancelUntil<true,update_bogoprops>(level - 1);
   //if(conf.verbosity>1)
-  //cout<<"enqueue"<<~last_lit<<"\n";
+  #ifdef DEBUG
+  cout<<"enqueue"<<~last_lit<<"\n";
+  #endif
   new_decision_level();
   enqueue(~last_lit);
-  assert(trail[trail_lim[level-1]] == ~last_lit);
+  //assert(trail[trail_lim[level-1]] == ~last_lit);
 
-  assert(decisionLevel()==level);
+  //assert(decisionLevel()==level);
 }
 template <bool update_bogoprops> lbool Searcher::search() {
   bool soon_after_backtrack=false;
@@ -1178,10 +1178,6 @@ template <bool update_bogoprops> lbool Searcher::search() {
     ind_level.clear();
   normal_state = false;
   conf.nsol = 0;
-  if (conf.verbosity >=1)
-    cout << "start search at" << decisionLevel()
-         << ", assump size=" << assumptions.size()
-         << "independent_set size=" << independent_set.size() << "\n";
   assert(ok);
 #ifdef SLOW_DEBUG
     check_no_duplicate_lits_anywhere();
@@ -1204,20 +1200,23 @@ template <bool update_bogoprops> lbool Searcher::search() {
     PropBy confl;
     lbool dec_ret = l_Undef;
     bool finish_search=false;
-    while (!params.needToStopSearch
-        || !confl.isNULL() //always finish the last conflict
+    while (!params.needToStopSearch ||
+           !confl.isNULL() // always finish the last conflict
     ) {
-      if(decisionLevel()<backtrack_){
-        if(ind_level.size()!=0)
-      {
-        std::cerr<<"need back track more to"<<ind_level[ind_level.size() - 1]<<"\t"<<decisionLevel()<<" "<<backtrack_<<"\n";
-        backtrack_=ind_level[ind_level.size() - 1];
-        backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
-        soon_after_backtrack=true;
-      }else{
-        finish_search=true;
+      #ifdef TRACK_DECVAR_FOR_IND
+      if (decisionLevel() < backtrack_) {
+        if (ind_level.size() != 0) {
+          std::cerr << "need back track more to"
+                    << ind_level[ind_level.size() - 1] << "\t"
+                    << decisionLevel() << " " << backtrack_ << "\n";
+          backtrack_ = ind_level[ind_level.size() - 1];
+          backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
+          soon_after_backtrack = true;
+        } else {
+          finish_search = true;
+        }
       }
-      }
+      #endif
         //assert(int(decisionLevel())>=backtrack_);
         #ifdef USE_GAUSS
         gqhead = qhead;
@@ -1228,33 +1227,70 @@ template <bool update_bogoprops> lbool Searcher::search() {
           confl = propagate_any_order_fast();
         }
         //cout<<"soon_after_backtrack"<<soon_after_backtrack<<"\n";
-        if (decisionLevel() > assumptions.size()) {
-          if (decisionLevel() > backtrack_)
-            for (int i = trail_lim[trail_lim.size() - 1] + 1; i < trail.size();
-                 ++i) {
-              if (independent_set.count(trail[i].var())) {
-                 if(conf.verbosity>=1)
-                cout << "select ind level" << decisionLevel() << "\t"
-                     << trail[i] << "n";
-                if(ind_level.size()==0 || ind_level[ind_level.size()-1]!= decisionLevel())
-                  ind_level.push_back(decisionLevel());
-                break;
-              }
-            }
+#ifdef TRACK_DECVAR_FOR_IND
+        if (confl.isNULL() && decisionLevel() > assumptions.size()) {
+          bool check_sol = false;
+          // if (decisionLevel() > backtrack_)
+          for (int i = trail_lim[trail_lim.size() - 1] + 1; i < trail.size();
+               ++i) {
+            if (independent_set.count(trail[i].var())) {
+// if(conf.verbosity>=1)
+#ifdef DEBUG
+          cout << "select " << trail[trail_lim[trail_lim.size() - 1]] << " at "
+               << decisionLevel() << "\t ind var" << trail[i] << "\n";
+#endif
+          if ((ind_level.size() == 0 ||
+               ind_level[ind_level.size() - 1] != decisionLevel()) &&
+              decisionLevel() > backtrack_)
+            ind_level.push_back(decisionLevel());
+          check_sol = true;
+          // break;
+        }
+      }
+
+      if (check_sol) {
+        std::stringstream solution;
+        for (auto var : independent_set) {
+          if (value(var) == l_Undef)
+            break;
+          solution << " " << Lit(var, value(var) == l_False);
         }
 
-        if (!confl.isNULL()) {
-           //cout<<"conflict";
-          // manipulate startup parameters
-          if (!update_bogoprops) {
-            if (VSIDS && ((stats.conflStats.numConflicts & 0xfff) == 0xfff) &&
-                var_decay_vsids < conf.var_decay_vsids_max) {
-              var_decay_vsids += 0.01;
-            }
-            if (!VSIDS && step_size > solver->conf.min_step_size) {
-              step_size -= solver->conf.step_size_dec;
-            }
-          }
+        if (solutions.count(solution.str()) != 0) {
+#ifdef DEBUG
+          cout << "ind_levels=";
+          for (auto l : ind_level)
+            cout << l << "\t";
+          cout << "\n";
+          std::cerr << "conflict solutions";
+          std::cerr << "solution conflict track to" << backtrack_;
+          std::cout << solution.str() << "\n";
+#endif
+          backtrack_ = ind_level[ind_level.size() - 1];
+          backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
+#ifdef DEBUG
+          cout << "ind_levels=";
+          for (auto l : ind_level)
+            cout << l << "\t";
+          cout << "\n";
+#endif
+        }
+      }
+    }
+#endif
+
+    if (!confl.isNULL()) {
+      // manipulate startup parameters
+      int old_level = decisionLevel();
+      if (!update_bogoprops) {
+        if (VSIDS && ((stats.conflStats.numConflicts & 0xfff) == 0xfff) &&
+            var_decay_vsids < conf.var_decay_vsids_max) {
+          var_decay_vsids += 0.01;
+        }
+        if (!VSIDS && step_size > solver->conf.min_step_size) {
+          step_size -= solver->conf.step_size_dec;
+        }
+      }
 
             #ifdef STATS_NEEDED
             stats.conflStats.update(lastConflictCausedBy);
@@ -1271,8 +1307,14 @@ template <bool update_bogoprops> lbool Searcher::search() {
                 dump_search_loop_stats(myTime);
                 return l_False;
             }
-            if(conf.max_sol_==1&& conf.nsol==0)
+            if (conf.max_sol_ == 1 && conf.nsol == 0)
               check_need_restart();
+#ifdef DEBUG
+            cout << "conflict handling from "<<old_level<<" to " << decisionLevel() << "\n";
+            for (auto i : trail_lim)
+              cout << trail[i] << "\t";
+            cout << "\n";
+#endif
         } else {
 
             assert(ok);
@@ -1299,18 +1341,19 @@ template <bool update_bogoprops> lbool Searcher::search() {
             reduce_db_if_needed();
             dec_ret = new_decision<update_bogoprops>();
             if (dec_ret != l_Undef) {
-              if(finish_search)
-              return dec_ret;
-              if (dec_ret == l_False){
+              if (finish_search||dec_ret == l_False|| conf.max_sol_==1){
                 dump_search_loop_stats(myTime);
                 return dec_ret;
               }
               std::stringstream solution;
               for(auto var :independent_set){
                 assert(value(var)!=l_Undef);
-                solution<<" "<<(value(var)==l_False);
+                solution<<" "<<Lit(var,value(var)==l_False);
               }
-              assert(solutions.count(solution.str())==0);
+              #ifdef DEBUG
+
+              std::cout<<solution.str()<<"\n";
+              #endif
               solutions.insert(solution.str());
               conf.nsol=solutions.size();
 
@@ -1326,19 +1369,28 @@ template <bool update_bogoprops> lbool Searcher::search() {
               }
               if (ind_level.size() == 0)
                 return dec_ret;
-              if (conf.verbosity >= 0)
+#ifdef DEBUG
+              for (auto l : ind_level)
+                cout << l << "\t";
+              cout << "\n";
               cout << "back track to level" << decisionLevel() << "ind level"
-                     << ind_level[ind_level.size() - 1] << "\n"
-                     << "searched" << conf.nsol << "\n";
+                   << ind_level[ind_level.size() - 1] << "\n"
+                   << "searched" << conf.nsol << "\n";
+#endif
               backtrack_ = ind_level[ind_level.size() - 1];
+
               backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
+              cout<<"ind_levels=";
+              for (auto l : ind_level)
+                cout << l << "\t";
+                cout<<"\n";
               // clean
-              hist.glueHist.clear();
-              //std::cerr<<"\n";
+              // hist.glueHist.clear();
+              // std::cerr<<"\n";
               // return dec_ret;
             }
         }
-        }
+  }
     cout<<"search:"<<",nsol="<<conf.nsol<<"\t"<<conf.max_sol_<<"\n";
 
     max_confl_this_phase -= (int64_t)params.conflictsDoneThisRestart;
@@ -2580,7 +2632,9 @@ Lit Searcher::pickBranchLit()
     int index=decisionLevel()-assumptions.size();
     assert(index>=0);
     double act=-1;
-    /*if (conf.max_sol_ > 1)
+
+
+    if (conf.max_sol_ > 1)
       for (auto var : independent_set) {
         //cout<<"try next="<<var<<" "<<var_act_vsids[var];
         if (order_heap.inHeap(var) && value(var) == l_Undef &&
@@ -2589,7 +2643,7 @@ Lit Searcher::pickBranchLit()
           act= var_act_vsids[var];
           //break;
         }
-      }*/
+      }
     if (next == lit_Undef && conf.random_var_freq > 0) {
         double rand = mtrand.randDblExc();
         double frq = conf.random_var_freq;
@@ -2636,7 +2690,9 @@ Lit Searcher::pickBranchLit()
     }
     if (next != lit_Undef) {
       if (independent_set.count(next.var())>0) {
-        //std::cerr<<"picked ind "<<next<<"at "<< decisionLevel()+1<<", sub level="<< trail.size()<<"\n";
+        #ifdef DEBUG
+        std::cerr<<"picked ind "<<next<<"at "<< decisionLevel()+1<<", sub level="<< trail.size()<<"\n";
+        #endif
         ind_level.push_back(decisionLevel()+1);
       }
     }
@@ -2647,6 +2703,7 @@ Lit Searcher::pickBranchLit()
         assert(solver->varData[next.var()].removed == Removed::none);
     }
     #endif
+
     return next;
 }
 

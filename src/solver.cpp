@@ -1454,7 +1454,6 @@ lbool Solver::solve_with_assumptions(const vector<Lit> *_assumptions,
       (solveStats.numSimplify == 0 || conf.simplify_at_every_startup)) {
     status = simplify_problem(!conf.full_simplify_at_startup);
   }
-
   if (status == l_Undef && conf.preprocess == 0) {
     status = iterate_until_solved();
   }
