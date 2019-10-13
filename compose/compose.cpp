@@ -83,6 +83,7 @@ void Compose::createNextState(
     SATSolver *solver2, std::map<std::string, vector<Lit>> &trans_symbol_vars,
     std::map<std::string, vector<Lit>> &symbol_vars2) {
   int add_clause = 0;
+  vector<uint32_t> ind_vars;
   if (conf.verbosity > 1) {
     cout << "------------\n";
     print_map(trans_symbol_vars);
@@ -102,6 +103,12 @@ void Compose::createNextState(
   if (solver2->nVars() < nvar)
     solver2->new_vars(nvar - solver2->nVars());
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
+  solver2->set_symbol_vars(&symbol_vars2);
+  ind_vars.clear();
+  for (auto lits : symbol_vars2)
+    for (auto lit : lits.second)
+      ind_vars.push_back(lit.var());
+  solver2->set_independent_vars(&ind_vars);
   for (auto lits : trans_clauses) {
     // cout << "old add clause" << lits << "\n";
     for (auto &lit : lits) {
@@ -247,12 +254,6 @@ void Compose::copy_compose() {
     createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
     current_trans_symbol_vars.erase(prev_state);
     // if (prev_state != "s0")
-    init_solver->set_symbol_vars(&init_symbol_vars);
-    ind_vars.clear();
-    for (auto lits : init_symbol_vars)
-      for (auto lit : lits.second)
-        ind_vars.push_back(lit.var());
-    init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
     if (simplify_interval_ < 2 || (i > 0 && i % simplify_interval_ == 0)) {
@@ -289,7 +290,7 @@ void Compose::incremental_compose() {
   transition_solver_ = new SATSolver((void *)&conf);
   SolverConf conf2 = conf;
   SolverConf conf_copy = conf;
-  vector<uint32_t> ind_vars;
+
   conf2.doRenumberVars = false;
   SATSolver *init_solver = new SATSolver((void *)&conf2);
   // Read transition CNF
@@ -325,12 +326,6 @@ void Compose::incremental_compose() {
     current_trans_symbol_vars.erase(prev_state);
     // if (prev_state != "s0")
     init_symbol_vars.erase(prev_state);
-    init_solver->set_symbol_vars(&init_symbol_vars);
-    ind_vars.clear();
-    for (auto lits : init_symbol_vars)
-      for (auto lit : lits.second)
-        ind_vars.push_back(lit.var());
-    init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
     if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
