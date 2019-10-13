@@ -362,7 +362,7 @@ int main(int argc, char **argv) {
   Compose compose(argc, argv);
   compose.conf.verbosity = 1;
   compose.conf.verbStats = 1;
-  compose.conf.preprocess = 1;
+  compose.conf.preprocess = 0;
   compose.conf.doRenumberVars = false;
   compose.parseCommandLine();
   compose.run();
