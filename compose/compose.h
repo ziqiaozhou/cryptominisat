@@ -51,5 +51,6 @@ private:
   vector<std::pair<vector<uint32_t>, bool>> trans_xor_clauses;
   int n_trans_vars;
   string mode_;
+  bool add_clauses_threshold;
 };
 #endif // COMPOSE_H

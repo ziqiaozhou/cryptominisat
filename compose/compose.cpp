@@ -29,8 +29,13 @@ void Compose::add_compose_options() {
       "mode: inc-> incrementally compose multicycle condition; copy: add a "
       "copy of instance; noninterference: add a copy of instance and add "
       "noninterference constraint");
-      help_options_simple.add(composeOptions_);
-      help_options_complicated.add(composeOptions_);
+  composeOptions_.add_options()(
+      "add_clauses_threshold",
+      po::value(&add_clauses_threshold)->default_value(100000),
+      "Number of clauses threshold in composition. If exceed this one, it will "
+      "simplify and then continue add clauses");
+  help_options_simple.add(composeOptions_);
+  help_options_complicated.add(composeOptions_);
 }
 void Compose::add_supported_options() {
   Main::add_supported_options();
@@ -77,6 +82,7 @@ createReplaceTable(int offset,
 void Compose::createNextState(
     SATSolver *solver2, std::map<std::string, vector<Lit>> &trans_symbol_vars,
     std::map<std::string, vector<Lit>> &symbol_vars2) {
+  int add_clause = 0;
   if (conf.verbosity > 1) {
     cout << "------------\n";
     print_map(trans_symbol_vars);
@@ -103,6 +109,11 @@ void Compose::createNextState(
     }
     // cout << "add clause" << lits << "\n";
     solver2->add_clause(lits);
+    add_clause++;
+    if (add_clause > add_clauses_threshold) {
+      solver2->simplify();
+      add_clause = 0;
+    }
   }
   for (auto xor_cl : trans_xor_clauses) {
     for (auto &var : xor_cl.first) {
@@ -224,7 +235,7 @@ void Compose::copy_compose() {
     for (auto name_vars : trans_symbol_vars) {
       std::ostringstream newname;
       newname << name_vars.first << "_" << i;
-      current_trans_symbol_vars[newname.str()]= name_vars.second;
+      current_trans_symbol_vars[newname.str()] = name_vars.second;
       current_trans_symbol_vars.erase(name_vars.first);
     }
     // compose;
@@ -244,7 +255,7 @@ void Compose::copy_compose() {
     init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    if (simplify_interval_<2 || (i > 0 && i % simplify_interval_ == 0)) {
+    if (simplify_interval_ < 2 || (i > 0 && i % simplify_interval_ == 0)) {
       init_solver->simplify();
       init_solver->renumber_variables(true);
     }
@@ -352,7 +363,7 @@ void Compose::incremental_compose() {
   init_solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();
 }
-void Compose::run(){
+void Compose::run() {
   if (mode_ == "inc")
     incremental_compose();
   if (mode_ == "copy")
@@ -366,5 +377,4 @@ int main(int argc, char **argv) {
   compose.conf.doRenumberVars = false;
   compose.parseCommandLine();
   compose.run();
-
 }
