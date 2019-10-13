@@ -395,7 +395,8 @@ SolverConf CompHandler::configureNewSolver(
 ) const {
     SolverConf conf(solver->conf);
     conf.origSeed = solver->mtrand.randInt();
-    conf.independent_vars = NULL;
+	conf.independent_vars = NULL;
+	conf.symbol_vars=NULL;
     if (numVars < 60) {
         conf.do_simplify_problem = false;
         conf.doStamp = false;
