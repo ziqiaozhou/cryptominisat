@@ -59,21 +59,12 @@ void AnalyzeClauses(const Solver *solver, const vector<ClOffset> &cls,
                     bool outer_numbering = false) {
   for (vector<ClOffset>::const_iterator it = cls.begin(), end = cls.end();
        it != end; ++it) {
-    if (outer_numbering) {
-      auto cl = solver->clause_outer_numbered(*(solver->cl_alloc.ptr(*it)));
-      int group = cl[0].var();
-      for (size_t i = 1; i < cl.size(); i++) {
-        group = ds.Union(group, cl[i].var());
-        nclause[cl[i].var()]++;
-      }
-    } else {
       Clause &cl = *(solver->cl_alloc.ptr(*it));
 
       int group = cl[0].var();
-      for (size_t i = 1; i < cl.size(); i++) {
+      for (size_t i = 0; i < cl.size(); i++) {
         group = ds.Union(group, cl[i].var());
         nclause[cl[i].var()]++;
-      }
     }
   }
 }
@@ -98,12 +89,9 @@ void ClauseDumper::findComponent(const Solver *solver,
       Lit lit = Lit::toLit(wsLit);
       for (const Watched *it2 = it->begin(), *end2 = it->end(); it2 != end2;
            it2++) {
-        if (it2->isBin() && lit < it2->lit2() && it2->red()) {
+        if (it2->isBin() && lit < it2->lit2() && !it2->red()) {
           auto var1= lit.var(), var2=it2->lit2().var();
-          if(outer_numbering){
-            var1=solver->map_inter_to_outer(var1);
-            var2=solver->map_inter_to_outer(var2);
-          }
+
           ds.Union(lit.var(), it2->lit2().var());
           nclause[lit.var()]++;
           nclause[it2->lit2().var()]++;
@@ -118,13 +106,20 @@ void ClauseDumper::findComponent(const Solver *solver,
       if (independent_set.count(i))
         continue;
       if (ds.Find(i) != group) {
+        if(outer_numbering){
+          cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
+        }else
         cout << " " << i << "\t";
         useless[i] = 1;
         nirrel++;
       } else if (nclause[i] < 2) {
-        cout << "<2 " << i << "\t";
-        useless[i] = 1;
-        nirrel++;
+        cout << "<2 \t";
+        if(outer_numbering){
+          cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
+        }else
+          cout << " " << i << "\t";
+        //useless[i] = 1;
+        //nirrel++;
       }
     }
     for (auto var : *solver->conf.independent_vars)
@@ -420,12 +415,13 @@ void ClauseDumper::findComponent(const Solver *solver,
          it != end; ++it) {
       Clause *cl = solver->cl_alloc.ptr(*it);
       uint32_t comp = BelongsToIndComp((*cl)[0]);
+      bool to_dump=true;
       for (int i = 0; i < cl->size(); ++i) {
         if (useless[(*cl)[i].var()] == 1) {
-          continue;
+          to_dump=false;
         }
       }
-      if (!comp)
+      if (!comp || !to_dump)
         continue;
       comp_clauses_sizes[comp]++;
       if (outer_numbering) {
