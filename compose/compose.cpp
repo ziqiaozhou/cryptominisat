@@ -17,7 +17,7 @@ void Compose::add_compose_options() {
       "Initilization constraint file.")(
       "composedfile", po::value(&out_file_)->default_value("out"),
       "Composed filename.")("simplify_interval",
-                            po::value(&simplify_interval_)->default_value(1),
+                            po::value(&simplify_interval_)->default_value(-1),
                             "n: simplify the cnf per n cycle.")(
       "start_cycle", po::value(&start_cycle_)->default_value(0),
       "set this if compose a multi-cycle CNF from an intermediate state. "
@@ -322,14 +322,14 @@ void Compose::incremental_compose() {
     init_solver->set_independent_vars(&ind_vars);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    if (i > 0 && i % simplify_interval_ == 0) {
+    if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       init_solver->simplify();
       init_solver->renumber_variables(true);
     }
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
-    if (i > 0 && i % simplify_interval_ == 0) {
+    if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       delete init_solver;
       conf2 = conf_copy;
       init_solver = new SATSolver((void *)&conf2);
@@ -344,7 +344,7 @@ void Compose::incremental_compose() {
       print_map(init_symbol_vars);
     }
   }
-  if ((cycles_ - 1) % simplify_interval_ != 0) {
+  if ( simplify_interval_>0 &&( (cycles_ - 1) % simplify_interval_ != 0)) {
     init_solver->simplify();
     init_solver->renumber_variables(true);
   }

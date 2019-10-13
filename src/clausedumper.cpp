@@ -211,6 +211,7 @@ void ClauseDumper::findComponent(const Solver *solver,
     return num_cls;
   }
   void ClauseDumper::dump_symbol_vars(std::ostream * out) {
+	  if(solver->conf.symbol_vars==nullptr) return;
     for (auto one_symbol_vars : *solver->conf.symbol_vars) {
       *out << "c " << one_symbol_vars.first << " --> [";
       for (auto var : one_symbol_vars.second) {
