@@ -252,7 +252,7 @@ void ClauseAllocator::consolidate(
     if (!force
         && (float_div(currentlyUsedSize, size) > 0.8 || currentlyUsedSize < (100ULL*1000ULL))
     ) {
-        if (solver->conf.verbosity >= 3) {
+        if (solver->conf.verbosity >= 1) {
             cout << "c Not consolidating memory." << endl;
         }
         return;
@@ -339,7 +339,7 @@ void ClauseAllocator::consolidate(
     dataStart = newDataStart;
 
     const double time_used = cpuTime() - myTime;
-    if (solver->conf.verbosity >= 2) {
+    if (solver->conf.verbosity >= 1) {
         cout << "c [mem] Consolidated memory ";
         cout << " old size "; print_value_kilo_mega(old_size*sizeof(BASE_DATA_TYPE));
         cout << "B new size"; print_value_kilo_mega(size*sizeof(BASE_DATA_TYPE));
