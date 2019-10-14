@@ -30,7 +30,7 @@ private:
   // CNF in solver2;
   void createNextState(SATSolver *solver2,
                        std::map<std::string, vector<Lit>> &trans_symbol_vars,
-                       std::map<std::string, vector<Lit>> &symbol_vars2);
+                       std::map<std::string, vector<Lit>> &symbol_vars2,std::string prev_state);
 
   void createReplaceMap(SATSolver *solver2,
                         std::map<std::string, vector<Lit>> &symbol_vars2,

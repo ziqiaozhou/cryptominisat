@@ -81,7 +81,7 @@ createReplaceTable(int offset,
 
 void Compose::createNextState(
     SATSolver *solver2, std::map<std::string, vector<Lit>> &trans_symbol_vars,
-    std::map<std::string, vector<Lit>> &symbol_vars2) {
+    std::map<std::string, vector<Lit>> &symbol_vars2,std::string prev_state) {
   int add_clause = 0;
   vector<uint32_t> ind_vars;
   if (conf.verbosity > 1) {
@@ -103,6 +103,7 @@ void Compose::createNextState(
   if (solver2->nVars() < nvar)
     solver2->new_vars(nvar - solver2->nVars());
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
+  symbol_vars2.erase(prev_state);
   solver2->set_symbol_vars(&symbol_vars2);
   ind_vars.clear();
   for (auto lits : symbol_vars2)
@@ -251,7 +252,7 @@ void Compose::copy_compose() {
     std::string prev_state = "s" + std::to_string(i);
     std::string current_state = "s" + std::to_string(i + 1);
     state_path = state_path + "//" + current_state + ".cnf";
-    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
+    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars,prev_state);
     current_trans_symbol_vars.erase(prev_state);
     // if (prev_state != "s0")
     // cout << "init_symbol_vars\n";
@@ -322,10 +323,10 @@ void Compose::incremental_compose() {
     state_path = state_path + "//" + current_state + ".cnf";
     current_trans_symbol_vars[prev_state] = trans_symbol_vars["s0"];
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
-    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars);
+    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars,prev_state);
     current_trans_symbol_vars.erase(prev_state);
     // if (prev_state != "s0")
-    init_symbol_vars.erase(prev_state);
+    //init_symbol_vars.erase(prev_state);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
     if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
