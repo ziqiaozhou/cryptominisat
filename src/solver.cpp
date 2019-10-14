@@ -3593,10 +3593,16 @@ vector<Lit> Solver::get_toplevel_units_internal(bool outer_numbering) const {
   return units;
 }
 void Solver::dump_irred_clauses_ind_only(std::ostream *out) {
-  CompFinder findParts(this);
-  findParts.find_components();
-  ClauseDumper dumper(this, &findParts);
-  dumper.dump_irred_clauses_preprocessor(out);
+  if(conf.doCompHandler){
+    CompFinder findParts(this);
+    findParts.find_components();
+    ClauseDumper dumper(this, &findParts);
+    dumper.dump_irred_clauses_preprocessor(out);
+  }else{
+    ClauseDumper dumper(this);
+    dumper.dump_irred_clauses_preprocessor(out);
+  }
+
   //  dumper.dump_symbol_vars(out);
 }
 
