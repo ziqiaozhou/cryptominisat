@@ -1369,7 +1369,10 @@ lbool Solver::simplify_problem_outside() {
 
   lbool status = l_Undef;
   if (nVars() > 0 && conf.do_simplify_problem) {
-    status = simplify_problem(false);
+    if(conf.preprocess==1&&assumptions.size()==0 )
+      status = simplify_problem(true);
+    else
+      status = simplify_problem(false);
   }
   unfill_assumptions_set_from(assumptions);
   assumptions.clear();
