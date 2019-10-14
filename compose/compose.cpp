@@ -117,11 +117,6 @@ void Compose::createNextState(
     }
     // cout << "add clause" << lits << "\n";
     solver2->add_clause(lits);
-    add_clause++;
-    if (add_clause > add_clauses_threshold) {
-      solver2->simplify();
-      add_clause = 0;
-    }
   }
   for (auto xor_cl : trans_xor_clauses) {
     for (auto &var : xor_cl.first) {
