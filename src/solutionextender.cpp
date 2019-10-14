@@ -41,6 +41,26 @@ void SolutionExtender::extend()
         cout << "c Exteding solution -- SolutionExtender::extend()" << endl;
     }
 
+    #ifdef SLOW_DEBUG
+    for(uint32_t i = 0; i < solver->varData.size(); i++) {
+        uint32_t v_inter = solver->map_outer_to_inter(i);
+        if (
+            //decomposed's solution has beed added already, it SHOULD be set
+            //but everything else is NOT OK
+            (solver->varData[v_inter].removed != Removed::none
+                && solver->varData[v_inter].removed != Removed::decomposed
+            )
+            && solver->model[i] != l_Undef
+        ) {
+            cout << "ERROR: variable " << i + 1
+            << " set even though it's removed: "
+            << removed_type_to_string(solver->varData[v_inter].removed) << endl;
+            //solver->model[i] = l_Undef;
+            assert(solver->model[i] == l_Undef);
+        }
+    }
+    #endif
+
     //Extend variables already set
     solver->varReplacer->extend_model_already_set();
 
@@ -57,6 +77,7 @@ void SolutionExtender::extend()
         ) {
             //any setting would work, let's set to l_False (MiniSat default)
             solver->model[i] = l_False;
+            solver->decisions_reaching_model.push_back(Lit(i, true));
         }
     }
 
@@ -92,15 +113,14 @@ void SolutionExtender::dummyBlocked(const uint32_t blockedOn)
     if (solver->model_value(blockedOn) != l_Undef)
         return;
 
+    //Picking l_False because MiniSat likes False solutions. Could pick anything.
+    solver->model[blockedOn] = l_False;
+    solver->decisions_reaching_model.push_back(Lit(blockedOn, true));
 
     //If var is replacing something else, it MUST be set.
     if (solver->varReplacer->var_is_replacing(blockedOn)) {
-        //Picking l_False because MiniSat likes False solutions. Could pick anything.
-        solver->model[blockedOn] = l_False;
         solver->varReplacer->extend_model(blockedOn);
     }
-
-    solver->model[blockedOn] = l_False;
 }
 
 bool SolutionExtender::addClause(const vector<Lit>& lits, const uint32_t blockedOn)
@@ -172,15 +192,31 @@ bool SolutionExtender::addClause(const vector<Lit>& lits, const uint32_t blocked
         }
     }
     assert(solver->model_value(blockedOn) == l_Undef);
+
+    //satisfy this one clause
     Lit actual_lit = lit_Undef;
+    bool all_values_false = true;
     for(Lit l: lits) {
+        lbool model_value = solver-> model_value(l);
+        assert(model_value != l_True);
         if (l.var() == blockedOn) {
             actual_lit = l;
-            break;
+        } else {
+            if (model_value == l_Undef) {
+                all_values_false = false;
+            }
         }
     }
     assert(actual_lit != lit_Undef);
-    solver->model[blockedOn] = actual_lit.sign() ? l_False : l_True;
+    lbool val = actual_lit.sign() ? l_False : l_True;
+    solver->model[blockedOn] = val;
+    if (!all_values_false) {
+        solver->decisions_reaching_model.push_back(Lit(blockedOn, val == l_False));
+        //cout << "Adding dec addClause: " << Lit(blockedOn, val == l_False) << endl;
+    } else {
+        //cout << "Would be forced anyway" << endl;
+    }
+
     if (solver->conf.verbosity >= 10) {
         cout << "Extending VELIM cls. -- setting model for var "
         << blockedOn + 1 << " to " << solver->model[blockedOn] << endl;
@@ -196,9 +232,9 @@ bool SolutionExtender::addClause(const vector<Lit>& lits, const uint32_t blocked
 size_t SolutionExtender::count_num_unset_model() const
 {
     size_t num_unset = 0;
-    if (solver->conf.independent_vars) {
-        for(size_t i = 0; i < solver->conf.independent_vars->size(); i++) {
-            uint32_t var = (*solver->conf.independent_vars)[i];
+    if (solver->conf.sampling_vars) {
+        for(size_t i = 0; i < solver->conf.sampling_vars->size(); i++) {
+            uint32_t var = (*solver->conf.sampling_vars)[i];
             if (solver->model_value(var) == l_Undef) {
                 num_unset++;
             }

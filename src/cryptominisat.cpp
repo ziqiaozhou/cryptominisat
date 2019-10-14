@@ -470,7 +470,10 @@ DLL_PUBLIC void SATSolver::set_max_time(double max_time) {
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];
     if (max_time >= 0) {
-      s.conf.maxTime = s.get_stats().cpu_time + max_time;
+      // the main loop in solver.cpp is checks `maxTime`
+      // against `cpuTime`, so we specify `s.conf.maxTime`
+      // as an offset from `cpuTime`.
+      s.conf.maxTime = cpuTime() + max_time;
 
       // don't allow for overflow
       if (s.conf.maxTime < max_time)
@@ -570,10 +573,10 @@ DLL_PUBLIC void SATSolver::set_greedy_undef() {
   }
 }
 
-DLL_PUBLIC void SATSolver::set_independent_vars(vector<uint32_t> *ind_vars) {
+DLL_PUBLIC void SATSolver::set_sampling_vars(vector<uint32_t> *ind_vars) {
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];
-    s.conf.independent_vars = ind_vars;
+    s.conf.sampling_vars = ind_vars;
   }
 }
 DLL_PUBLIC int SATSolver::n_seareched_solutions() {
@@ -915,23 +918,20 @@ DLL_PUBLIC void SATSolver::print_stats() const {
   data->solvers[data->which_solved]->print_stats(cpu_time, cpu_time_total);
 }
 
-DLL_PUBLIC void SATSolver::set_drat(std::ostream *os, bool add_ID) {
-  if (data->solvers.size() > 1) {
-    std::cerr << "ERROR: DRAT cannot be used in multi-threaded mode" << endl;
-    exit(-1);
-  }
-  Drat *drat = NULL;
-  if (add_ID) {
-    drat = new DratFile<true>;
-  } else {
-    drat = new DratFile<false>;
-  }
-  drat->setFile(os);
-  if (data->solvers[0]->drat)
-    delete data->solvers[0]->drat;
+DLL_PUBLIC void SATSolver::set_drat(std::ostream* os, bool add_ID)
+{
+    if (data->solvers.size() > 1) {
+        std::cerr << "ERROR: DRAT cannot be used in multi-threaded mode" << endl;
+        exit(-1);
+    }
+    if (nVars() > 0) {
+        std::cerr << "ERROR: DRAT cannot be set after variables have been added" << endl;
+        exit(-1);
+    }
 
-  data->solvers[0]->drat = drat;
+    data->solvers[0]->add_drat(os, add_ID);
 }
+
 
 DLL_PUBLIC void SATSolver::interrupt_asap() {
   data->must_interrupt->store(true, std::memory_order_relaxed);
@@ -1078,21 +1078,54 @@ void DLL_PUBLIC SATSolver::end_getting_small_clauses() {
   data->solvers[0]->end_getting_small_clauses();
 }
 
-void DLL_PUBLIC SATSolver::renumber_clauses(const vector<uint32_t> &table) {
-  for (int i = 0; i < data->solvers.size(); ++i)
-    data->solvers[0]->renumber_clauses(table);
-}
-
-void DLL_PUBLIC SATSolver::renumber_clauses_by_table(
-    const std::vector<uint32_t> &outer, const std::vector<uint32_t> &inner) {
-  for (int i = 0; i < data->solvers.size(); ++i)
-    data->solvers[0]->renumber_clauses_by_table(outer, inner);
-}
-
 void DLL_PUBLIC SATSolver::renumber_variables(bool must_renumber) {
   for (int i = 0; i < data->solvers.size(); ++i)
     data->solvers[0]->renumber_variables(must_renumber);
 }
 Solver* DLL_PUBLIC SATSolver::GetSolver(int i) const{
   return data->solvers[i];
+}
+
+void DLL_PUBLIC SATSolver::set_up_for_scalmc()
+{
+    for (size_t i = 0; i < data->solvers.size(); i++) {
+        SolverConf conf = data->solvers[i]->getConf();
+        conf.gaussconf.max_num_matrixes = 2;
+        conf.gaussconf.autodisable = false;
+        conf.global_multiplier_multiplier_max = 3;
+        conf.global_timeout_multiplier_multiplier = 1.5;
+        uint32_t xor_cut = 4;
+        assert(xor_cut >= 3);
+        conf.xor_var_per_cut = xor_cut-2;
+
+        conf.simplify_at_startup = 1;
+        conf.varElimRatioPerIter = 1;
+        conf.restartType = Restart::geom;
+        conf.polarity_mode = CMSat::PolarityMode::polarmode_neg;
+        conf.maple = 0;
+        conf.do_simplify_problem = true;
+        data->solvers[i]->setConf(conf);
+    }
+}
+
+DLL_PUBLIC const std::vector<Lit>& SATSolver::get_decisions_reaching_model() const
+{
+    if (!get_decision_reaching_valid()) {
+        cout << "ERROR: you called get_decisions_reaching_model() but it's not a valid decision set!" << endl;
+        exit(-1);
+    }
+    return data->solvers[data->which_solved]->get_decisions_reaching_model();
+}
+
+DLL_PUBLIC void SATSolver::set_need_decisions_reaching()
+{
+    for (size_t i = 0; i < data->solvers.size(); ++i) {
+        Solver& s = *data->solvers[i];
+        s.conf.need_decisions_reaching = true;
+    }
+}
+
+DLL_PUBLIC bool SATSolver::get_decision_reaching_valid() const
+{
+    return data->solvers[data->which_solved]->get_decision_reaching_valid();
 }

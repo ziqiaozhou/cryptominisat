@@ -22,7 +22,7 @@
 #include <iomanip>
 #include <map>
 #include <set>
-#include <utility> 
+#include <utility>
 #include <fstream>
 #include <sys/stat.h>
 #include <string.h>
@@ -67,7 +67,7 @@ string binary(unsigned x, unsigned length)
 
 }
 /**
- * Uniform-distributed Random bit 
+ * Uniform-distributed Random bit
  **/
 string JaccardMC::GenerateRandomBits(unsigned size)
 {
@@ -242,7 +242,7 @@ inline T findMin(vector<T>& numList)
 bool JaccardMC::AddHash(unsigned num_xor_cls, vector<Lit>& assumps, CMSat::SATSolver* solver)
 {
 	double ratio = xorRate;
-	string randomBits = GenerateRandomBits_prob((independent_vars0.size()) * num_xor_cls, ratio);
+	string randomBits = GenerateRandomBits_prob((sampling_vars0.size()) * num_xor_cls, ratio);
 	string randomBits_rhs = GenerateRandomBits(num_xor_cls);
 	bool rhs = true;
 	vector<unsigned> vars;
@@ -258,9 +258,9 @@ bool JaccardMC::AddHash(unsigned num_xor_cls, vector<Lit>& assumps, CMSat::SATSo
 		vars.clear();
 		vars.push_back(act_var);
 		rhs = (randomBits_rhs[i] == '1');
-		for (unsigned j = 0; j < independent_vars0.size(); j++) {
-			if (randomBits[i * independent_vars0.size() + j] == '1')
-				vars.push_back(independent_vars0[j]);
+		for (unsigned j = 0; j < sampling_vars0.size(); j++) {
+			if (randomBits[i * sampling_vars0.size() + j] == '1')
+				vars.push_back(sampling_vars0[j]);
 		}
 		solver->add_xor_clause(vars, rhs);
 		if (conf.verbosity || printXor) {
@@ -285,7 +285,7 @@ void JaccardMC::trimVar(vector<unsigned> &vars)
 		if (solver->get_model()[var] != l_Undef) {
 			solution[var].insert((solver->get_model()[var] == l_True));
 			cerr<<"trim: var"<<var<<"\t"<<((solver->get_model()[var] == l_True)?"true":"false")<<"\n";
-		} 
+		}
 	}
 	for (unsigned i = 0; i < vars.size(); ++i) {
 		unsigned var = vars[i];
@@ -299,7 +299,7 @@ void JaccardMC::trimVar(vector<unsigned> &vars)
 		//Check whether var can be assigned to another value;
 		assume.push_back(Lit(var, *solution[var].begin()));
 		lbool ret1 = solver->solve(&assume);
-		if (ret1==l_True){	
+		if (ret1==l_True){
 			new_vars.push_back(var);
 		}else{
 			cerr<<"Constant:"<<var+1<<"\n";
@@ -311,7 +311,7 @@ void JaccardMC::trimVar(vector<unsigned> &vars)
 	filename << "trimed.txt";
 	ff.open(filename.str(), std::ofstream::out);
 	ff << "c ind ";
-	for (auto var : independent_vars) {
+	for (auto var : sampling_vars) {
 		ff << var + 1 << " ";
 	}
 	ff<<"0";
@@ -320,7 +320,7 @@ void JaccardMC::trimVar(vector<unsigned> &vars)
 }
 int JaccardMC::SampledBoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps, const vector<Lit> jassumps, CMSat::SATSolver* solver)
 {
-	size_t size = independent_vars.size();
+	size_t size = sampling_vars.size();
 	std::string sampleOne;
 
 	lbool ret;
@@ -341,8 +341,8 @@ int JaccardMC::SampledBoundedSATCount(unsigned maxSolutions, const vector<Lit> a
 			vector<Lit> new_assumps(jassumps);
 			for (int j = 0; j < size; ++j) {
 				assert(sampleOne.size() > j);
-				assert(independent_vars.size() > j);
-				new_assumps.push_back(Lit(independent_vars[j], sampleOne[j] == '1'));
+				assert(sampling_vars.size() > j);
+				new_assumps.push_back(Lit(sampling_vars[j], sampleOne[j] == '1'));
 			}
 			ret = solver->solve(&new_assumps);
 			if (ret != l_True) {
@@ -386,7 +386,7 @@ lbool JaccardMC::solve_exclude(vector<Lit> assumps, int & count)
 		vector<Lit>lits;
 		vector<Lit> sols;
 		int var1, var2;
-		for (auto var : independent_vars) {
+		for (auto var : sampling_vars) {
 			lits.push_back(Lit(var, solver->get_model()[var] == l_False));
 			sols.push_back(Lit(var, solver->get_model()[var] == l_True));
 		}
@@ -409,7 +409,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 {
 	//    cerr << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
 	//Set up things for adding clauses that can later be removed
-#if PARALLEL 
+#if PARALLEL
 	//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
 	if (onlyLast && resultIndex < 2) {
@@ -471,8 +471,8 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 				}
 			} else {
 				double addw=1;
-				for (unsigned i = 0; i < independent_vars.size(); ++i) {
-					unsigned var = independent_vars[i];
+				for (unsigned i = 0; i < sampling_vars.size(); ++i) {
+					unsigned var = sampling_vars[i];
 					if (solver->get_model()[var] != l_Undef) {
 						bool isTrue = (solver->get_model()[var] == l_True);
 						lits.push_back(Lit(var, isTrue));
@@ -487,7 +487,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						pushlit2Sols(sols, "*");
 						num_undef++;
 					}
-					
+
 				}
 				wsolution+=addw;
 			}
@@ -503,7 +503,7 @@ int JaccardMC::BoundedSATCount(unsigned maxSolutions, const vector<Lit> assumps,
 						pushlit2Sols(fullsols, "*");
 						num_undef++;
 					}
-					
+
 				}
 			}
 			if (lits.size() > 1)
@@ -573,7 +573,7 @@ int JaccardMC::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> as
 {
 	// cerr << "BoundedSATCount looking for " << maxSolutions << " solutions" << endl;
 	//Set up things for adding clauses that can later be removed
-#if PARALLEL 
+#if PARALLEL
 	//	SATSolver *solver=solvers[omp_get_thread_num()];
 #endif
 	solver->new_var();
@@ -601,7 +601,7 @@ int JaccardMC::BoundedSATCount_print(unsigned maxSolutions, const vector<Lit> as
 		if (solutions < maxSolutions) {
 			vector<Lit> lits;
 			lits.push_back(Lit(act_var, false));
-			for (const unsigned var : independent_vars) {
+			for (const unsigned var : sampling_vars) {
 				if (solver->get_model()[var] != l_Undef) {
 					lits.push_back(Lit(var, solver->get_model()[var] == l_True));
 				} else {
@@ -707,7 +707,7 @@ void SATCount::summarize()
 	hashCount = minHash;
 }
 
-int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps, 
+int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps,
 	vector<SATCount>& scounts, int resultIndex, CMSat::SATSolver * solver = NULL)
 {
 	double s[3];
@@ -755,7 +755,7 @@ int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps,
 				//unbalanced jaccard sampling, giveup
 				return RETRY_JACCARD_HASH;
 			}
-			s[2] = cachedSolutions.size(); 
+			s[2] = cachedSolutions.size();
 			if(useWeight){
 				BoundedSATCount(s[1]+s[0],assumps,jaccardAssumps[2],2,solver);
 				s[2]=wsolution;
@@ -777,9 +777,9 @@ int JaccardMC::OneRoundFor3NoHash(vector<vector<Lit>> jaccardAssumps,
 	return hashCount;
 }
 
-int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext, 
-	std::set<std::string> nextCount, unsigned &hashCount, map<unsigned, 
-	Lit>& hashVars, vector<Lit>assumps, vector<vector<Lit>> jaccardAssumps, 
+int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext,
+	std::set<std::string> nextCount, unsigned &hashCount, map<unsigned,
+	Lit>& hashVars, vector<Lit>assumps, vector<vector<Lit>> jaccardAssumps,
 	vector<SATCount>& scounts, int resultIndex, SATSolver * solver = NULL)
 {
 	int repeatTry = 0;
@@ -890,7 +890,7 @@ int JaccardMC::OneRoundFor3WithHash(bool readyPrev, bool readyNext,
 
 				cachedFullSolutions[resultIndex].clear();
 				for (auto one : cachedSolutions) {
-					cachedSubSolutions[resultIndex].push_back(one.substr(0, independent_vars.size()));
+					cachedSubSolutions[resultIndex].push_back(one.substr(0, sampling_vars.size()));
 					cachedFullSolutions[resultIndex].push_back(one);
 				}
 				s[0] = nextCount.size();
@@ -1011,8 +1011,8 @@ string str2hex(string s)
 	return ss.str() + "\t" + s;
 }
 
-int JaccardMC::OneRoundForHatJ(unsigned jaccardHashCount, JaccardResult* result, 
-	unsigned &mPrev, unsigned &hashPrev, vector<vector<Lit>> jaccardAssumps, 
+int JaccardMC::OneRoundForHatJ(unsigned jaccardHashCount, JaccardResult* result,
+	unsigned &mPrev, unsigned &hashPrev, vector<vector<Lit>> jaccardAssumps,
 	vector<std::pair<unsigned, double>>&scounts)
 {
 	unsigned pivot = pivotApproxMC;
@@ -1027,10 +1027,10 @@ int JaccardMC::OneRoundForHatJ(unsigned jaccardHashCount, JaccardResult* result,
 	int resultIndex = 0;
 	assert(3 == jaccardAssumps.size());
 
-	unsigned lower = LowerFib, upper = (UpperFib > 0) ? UpperFib : independent_vars.size() - ceil(log(pivot) / log(2)) + 2;
+	unsigned lower = LowerFib, upper = (UpperFib > 0) ? UpperFib : sampling_vars.size() - ceil(log(pivot) / log(2)) + 2;
 	// resultIndex : 0-> <C,O,I > for S, 1 -> <C,O,I> for S', and 2->  <C,O,I> intersection
 	for (resultIndex = 0; resultIndex < jaccardAssumps.size(); resultIndex++) {
-		if (resultIndex == 1 && 
+		if (resultIndex == 1 &&
 					std::equal(jaccardAssumps[1].begin(), \
 						jaccardAssumps[1].end(), jaccardAssumps[0].begin()))
 		{// S and S' are the same, use <C,O> in S as <C,O> in S'
@@ -1055,10 +1055,10 @@ retry:
 		hashCount = hashCount ? hashCount : initialHashCount;
 		if (resultIndex == 2) {
 			lower = LowerFib;
-			//upper=(UpperFib>0)?UpperFib:independent_vars.size()-ceil(log(pivot)/log(2))+2;
+			//upper=(UpperFib>0)?UpperFib:sampling_vars.size()-ceil(log(pivot)/log(2))+2;
 		} else {
 			lower = LowerFib;
-			upper = (UpperFib > 0) ? UpperFib : independent_vars.size() - ceil(log(pivot) / log(2)) + 2;
+			upper = (UpperFib > 0) ? UpperFib : sampling_vars.size() - ceil(log(pivot) / log(2)) + 2;
 		}
 
 		double nSol = 0;
@@ -1127,7 +1127,7 @@ retry:
 					resultIndex = 0;
 					assumps.clear();
 					hashVars.clear();
-					lower = LowerFib, upper = (UpperFib > 0) ? UpperFib : independent_vars.size() - ceil(log(pivot) / log(2)) + 2;
+					lower = LowerFib, upper = (UpperFib > 0) ? UpperFib : sampling_vars.size() - ceil(log(pivot) / log(2)) + 2;
 					goto retry;
 				}
 				assumps.clear();
@@ -1209,11 +1209,11 @@ int JaccardMC::OneRoundFor3(unsigned jaccardHashCount, JaccardResult* result, un
 		map<unsigned, unsigned> succRecord;
 		unsigned repeatTry = 0;
 		unsigned numExplored = 1;
-		//	unsigned lowerFib = searched?(hashCount-2):0, upperFib = searched?(hashCount+2):independent_vars.size();
+		//	unsigned lowerFib = searched?(hashCount-2):0, upperFib = searched?(hashCount+2):sampling_vars.size();
 		//
-		unsigned lowerFib = LowerFib, upperFib = UpperFib ? UpperFib : independent_vars.size();
+		unsigned lowerFib = LowerFib, upperFib = UpperFib ? UpperFib : sampling_vars.size();
 		int oldResultIndex = 0;
-		while (numExplored < independent_vars.size()) {
+		while (numExplored < sampling_vars.size()) {
 			myTime = cpuTimeTotal();
 			unsigned swapVar = hashCount;
 			//cerr<<"change the size to "<<solver->get_Nclause();
@@ -1265,16 +1265,16 @@ int JaccardMC::OneRoundFor3(unsigned jaccardHashCount, JaccardResult* result, un
 				return -1;
 			case GOT_RESULT_LOWER:
 				//	if(hashCount==0){
-				numExplored = independent_vars.size() + 1;
+				numExplored = sampling_vars.size() + 1;
 				//	}else{
-				//	numExplored = lowerFib+independent_vars.size()-hashCount;
+				//	numExplored = lowerFib+sampling_vars.size()-hashCount;
 				//	}
 				mPrev = hashCount;
 				goto reset_for_next_count;
 				break;
 			case GOT_RESULT_UPPER:
-				//		numExplored= independent_vars.size()+1;
-				numExplored = independent_vars.size() + hashCount - upperFib;
+				//		numExplored= sampling_vars.size()+1;
+				numExplored = sampling_vars.size() + hashCount - upperFib;
 
 				mPrev = hashCount;
 reset_for_next_count:
@@ -1283,13 +1283,13 @@ reset_for_next_count:
 				break;
 
 			case TOO_MUCH:
-				numExplored = hashCount + independent_vars.size() - upperFib;
+				numExplored = hashCount + sampling_vars.size() - upperFib;
 				succRecord[hashCount] = 1;
 				searched = false;
 				if (searched || (abs((int)hashCount - (int)mPrev) < 2 && mPrev != 0)) {
 					lowerFib = hashCount;
 					hashCount++;
-				} else //if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1) 
+				} else //if (lowerFib + (hashCount - lowerFib)*2 >= upperFib-1)
 				{
 					lowerFib = hashCount;
 					hashCount = (lowerFib + upperFib) / 2;
@@ -1306,7 +1306,7 @@ reset_for_next_count:
 			default:
 				//case NEAR_RESULT:
 				if (hashCount == 0) {
-					numExplored = independent_vars.size() + 1;
+					numExplored = sampling_vars.size() + 1;
 					mPrev = hashCount;
 					succRecord[hashCount] = 0;
 					scounts[resultIndex].numHashList.push_back(hashCount);
@@ -1318,7 +1318,7 @@ reset_for_next_count:
 					std::set<std::string> s(cachedFullSolutions[resultIndex].begin(), cachedFullSolutions[resultIndex].end());
 					countRecord[hashCount] = s;
 				} else {
-					numExplored = lowerFib + independent_vars.size() - hashCount;
+					numExplored = lowerFib + sampling_vars.size() - hashCount;
 					succRecord[hashCount] = 0;
 					//	assert(ret==cachedSolutions.size());
 					std::set<std::string> s(cachedFullSolutions[resultIndex].begin(), cachedFullSolutions[resultIndex].end());
@@ -1488,8 +1488,8 @@ int JaccardMC::OneRoundCount(unsigned jaccardHashCount, JaccardResult* result, u
 
 		unsigned repeatTry = 0;
 		unsigned numExplored = 1;
-		unsigned lowerFib = 0, upperFib = independent_vars.size();
-		while (numExplored < independent_vars.size()) {
+		unsigned lowerFib = 0, upperFib = sampling_vars.size();
+		while (numExplored < sampling_vars.size()) {
 			myTime = cpuTimeTotal();
 			unsigned swapVar = hashCount;
 			SetHash(hashCount, hashVars, assumps, solver);
@@ -1528,7 +1528,7 @@ int JaccardMC::OneRoundCount(unsigned jaccardHashCount, JaccardResult* result, u
 			}
 			if (!searched) {
 				if (currentNumSolutions < pivotApproxMC + 1) {
-					numExplored = lowerFib + independent_vars.size() - hashCount;
+					numExplored = lowerFib + sampling_vars.size() - hashCount;
 					if (succRecord.find(hashCount - 1) != succRecord.end()
 						&& succRecord[hashCount - 1] == 1
 						) {
@@ -1556,7 +1556,7 @@ int JaccardMC::OneRoundCount(unsigned jaccardHashCount, JaccardResult* result, u
 
 				} else {
 					assert(currentNumSolutions == pivotApproxMC + 1);
-					numExplored = hashCount + independent_vars.size() - upperFib;
+					numExplored = hashCount + sampling_vars.size() - upperFib;
 					if (succRecord.find(hashCount + 1) != succRecord.end()
 						&& succRecord[hashCount + 1] == 0
 						) {
@@ -1586,14 +1586,14 @@ int JaccardMC::OneRoundCount(unsigned jaccardHashCount, JaccardResult* result, u
 						return -1;
 				}
 				if (currentNumSolutions < pivotApproxMC + 1) {
-					numExplored = lowerFib + independent_vars.size() - hashCount;
+					numExplored = lowerFib + sampling_vars.size() - hashCount;
 					mPrev = hashCount;
 					numHashList->push_back(hashCount);
 					numCountList->push_back(currentNumSolutions);
 					hashCount = hashCount - 1;
 					upperFib = hashCount;
 				} else {
-					numExplored = hashCount + independent_vars.size() - upperFib;
+					numExplored = hashCount + sampling_vars.size() - upperFib;
 					lowerFib = hashCount;
 					hashCount = hashCount + 1;
 					mPrev = hashCount + 1;
@@ -1700,7 +1700,7 @@ void JaccardMC::JaccardOneRoundFor3(unsigned jaccardHashCount, JaccardResult* re
 		int ret = OneRoundFor3(jaccardHashCount, result, mPrev, hashPrev, jaccard3Assumps, scounts, solver);
 		if (ret == -1) {
 
-#if DELETE_SOLVER 
+#if DELETE_SOLVER
 			cerr << "delete solver due to ret==-1";
 			delete solver;
 			cerr << "end delete";
@@ -1722,7 +1722,7 @@ void JaccardMC::JaccardOneRoundFor3(unsigned jaccardHashCount, JaccardResult* re
 		break;
 	}
 
-#if DELETE_SOLVER 
+#if DELETE_SOLVER
 	cerr << "delete solver";
 	delete solver;
 	cerr << "end delete";
@@ -1832,7 +1832,7 @@ void JaccardMC::JaccardHatOneRound(unsigned jaccardHashCount, JaccardResult* res
 		f.close();
 		break;
 	}
-#if DELETE_SOLVER 
+#if DELETE_SOLVER
 	cerr << "delete solver";
 	delete solver;
 	cerr << "end delete";
@@ -1942,7 +1942,7 @@ void JaccardMC::JaccardOneRound(unsigned jaccardHashCount, JaccardResult* result
 
 		break;
 	}
-#if DELETE_SOLVER 
+#if DELETE_SOLVER
 	cerr << "delete solver";
 	delete solver;
 	cerr << "end delete";
@@ -2055,7 +2055,7 @@ bool JaccardMC::JaccardHatApproxMC(map<unsigned, SATCount>& count)
 	}
 
 	if (trimOnly) {
-		trimVar(independent_vars);
+		trimVar(sampling_vars);
 		exit(0);
 	}
 	double std_error = tStdError;
@@ -2105,7 +2105,7 @@ bool JaccardMC::JaccardApproxMC(map<unsigned, SATCount>& count)
 	jaccardHashCount = singleIndex;
 	double myTime = cpuTimeTotal();
 	if (trimOnly) {
-		trimVar(independent_vars);
+		trimVar(sampling_vars);
 		exit(0);
 	}
 
@@ -2233,15 +2233,15 @@ void JaccardMC::solver_init()
 	if (dratf) {
 		solver->set_drat(dratf, clause_ID_needed);
 	}
-	check_num_threads_sanity(num_threads);
+	//check_num_threads_sanity(num_threads);
 	solver->set_num_threads(num_threads);
 	if (unset_vars) {
 		//solver->set_greedy_undef();
 	}
-	vector<unsigned> original_independent_vars = independent_vars;
+	vector<unsigned> original_sampling_vars = sampling_vars;
 	parseInAllFiles(solver);
-	if (original_independent_vars.size() > 0)
-		independent_vars = original_independent_vars;
+	if (original_sampling_vars.size() > 0)
+		sampling_vars = original_sampling_vars;
 	int pos = 0;
 	if (is_diff) {
 		ob_vars = jaccard_vars;
@@ -2269,7 +2269,7 @@ void JaccardMC::readDFile(){
 		distribution[var]=weight;
 		line.clear();
 	}
-	
+
 	dfile.close();
 }
 int JaccardMC::solve()
@@ -2311,7 +2311,7 @@ int JaccardMC::solve()
 	//printVersionInfo();
 
 
-	if (startIteration > independent_vars.size()) {
+	if (startIteration > sampling_vars.size()) {
 		cerr << "ERROR: Manually-specified startIteration"
 			"is larger than the size of the independent set.\n" << endl;
 		return -1;
@@ -2319,7 +2319,7 @@ int JaccardMC::solve()
 
 
 
-#if PARALLEL 
+#if PARALLEL
 	int cores = omp_get_num_procs();
 	cerr << "max thread=" << cores;
 	solvers.clear();
@@ -2418,16 +2418,16 @@ int main(int argc, char** argv)
 
 void JaccardMC::call_after_parse()
 {
-	if (independent_vars.empty()) {
+	if (sampling_vars.empty()) {
 		cerr
 			<< "c WARNING! No independent vars were set using 'c ind var1 [var2 var3 ..] 0'"
 			"notation in the CNF." << endl
 			<< " c ScalMC may work substantially worse!" << endl;
 		for (size_t i = 0; i < solver->nVars(); i++) {
-			independent_vars.push_back(i);
+			sampling_vars.push_back(i);
 		}
 
-		solver->set_independent_vars(&independent_vars);
+		solver->set_sampling_vars(&sampling_vars);
 	}
 
 }
@@ -2470,11 +2470,11 @@ void JaccardMC::call_after_parse()
 				variables=jaccard_vars;
 				break;
 		}
-		
+
 		// t=0 -> assign values to S
 		// t=1 -> assign values to S'
 		sampleOne = *sampleit;
-		solver->new_var(); 
+		solver->new_var();
 		unsigned act_var = solver->nVars() - 1;
 		assumps[t].push_back(Lit(act_var, false));
 		out_var.push_back(Lit(act_var, false));
@@ -2588,7 +2588,7 @@ bool JaccardMC::SSetTwoHashSample(unsigned num_xor_cls, vector<Lit>& assumps, SA
 
 }
 
-	
+
 bool JaccardMC::SSetHashSample(unsigned num_xor_cls, vector<Lit>& assumps, vector<XorClause>& jaccardXorClause, SATSolver* solver)
 {
 	int var_size = jaccard_vars.size();
@@ -2652,7 +2652,7 @@ void JaccardMC::SetSampledJaccardHash(unsigned clausNum, std::map<unsigned, Lit>
 		// t=0 -> assign values to S
 		// t=1 -> assign values to S'
 		sampleOne = *sampleit;
-		solver->new_var(); 
+		solver->new_var();
 		unsigned act_var = solver->nVars() - 1;
 		assumps[t].push_back(Lit(act_var, false));
 		out_var.push_back(Lit(act_var, false));
@@ -2746,11 +2746,11 @@ void JaccardMC::SetHash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, ve
 {
 	double ratio = 0.5;
 	if (test_func == 1 && (clausNum < attack_vars.size() - 1)) {
-		independent_vars0 = attack_vars;
+		sampling_vars0 = attack_vars;
 	} else {
-		independent_vars0 = independent_vars;
+		sampling_vars0 = sampling_vars;
 	}
-	int var_size = independent_vars0.size();
+	int var_size = sampling_vars0.size();
 	if (XorMax>0 and unsigned(clausNum * var_size)>unsigned(XorMax)) {//don't allow too many xor
 		ratio = (1.0 * XorMax) / (clausNum * var_size);
 		//ratio=(ratio<XorRate)?XorRate:0.5;
@@ -2773,9 +2773,9 @@ void JaccardMC::SetHash(unsigned clausNum, std::map<unsigned, Lit>& hashVars, ve
 			if (test_func == 1) {
 				for (unsigned n = 1; n <= clausNum - hashVars.size(); n++) {
 					if ((test_func == 1)&&(n + hashVars.size() < attack_vars.size() - 1)) {
-						independent_vars0 = attack_vars;
+						sampling_vars0 = attack_vars;
 					} else {
-						independent_vars0 = ob_vars;
+						sampling_vars0 = ob_vars;
 					}
 					AddHash(1, assumps, solver);
 				}
@@ -2839,11 +2839,11 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 		map<unsigned, Lit> hashVars; //map assumption var to XOR hash
 		unsigned repeatTry = 0;
 		unsigned numExplored = 1;
-		unsigned lowerFib = 0, upperFib = independent_vars.size();
+		unsigned lowerFib = 0, upperFib = sampling_vars.size();
 
-		while (numExplored < independent_vars.size()) {
+		while (numExplored < sampling_vars.size()) {
 			cerr << "Num Explored: " << numExplored
-				<< " ind set size: " << independent_vars.size() << endl;
+				<< " ind set size: " << sampling_vars.size() << endl;
 			myTime = cpuTimeTotal();
 			unsigned swapVar = hashCount;
 
@@ -2882,7 +2882,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 			}
 
 			if (currentNumSolutions < (int)pivotApproxMC + 1) {
-				numExplored = lowerFib + independent_vars.size() - hashCount;
+				numExplored = lowerFib + sampling_vars.size() - hashCount;
 				if (succRecord.find(hashCount - 1) != succRecord.end()
 					&& succRecord[hashCount - 1] == 1
 					) {
@@ -2910,7 +2910,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 			} else {
 				assert(currentNumSolutions == pivotApproxMC + 1);
 
-				numExplored = hashCount + independent_vars.size() - upperFib;
+				numExplored = hashCount + sampling_vars.size() - upperFib;
 				if (succRecord.find(hashCount + 1) != succRecord.end()
 					&& succRecord[hashCount + 1] == 0
 					) {
@@ -2944,11 +2944,11 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 		map<unsigned, Lit> hashVars; //map assumption var to XOR hash
 		unsigned repeatTry = 0;
 		unsigned numExplored = 1;
-		unsigned lowerFib = 0, upperFib = independent_vars.size();
+		unsigned lowerFib = 0, upperFib = sampling_vars.size();
 
-		while (numExplored < independent_vars.size()) {
+		while (numExplored < sampling_vars.size()) {
 			cerr << "Num Explored: " << numExplored
-				<< " ind set size: " << independent_vars.size() << endl;
+				<< " ind set size: " << sampling_vars.size() << endl;
 			myTime = cpuTimeTotal();
 			unsigned swapVar = hashCount;
 
@@ -2987,7 +2987,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 			}
 
 			if (currentNumSolutions < pivotApproxMC + 1) {
-				numExplored = lowerFib + independent_vars.size() - hashCount;
+				numExplored = lowerFib + sampling_vars.size() - hashCount;
 				if (succRecord.find(hashCount - 1) != succRecord.end()
 					&& succRecord[hashCount - 1] == 1
 					) {
@@ -3015,7 +3015,7 @@ bool JaccardMC::ScalApproxMC(SATCount& count)
 			} else {
 				assert(currentNumSolutions == pivotApproxMC + 1);
 
-				numExplored = hashCount + independent_vars.size() - upperFib;
+				numExplored = hashCount + sampling_vars.size() - upperFib;
 				if (succRecord.find(hashCount + 1) != succRecord.end()
 					&& succRecord[hashCount + 1] == 0
 					) {

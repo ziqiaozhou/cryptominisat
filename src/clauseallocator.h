@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "cloffset.h"
 #include "watched.h"
 #include "clause.h"
+#include "watcharray.h"
 
 #include <stdlib.h>
 #include <map>
@@ -89,12 +90,15 @@ class ClauseAllocator {
         void consolidate(
             Solver* solver
             , const bool force = false
+            , bool lower_verb = false
         );
 
         size_t mem_used() const;
 
     private:
         void update_offsets(vector<ClOffset>& offsets);
+        void move_one_watchlist(
+            watch_subarray& ws, ClOffset* newDataStart, ClOffset*& new_ptr);
 
         ClOffset move_cl(
             ClOffset* newDataStart

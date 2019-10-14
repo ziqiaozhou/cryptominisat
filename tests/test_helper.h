@@ -213,6 +213,8 @@ vector<vector<Lit> > get_red_cls(const Solver* s)
 {
     vector<vector<Lit> > ret;
     add_cls(ret, s, s->longRedCls[0]);
+    add_cls(ret, s, s->longRedCls[1]);
+    add_cls(ret, s, s->longRedCls[2]);
     add_impl_cls(ret, s, false, true);
 
     return ret;
@@ -325,6 +327,21 @@ void check_red_cls_contains(const Solver* s, const string& data)
         cout << endl;
     }
     EXPECT_TRUE(found_cl);
+}
+
+unsigned get_num_red_cls_contains(const Solver* s, const string& data)
+{
+    unsigned found_cl = 0;
+    vector<Lit> looking_for = str_to_cl(data);
+    vector<vector<Lit> > cls = get_red_cls(s);
+
+    for(auto cl: cls) {
+        if (cl == looking_for) {
+            found_cl++;
+        }
+    }
+
+    return found_cl;
 }
 
 

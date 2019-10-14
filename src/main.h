@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include <fstream>
 #include<map>
 
+#include "main_common.h"
 #include "solverconf.h"
 #include "cryptominisat5/cryptominisat.h"
 
@@ -39,7 +40,7 @@ using std::vector;
 namespace po = boost::program_options;
 using namespace CMSat;
 
-class Main
+class Main: public MainCommon
 {
     public:
         Main(int argc, char** argv);
@@ -57,21 +58,18 @@ class Main
 
         void parseCommandLine();
         virtual int solve();
-        SolverConf conf;
 
-        void check_num_threads_sanity(const unsigned thread_num) const;
     private:
         //arguments
         int argc;
         char** argv;
         string var_elim_strategy;
-        string dratfilname;
         void check_options_correctness();
         void manually_parse_some_options();
-        void handle_drat_option();
         void parse_restart_type();
         void parse_polarity_type();
-
+        void dump_decisions_for_model();
+        void check_num_threads_sanity(const unsigned thread_num) const;
 
         po::positional_options_description p;
         po::options_description all_options;
@@ -106,23 +104,22 @@ class Main
         void dump_red_file();
 
         //Config
-        bool zero_exit_status = false;
         std::string resultFilename;
         std::string debugLib;
         int printResult = true;
         string commandLine;
-        unsigned num_threads = 1;
         uint32_t max_nr_of_solutions = 1;
         int sql = 0;
         string sqlite_filename;
-        vector<uint32_t> independent_vars;
+        string decisions_for_model_fname;
+        vector<uint32_t> sampling_vars;
         std::map<std::string,vector<Lit>> symbol_vars;
         vector<uint32_t> jaccard_vars;
         vector<uint32_t> jaccard_vars2;
         vector<uint32_t> ob_vars;
         vector<uint32_t> attack_vars;
-        std::string independent_vars_str = "";
-        bool only_indep_solution = false;
+        std::string sampling_vars_str = "";
+        bool only_sampling_solution = false;
 
         //Files to read & write
         bool fileNamePresent;
@@ -133,8 +130,6 @@ class Main
         uint32_t dump_red_max_glue = 1000;
 
         //Drat checker
-        std::ostream* dratf = NULL;
-        bool dratDebug = false;
         bool clause_ID_needed = false;
 };
 

@@ -100,7 +100,7 @@ void CompHandler::createRenumbering(const vector<uint32_t>& vars)
 bool CompHandler::assumpsInsideComponent(const vector<uint32_t>& vars)
 {
     for(uint32_t var: vars) {
-        if (solver->var_inside_assumptions(var)) {
+        if (solver->var_inside_assumptions(var) != l_Undef) {
             return true;
         }
     }
@@ -133,7 +133,7 @@ vector<pair<uint32_t, uint32_t> > CompHandler::get_component_sizes() const
 
 bool CompHandler::handle()
 {
-    //assert(solver->conf.independent_vars == NULL && "Cannot handle components when indep vars is set");
+    //assert(solver->conf.sampling_vars == NULL && "Cannot handle components when indep vars is set");
     assert(solver->okay());
     double myTime = cpuTime();
 
@@ -246,7 +246,7 @@ bool CompHandler::solve_component(
     , const vector<uint32_t>& vars_orig
     , const size_t num_comps
 ) {
-    assert(!solver->drat->enabled());
+    assert(! (solver->drat->enabled() || solver->conf.simulate_drat) );
     vector<uint32_t> vars(vars_orig);
     components_solved++;
 
@@ -395,7 +395,7 @@ SolverConf CompHandler::configureNewSolver(
 ) const {
     SolverConf conf(solver->conf);
     conf.origSeed = solver->mtrand.randInt();
-	conf.independent_vars = NULL;
+	conf.sampling_vars = NULL;
 	conf.symbol_vars=NULL;
     if (numVars < 60) {
         conf.do_simplify_problem = false;
@@ -641,7 +641,7 @@ void CompHandler::moveClausesImplicit(
     solver->binTri.redBins -= numRemovedHalfRed/2;
 }
 
-void CompHandler::addSavedState(vector<lbool>& solution)
+void CompHandler::addSavedState(vector<lbool>& solution, vector<Lit>& decisions)
 {
     //Enqueue them. They may need to be extended, so enqueue is needed
     //manipulating "model" may not be good enough
@@ -655,6 +655,7 @@ void CompHandler::addSavedState(vector<lbool>& solution)
             const lbool val = savedState[var];
             assert(solution[var] == l_Undef);
             solution[var] = val;
+            decisions.push_back(Lit(var, val == l_False));
             //cout << "Solution to var " << var + 1 << " has been added: " << val << endl;
 
             solver->varData[interVar].polarity = (val == l_True);

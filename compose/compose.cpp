@@ -109,7 +109,7 @@ void Compose::createNextState(
   for (auto lits : symbol_vars2)
     for (auto lit : lits.second)
       ind_vars.push_back(lit.var());
-  solver2->set_independent_vars(&ind_vars);
+  solver2->set_sampling_vars(&ind_vars);
   for (auto lits : trans_clauses) {
     // cout << "old add clause" << lits << "\n";
     for (auto &lit : lits) {
@@ -154,48 +154,48 @@ void Compose::readInAFileToCache(SATSolver *solver2, const string &filename) {
     exit(-1);
   }
 
-  if (!independent_vars_str.empty() && !parser.independent_vars.empty()) {
+  if (!sampling_vars_str.empty() && !parser.sampling_vars.empty()) {
     std::cerr << "ERROR! Independent vars set in console but also in CNF."
               << endl;
     exit(-1);
   }
 
-  if (!independent_vars_str.empty()) {
-    assert(independent_vars.empty());
-    std::stringstream ss(independent_vars_str);
+  if (!sampling_vars_str.empty()) {
+    assert(sampling_vars.empty());
+    std::stringstream ss(sampling_vars_str);
     uint32_t i;
     while (ss >> i) {
       const uint32_t var = i - 1;
-      independent_vars.push_back(var);
+      sampling_vars.push_back(var);
 
       if (ss.peek() == ',' || ss.peek() == ' ')
         ss.ignore();
     }
   } else {
-    independent_vars.insert(independent_vars.end(),
-                            parser.independent_vars.begin(),
-                            parser.independent_vars.end());
+    sampling_vars.insert(sampling_vars.end(),
+                            parser.sampling_vars.begin(),
+                            parser.sampling_vars.end());
   }
   symbol_vars.insert(parser.symbol_vars.begin(), parser.symbol_vars.end());
   if (conf.keep_symbol) {
     for (auto one_symbol_vars : symbol_vars) {
       for (auto lit : one_symbol_vars.second)
-        independent_vars.push_back(lit.var());
+        sampling_vars.push_back(lit.var());
     }
   }
   jaccard_vars.swap(parser.jaccard_vars);
   jaccard_vars2.swap(parser.jaccard_vars2);
   ob_vars.swap(parser.ob_vars);
   attack_vars.swap(parser.attack_vars);
-  if (independent_vars.empty()) {
-    if (only_indep_solution) {
+  if (sampling_vars.empty()) {
+    if (only_sampling_solution) {
       std::cout << "ERROR: only independent vars are requested in the "
                    "solution, but no independent vars have been set!"
                 << endl;
       exit(-1);
     }
   } else {
-    solver2->set_independent_vars(&independent_vars);
+    solver2->set_sampling_vars(&sampling_vars);
   }
   solver2->set_symbol_vars(&symbol_vars);
 
@@ -225,7 +225,7 @@ void Compose::copy_compose() {
             << "\n";
   // read init CNF file;
   symbol_vars.clear();
-  independent_vars.clear();
+  sampling_vars.clear();
   // readInAFile(init_solver, init_file_);
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
@@ -264,7 +264,7 @@ void Compose::copy_compose() {
       conf2 = conf_copy;
       init_solver = new SATSolver((void *)&conf2);
       symbol_vars.clear();
-      independent_vars.clear();
+      sampling_vars.clear();
       readInAFile(init_solver, state_path);
       init_symbol_vars = symbol_vars;
     }
@@ -299,7 +299,7 @@ void Compose::incremental_compose() {
             << "\n";
   // read init CNF file;
   symbol_vars.clear();
-  independent_vars.clear();
+  sampling_vars.clear();
   readInAFile(init_solver, init_file_);
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
@@ -336,7 +336,7 @@ void Compose::incremental_compose() {
       conf2 = conf_copy;
       init_solver = new SATSolver((void *)&conf2);
       symbol_vars.clear();
-      independent_vars.clear();
+      sampling_vars.clear();
       readInAFile(init_solver, state_path);
       init_symbol_vars = symbol_vars;
     }

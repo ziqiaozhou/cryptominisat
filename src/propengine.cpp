@@ -51,9 +51,9 @@ PropEngine::PropEngine(
     const SolverConf* _conf, std::atomic<bool>* _must_interrupt_inter
 ) :
         CNF(_conf, _must_interrupt_inter)
-        , qhead(0)
         , order_heap_vsids(VarOrderLt(var_act_vsids))
         , order_heap_maple(VarOrderLt(var_act_maple))
+        , qhead(0)
 {
 }
 
@@ -452,28 +452,6 @@ inline void PropEngine::updateWatch(
             it->setBlockedLit(blocked_lit);
         }
     }
-}
-
-PropBy PropEngine::propagateIrredBin()
-{
-    PropBy confl;
-    while (qhead < trail.size()) {
-        Lit p = trail[qhead++];
-        watch_subarray ws = watches[~p];
-        for(Watched* k = ws.begin(), *end = ws.end(); k != end; k++) {
-
-            //If not binary, or is redundant, skip
-            if (!k->isBin() || k->red())
-                continue;
-
-            //Propagate, if conflict, exit
-            if (!prop_bin_cl(k, p, confl))
-                return confl;
-        }
-    }
-
-    //No conflict, propagation done
-    return PropBy();
 }
 
 void PropEngine::print_trail()

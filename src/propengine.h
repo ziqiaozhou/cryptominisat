@@ -108,6 +108,24 @@ public:
     vector<double> var_act_vsids;
     vector<double> var_act_maple;
 
+    //Variable activities
+    struct VarOrderLt { ///Order variables according to their activities
+        const vector<double>&  activities;
+        bool operator () (const uint32_t x, const uint32_t y) const
+        {
+            return activities[x] > activities[y];
+        }
+
+        explicit VarOrderLt(const vector<double>& _activities) :
+            activities(_activities)
+        {}
+    };
+
+    ///activity-ordered heap of decision variables.
+    ///NOT VALID WHILE SIMPLIFYING
+    Heap<VarOrderLt> order_heap_vsids;
+    Heap<VarOrderLt> order_heap_maple;
+
 protected:
     int64_t simpDB_props = 0;
     void new_var(const bool bva, const uint32_t orig_outer) override;
@@ -129,24 +147,6 @@ protected:
     uint32_t            qhead;            ///< Head of queue (as index into the trail)
     Lit                 failBinLit;       ///< Used to store which watches[lit] we were looking through when conflict occured
 
-
-    struct VarOrderLt { ///Order variables according to their activities
-        const vector<double>&  activities;
-        bool operator () (const uint32_t x, const uint32_t y) const
-        {
-            return activities[x] > activities[y];
-        }
-
-        explicit VarOrderLt(const vector<double>& _activities) :
-            activities(_activities)
-        {}
-    };
-
-    ///activity-ordered heap of decision variables.
-    ///NOT VALID WHILE SIMPLIFYING
-    Heap<VarOrderLt> order_heap_vsids;
-    Heap<VarOrderLt> order_heap_maple;
-
     friend class EGaussian;
 
     template<bool update_bogoprops>
@@ -160,7 +160,6 @@ protected:
         , const Lit p
         , PropBy& confl
     );*/
-    PropBy propagateIrredBin();  ///<For debug purposes, to test binary clause removal
     PropResult prop_normal_helper(
         Clause& c
         , ClOffset offset
@@ -407,7 +406,7 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
         watches.prefetch((~p).toInt());
     }
 
-    if (!update_bogoprops && !VSIDS) {
+    if (!update_bogoprops && !VSIDS && from != PropBy()) {
         varData[v].last_picked = sumConflicts;
         varData[v].conflicted = 0;
 

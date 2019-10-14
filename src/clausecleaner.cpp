@@ -60,6 +60,18 @@ void ClauseCleaner::clean_binary_implicit(
             impl_data.remNonLBin++;
         }
     } else {
+#ifdef SLOW_DEBUG
+        if (solver->value(ws.lit2()) != l_Undef
+            || solver->value(lit) != l_Undef
+        ) {
+            cout << "ERROR binary during cleaning has non-l-Undef "
+            << " Bin clause: " << lit << " " << ws.lit2() << endl
+            << " values: " << solver->value(lit)
+            << " " << solver->value(ws.lit2())
+            << endl;
+        }
+#endif
+
         assert(solver->value(ws.lit2()) == l_Undef);
         assert(solver->value(lit) == l_Undef);
         *j++ = ws;
@@ -229,14 +241,6 @@ inline bool ClauseCleaner::clean_clause(Clause& cl)
     return false;
 }
 
-bool ClauseCleaner::satisfied(const Clause& cl) const
-{
-    for (uint32_t i = 0; i != cl.size(); i++)
-        if (solver->value(cl[i]) == l_True)
-            return true;
-    return false;
-}
-
 void ClauseCleaner::ImplicitData::update_solver_stats(Solver* solver)
 {
     for(const BinaryClause& bincl: toAttach) {
@@ -271,6 +275,7 @@ void ClauseCleaner::remove_and_clean_all()
     double myTime = cpuTime();
     assert(solver->okay());
     assert(solver->prop_at_head());
+    assert(solver->decisionLevel() == 0);
 
     clean_implicit_clauses();
 

@@ -15,7 +15,7 @@ endif()
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 set(cryptoms_lib_link_libs "")
 set(cryptoms_exec_link_libs
-    libcryptominisat5
+    cryptominisat5
     ${Boost_LIBRARIES}
 )
 IF (ZLIB_FOUND)
@@ -23,6 +23,7 @@ IF (ZLIB_FOUND)
 ENDIF()
 add_executable(jmc
 			${PROJECT_SOURCE_DIR}/src/main.cpp
+      ${PROJECT_SOURCE_DIR}/src/main_common.cpp
 			${PROJECT_SOURCE_DIR}/src/signalcode.cpp
 			 jmc.cpp
 			)
@@ -34,4 +35,3 @@ set(cryptoms_lib_link_libs "")
 		RUNTIME DESTINATION bin
 		)
 	SET(CPACK_PACKAGE_EXECUTABLES "jmc")
-

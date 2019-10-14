@@ -69,7 +69,7 @@ public:
       bool only_indep_solution =
           false); // solve the problem, optionally with assumptions. If
                   // only_indep_solution is set, only the independent variables
-                  // set with set_independent_vars() are returned in the solution
+                  // set with set_sampling_vars() are returned in the solution
   lbool simplify(const std::vector<Lit> *assumptions =
                      0); // simplify the problem, optionally with assumptions
   const std::vector<lbool> &
@@ -80,9 +80,9 @@ public:
                         // case the previous call to solve() was l_False
   bool okay() const; // the problem is still solveable, i.e. the empty clause
                      // hasn't been derived
-  void renumber_clauses(const std::vector<uint32_t> &table);
-  void renumber_clauses_by_table(const std::vector<uint32_t> &outer,
-                                 const std::vector<uint32_t> &inner);
+
+  const std::vector<Lit>& get_decisions_reaching_model() const; //get decisions that lead to model. may NOT work, in case the decisions needed were internal, extended variables. exit(-1)'s in case of such a case. you MUST check decisions_reaching_computed().
+
   void renumber_variables(bool must_renumber);
   ////////////////////////////
   // Debug all calls for later replay with --debuglit FILENAME
@@ -120,13 +120,16 @@ public:
   void set_no_bva();                        // No bounded variable addition
   void set_no_bve();                        // No bounded variable elimination
   void set_greedy_undef(); // Try to set variables to l_Undef in solution
-  void set_independent_vars(std::vector<uint32_t> *ind_vars);
+  void set_sampling_vars(std::vector<uint32_t> *ind_vars);
   void
   set_symbol_vars(std::map<std::string, std::vector<Lit>> *symbol_vars);
   int n_seareched_solutions();
-  void set_timeout_all_calls(
-      double secs); // max timeout on all subsequent solve() or simplify
-
+  void set_timeout_all_calls(double secs); // max timeout on all subsequent solve() or simplify
+  void set_up_for_scalmc(); // used to set the solver up for ScalMC
+                            // configuration
+  void set_need_decisions_reaching(); // set it before calling solve()
+  bool get_decision_reaching_valid()
+      const; // the get_decisions_reaching_model will work -- it may NOT be
   ////////////////////////////
   // Get generic info
   ////////////////////////////

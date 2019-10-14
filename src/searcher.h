@@ -77,7 +77,6 @@ class Searcher : public HyperEngine
         //
         lbool solve(
             uint64_t max_confls
-            , const unsigned upper_level_iteration_num
         );
         void finish_up_solve(lbool status);
         void reduce_db_if_needed();
@@ -90,7 +89,8 @@ class Searcher : public HyperEngine
 
 
         vector<lbool>  model;
-        vector<lbool>  full_model;
+        vector<Lit>    decisions_reaching_model; // the decisions needed to reach current model
+        bool           decisions_reaching_model_valid = false;
         vector<Lit>   conflict;     ///<If problem is unsatisfiable (possibly under assumptions), this vector represent the final conflict clause expressed in the assumptions.
         template<bool update_bogoprops>
         PropBy propagate();
@@ -111,7 +111,9 @@ class Searcher : public HyperEngine
 
         size_t hyper_bin_res_all(const bool check_for_set_values = true);
         std::pair<size_t, size_t> remove_useless_bins(bool except_marked = false);
-        bool var_inside_assumptions(const uint32_t var) const
+
+        ///Returns 0 if not inside, 1 if TRUE and 2 if FALSE
+        lbool var_inside_assumptions(const uint32_t var) const
         {
             #ifdef SLOW_DEBUG
             assert(var < nVars());
@@ -119,12 +121,25 @@ class Searcher : public HyperEngine
             #endif
             return assumptionsSet.at(var);
         }
+        lbool lit_inside_assumptions(const Lit lit) const
+        {
+            #ifdef SLOW_DEBUG
+            assert(lit.var() < nVars());
+            assert(lit.var() < assumptionsSet.size());
+            #endif
+            if (assumptionsSet.at(lit.var()) == l_Undef) {
+                return l_Undef;
+            } else {
+                lbool val = assumptionsSet.at(lit.var());
+                return val ^ lit.sign();
+            }
+        }
         template<bool do_insert_var_order = true, bool update_bogoprops = false>
         void cancelUntil(uint32_t level); ///<Backtrack until a certain level.
         bool check_order_heap_sanity() const;
 
         SQLStats* sqlStats = NULL;
-        void consolidate_watches();
+        void consolidate_watches(const bool full);
 
         //Gauss
         #ifdef USE_GAUSS
@@ -155,7 +170,7 @@ class Searcher : public HyperEngine
         void testing_fill_assumptions_set()
         {
             assumptionsSet.clear();
-            assumptionsSet.resize(nVars(), false);
+            assumptionsSet.resize(nVars(), l_Undef);
         }
         double get_cla_inc() const
         {
@@ -230,9 +245,10 @@ class Searcher : public HyperEngine
         void fill_assumptions_set_from(const vector<AssumptionPair>& fill_from);
         void unfill_assumptions_set_from(const vector<AssumptionPair>& unfill_from);
         void renumber_assumptions(const vector<uint32_t>& outerToInter);
-        //we cannot eliminate / component-handle such vars
-        //Needed so checking is fast
-        vector<char> assumptionsSet;
+        ///we cannot eliminate / component-handle such vars
+        ///Needed so checking is fast.
+        ///0 = not an assumptions, 1 == TRUE, 2 == FALSE
+        vector<lbool> assumptionsSet;
 
         //Note that this array can have the same internal variable more than
         //once, in case one has been replaced with the other. So if var 1 =  var 2
@@ -265,7 +281,9 @@ class Searcher : public HyperEngine
         void  attach_and_enqueue_learnt_clause(Clause* cl, bool enq = true);
         void  print_learning_debug_info() const;
         void  print_learnt_clause() const;
+        template<bool update_bogoprops>
         void  add_otf_subsume_long_clauses();
+        template<bool update_bogoprops>
         void  add_otf_subsume_implicit_clause();
         Clause* handle_last_confl_otf_subsumption(
             Clause* cl

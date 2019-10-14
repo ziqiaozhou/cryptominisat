@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include "clausecleaner.h"
 #include "propbyforgraph.h"
 #include <algorithm>
+#include <sstream>
 #include <cstddef>
 #include <cmath>
 #include <ratio>
@@ -1171,8 +1172,8 @@ template <bool update_bogoprops> lbool Searcher::search() {
   backtrack_=0;
   ind_level.clear();
   cancelUntil<true,update_bogoprops>(0);
-  if (conf.independent_vars)
-    for (auto var : *conf.independent_vars) {
+  if (conf.sampling_vars)
+    for (auto var : *conf.sampling_vars) {
       independent_set.insert(var);
     }
     ind_level.clear();
@@ -1465,7 +1466,7 @@ lbool Searcher::new_decision()
     // Increase decision level and enqueue 'next'
     assert(value(next) == l_Undef);
     new_decision_level();
-    enqueue(next);
+    enqueue<update_bogoprops>(next);
 
     return l_Undef;
 }
@@ -1538,6 +1539,7 @@ void Searcher::check_need_restart()
     }
 }
 
+template<bool update_bogoprops>
 void Searcher::add_otf_subsume_long_clauses()
 {
     //Hande long OTF subsumption
@@ -1569,7 +1571,7 @@ void Searcher::add_otf_subsume_long_clauses()
 
         if (at == 0) {
             //If none found, we have a propagating clause_t
-            enqueue(cl[0], decisionLevel() == 0 ? PropBy() : PropBy(offset));
+            enqueue<update_bogoprops>(cl[0], decisionLevel() == 0 ? PropBy() : PropBy(offset));
 
             //Drat
             if (decisionLevel() == 0) {
@@ -1592,6 +1594,7 @@ void Searcher::add_otf_subsume_long_clauses()
     otf_subsuming_long_cls.clear();
 }
 
+template<bool update_bogoprops>
 void Searcher::add_otf_subsume_implicit_clause()
 {
     //Handle implicit OTF subsumption
@@ -1636,7 +1639,7 @@ void Searcher::add_otf_subsume_implicit_clause()
             }
 
             //Enqueue this literal, finally
-            enqueue(
+            enqueue<update_bogoprops>(
                 it->lits[0]
                 , by
             );
@@ -1987,8 +1990,9 @@ bool Searcher::handle_conflict(const PropBy confl)
     //Add decision-based clause in case it's short
     decision_clause.clear();
     if (!update_bogoprops
-        && learnt_clause.size() > 50 //TODO MAGIC parameter
-        && decisionLevel() <= 9
+        && conf.do_decision_based_cl
+        && learnt_clause.size() > conf.decision_based_cl_min_learned_size
+        && decisionLevel() <= conf.decision_based_cl_max_levels
         && decisionLevel() >= 2
     ) {
         for(int i = (int)trail_lim.size()-1; i >= 0; i--) {
@@ -2009,8 +2013,8 @@ bool Searcher::handle_conflict(const PropBy confl)
     uint32_t old_decision_level = decisionLevel();
     cancelUntil<true, update_bogoprops>(backtrack_level);
 
-    add_otf_subsume_long_clauses();
-    add_otf_subsume_implicit_clause();
+    add_otf_subsume_long_clauses<update_bogoprops>();
+    add_otf_subsume_implicit_clause<update_bogoprops>();
     print_learning_debug_info();
     if(value(learnt_clause[0]) != l_Undef){
       std::cerr<<learnt_clause[0];
@@ -2267,9 +2271,14 @@ void Searcher::rebuildOrderHeap()
 {
     vector<uint32_t> vs;
     for (uint32_t v = 0; v < nVars(); v++) {
-        if (varData[v].removed == Removed::none
-            && value(v) == l_Undef
+        if (varData[v].removed != Removed::none
+            //NOTE: the level==0 check is needed because SLS calls this
+            //when there is a solution already, but we should only skip
+            //level 0 assignements
+            || (value(v) != l_Undef && varData[v].level == 0)
         ) {
+            continue;
+        } else {
             vs.push_back(v);
         }
     }
@@ -2338,7 +2347,6 @@ bool Searcher::must_abort(const lbool status) {
 
 lbool Searcher::solve(
     const uint64_t _max_confls
-    , const unsigned upper_level_iteration_num
 ) {
     assert(ok);
     assert(qhead == trail.size());
@@ -2423,7 +2431,7 @@ lbool Searcher::solve(
             solver->conf.do_distill_clauses &&
             sumConflicts > next_distill
         ) {
-            if (!solver->distill_long_cls->distill(true)) {
+            if (!solver->distill_long_cls->distill(true, false)) {
                 status = l_False;
                 goto end;
             }
@@ -2549,7 +2557,21 @@ void Searcher::finish_up_solve(const lbool status)
         check_order_heap_sanity();
         #endif
         model = assigns;
-        full_model = assigns;
+
+        if (conf.need_decisions_reaching) {
+            for(size_t i = 0; i < trail_lim.size(); i++) {
+                size_t at = trail_lim[i];
+
+                //we need this due to dummy decision levels
+                //that could create a situation where new_decision_level()
+                //has been called, but then no variable needs to be decided
+                //for SAT.
+                if (at < trail.size()) {
+                    decisions_reaching_model.push_back(trail[at]);
+                }
+            }
+        }
+
         if (conf.greedy_undef) {
             assert(false && "Greedy undef is broken");
             vector<uint32_t> trail_lim_vars;
@@ -2925,8 +2947,10 @@ llbool Searcher::Gauss_elimination()
     assert(qhead == trail.size());
     assert(gqhead <= qhead);
 
+    bool unit_conflict_in_some_matrix = false;
     while (gqhead <  qhead) {
         const Lit p = trail[gqhead++];
+        assert(gwatches.size() > p.var());
         vec<GaussWatched>& ws = gwatches[p.var()];
         GaussWatched* i = ws.begin();
         GaussWatched* j = i;
@@ -2943,6 +2967,7 @@ llbool Searcher::Gauss_elimination()
                 continue;
             } else {
                 // only in conflict two variable
+                unit_conflict_in_some_matrix = true;
                 break;
             }
         }
@@ -2972,10 +2997,26 @@ llbool Searcher::Gauss_elimination()
             gqueuedata[0].big_gaussnum++;
             sum_EnGauss++;
         }
+
+        //There was a unit conflict but this is not that matrix.
+        //Just skip.
+        if (unit_conflict_in_some_matrix && gqd.ret_gauss !=1) {
+            continue;
+        }
+
+
         switch (gqd.ret_gauss) {
             case 1:{ // unit conflict
                 //assert(confl.getType() == PropByType::binary_t && "this should hold, right?");
                 bool ret = handle_conflict<false>(gqd.confl);
+#ifdef VERBOSE_DEBUG
+                cout << "Handled conflict"
+                << " conf level:" <<  varData[gqd.confl.lit2().var()].level
+                << " conf value: " << value(gqd.confl.lit2())
+                << " failbin level: " << varData[solver->failBinLit.var()].level
+                << " failbin value: " << value(solver->failBinLit)
+                << endl;
+#endif
 
                 gqd.big_conflict++;
                 sum_Enconflict++;
@@ -3200,7 +3241,7 @@ void Searcher::fill_assumptions_set_from(const vector<AssumptionPair>& fill_from
 {
     #ifdef SLOW_DEBUG
     for(auto x: assumptionsSet) {
-        assert(!x);
+        assert(x == l_Undef);
     }
     #endif
 
@@ -3211,11 +3252,11 @@ void Searcher::fill_assumptions_set_from(const vector<AssumptionPair>& fill_from
     for(const AssumptionPair lit_pair: assumptions) {
         const Lit lit = lit_pair.lit_inter;
         if (lit.var() < assumptionsSet.size()) {
-            if (assumptionsSet[lit.var()]) {
+            if (assumptionsSet[lit.var()] != l_Undef) {
                 //Assumption contains the same literal twice. Shouldn't really be allowed...
                 //assert(false && "Either the assumption set contains the same literal twice, or something is very wrong in the solver.");
             } else {
-                assumptionsSet[lit.var()] = true;
+                assumptionsSet[lit.var()] = lit.sign() ? l_False : l_True;
             }
         } else {
             if (value(lit) == l_Undef) {
@@ -3243,12 +3284,10 @@ void Searcher::unfill_assumptions_set_from(const vector<AssumptionPair>& unfill_
     for(const AssumptionPair lit_pair: unfill_from) {
         const Lit lit = lit_pair.lit_inter;
         if (lit.var() < assumptionsSet.size()) {
-            #ifdef SLOW_DEBUG
-            if (!assumptionsSet[lit.var()]) {
+            if (assumptionsSet[lit.var()] == l_Undef) {
                 cout << "ERROR: var " << lit.var() + 1 << " is in assumptions but not in assumptionsSet" << endl;
             }
-            #endif
-            assert(assumptionsSet[lit.var()]);
+            assert(assumptionsSet[lit.var()] != l_Undef);
         }
     }
 
@@ -3256,14 +3295,14 @@ void Searcher::unfill_assumptions_set_from(const vector<AssumptionPair>& unfill_
     for(const AssumptionPair lit_pair: unfill_from) {
         const Lit lit = lit_pair.lit_inter;
         if (lit.var() < assumptionsSet.size()) {
-            assumptionsSet[lit.var()] = false;
+            assumptionsSet[lit.var()] = l_Undef;
         }
     }
 
     end:;
     #ifdef SLOW_DEBUG
     for(auto x: assumptionsSet) {
-        assert(!x);
+        assert(x == l_Undef);
     }
     #endif
 }
@@ -3281,23 +3320,30 @@ void Searcher::update_var_decay_vsids()
     }
 }
 
-void Searcher::consolidate_watches()
+void Searcher::consolidate_watches(const bool full)
 {
     double t = cpuTime();
-    watches.consolidate();
+    if (full) {
+        watches.full_consolidate();
+    } else {
+        watches.consolidate();
+    }
     double time_used = cpuTime() - t;
 
     if (conf.verbosity) {
         cout
-        << "c [consolidate]"
+        << "c [consolidate] "
+        << (full ? "full" : "mini")
         << conf.print_times(time_used)
         << endl;
     }
 
+    std::stringstream ss;
+    ss << "consolidate " << (full ? "full" : "mini") << " watches";
     if (sqlStats) {
         sqlStats->time_passed_min(
             solver
-            , "consolidate watches"
+            , ss.str()
             , time_used
         );
     }
@@ -3359,49 +3405,14 @@ void Searcher::read_long_cls(
         attachClause(*cl);
         const ClOffset offs = cl_alloc.get_offset(cl);
         if (red) {
-            cl->stats.which_red_array = 2;
-            if (cl->stats.glue <= conf.glue_put_lev0_if_below_or_eq) {
-                cl->stats.which_red_array = 0;
-            } else if (cl->stats.glue <= conf.glue_put_lev1_if_below_or_eq
-                && conf.glue_put_lev1_if_below_or_eq != 0
-            ) {
-                cl->stats.which_red_array = 1;
-            }
-
-            longRedCls[0].push_back(cl->stats.which_red_array);
+            assert(cl->stats.which_red_array < longRedCls.size());
+            longRedCls[cl->stats.which_red_array].push_back(offs);
             litStats.redLits += cl->size();
         } else {
             longIrredCls.push_back(offs);
             litStats.irredLits += cl->size();
         }
     }
-}
-
-unsigned Searcher::guess_clause_array(
-    const ClauseStats& /*cl_stats*/
-    , uint32_t /*backtrack_lev*/
-) const {
-    /*
-    uint32_t votes = 0;
-    //double trail_depth_rel = (double)trail.size()/hist.trailDepthHistLT.avg();
-    double dec_lev_rel = (double)decisionLevel()/hist.decisionLevelHistLT.avg();
-    if (dec_lev_rel < 0.10) {
-        votes++;
-    }
-
-    double backtrack_lev_rel = (double)backtrack_lev/hist.decisionLevelHistLT.avg();
-    if (backtrack_lev_rel < 0.10) {
-        votes++;
-    }
-
-    if (antec_data.glue_long_reds.avg() > 12) {
-        votes += 1;
-    }
-
-    if (votes > 2) {
-        return true;
-    }*/
-    return false;
 }
 
 void Searcher::write_binary_cls(
@@ -3454,7 +3465,6 @@ void Searcher::save_state(SimpleOutFile& f, const lbool status) const
     f.put_vector(var_act_vsids);
     f.put_vector(var_act_maple);
     f.put_vector(model);
-    f.put_vector(full_model);
     f.put_vector(conflict);
 
     //Clauses
@@ -3483,7 +3493,6 @@ void Searcher::load_state(SimpleInFile& f, const lbool status)
         }
     }
     f.get_vector(model);
-    f.get_vector(full_model);
     f.get_vector(conflict);
 
     //Clauses
@@ -3522,7 +3531,9 @@ void Searcher::cancelUntil(uint32_t level)
     if (decisionLevel() > level) {
         #ifdef USE_GAUSS
         for (EGaussian* gauss: gmatrixes)
-            gauss->canceling(trail_lim[level]);
+            if (gauss) {
+                gauss->canceling(trail_lim[level]);
+            }
         #endif //USE_GAUSS
 
         //Go through in reverse order, unassign & insert then
@@ -3584,8 +3595,8 @@ void Searcher::cancelUntil(uint32_t level)
 
 inline bool Searcher::check_order_heap_sanity() const
 {
-    if (conf.independent_vars) {
-        for(uint32_t outside_var: *conf.independent_vars) {
+    if (conf.sampling_vars) {
+        for(uint32_t outside_var: *conf.sampling_vars) {
             uint32_t outer_var = map_to_with_bva(outside_var);
             outer_var = solver->varReplacer->get_var_replaced_with_outer(outer_var);
             uint32_t int_var = map_outer_to_inter(outer_var);

@@ -182,8 +182,6 @@ class DLL_PUBLIC SolverConf
         double   adjust_glue_if_too_many_low;
         uint64_t min_num_confl_adjust_glue_cutoff;
 
-        int      guess_cl_effectiveness;
-
         //maple
         int      maple;
         unsigned modulo_maple_iter;
@@ -217,7 +215,7 @@ class DLL_PUBLIC SolverConf
         unsigned max_num_lits_more_more_red_min;
 
         //Verbosity
-        int  verbosity;  ///<Verbosity level. 0=silent, 1=some progress report, 2=lots of report, 3 = all report       (default 2) preferentiality is turned off (i.e. picked randomly between [0, all])
+        int  verbosity;  ///<Verbosity level. 0=silent, 1=some progress report, 2=lots of report, 3 = all report       (default 2)
         int  doPrintGateDot; ///< Print DOT file of gates
         int  print_full_restart_stat;
         int  print_all_restarts;
@@ -236,6 +234,11 @@ class DLL_PUBLIC SolverConf
         int       otfHyperbin;
         int       doOTFSubsume;
         int       doOTFSubsumeOnlyAtOrBelowGlue;
+
+        //decision-based conflict clause generation
+        int       do_decision_based_cl;
+        uint32_t  decision_based_cl_max_levels;
+        uint32_t  decision_based_cl_min_learned_size;
 
         //SQL
         bool      dump_individual_restarts_and_clauses;
@@ -256,11 +259,16 @@ class DLL_PUBLIC SolverConf
         double    varElimRatioPerIter;
         int      skip_some_bve_resolvents;
         int velim_resolvent_too_large; //-1 == no limit
+        int var_linkin_limit_MB;
 
         //Subs, str limits for simplifier
         long long subsumption_time_limitM;
         long long strengthening_time_limitM;
         long long aggressive_elim_time_limitM;
+
+        //Ternary resolution
+        bool doTernary;
+        long long ternary_res_time_limitM;
 
         //BVA
         int      do_bva;
@@ -269,6 +277,7 @@ class DLL_PUBLIC SolverConf
         int      bva_also_twolit_diff;
         long     bva_extra_lit_and_red_start;
         long long bva_time_limitM;
+        uint32_t  bva_every_n;
 
         //Probing
         int      doProbe;
@@ -310,6 +319,7 @@ class DLL_PUBLIC SolverConf
         uint64_t num_conflicts_of_search;
         double   num_conflicts_of_search_inc;
         double   num_conflicts_of_search_inc_max;
+        uint32_t max_num_simplify_per_solve_call;
         string   simplify_schedule_startup;
         string   simplify_schedule_nonstartup;
         string   simplify_schedule_preproc;
@@ -323,6 +333,14 @@ class DLL_PUBLIC SolverConf
         double maxOccurRedLitLinkedM;
         double   subsume_gothrough_multip;
 
+        //Walksat
+        int doSLS;
+        uint32_t sls_every_n;
+        uint32_t yalsat_max_mems;
+        uint32_t sls_memoutMB;
+        uint32_t walksat_max_runs;
+        string   which_sls;
+
         //Distillation
         int      do_distill_clauses;
         unsigned long long distill_long_cls_time_limitM;
@@ -331,7 +349,10 @@ class DLL_PUBLIC SolverConf
 
         //Memory savings
         int       doRenumberVars;
+        int       must_renumber; ///< if set, all "renumber" is treated as a "must-renumber"
         int       doSaveMem;
+        uint64_t  full_watch_consolidate_every_n_confl;
+        int       static_mem_consolidate_order;
 
         //Component handling
         int       doCompHandler;
@@ -361,7 +382,7 @@ class DLL_PUBLIC SolverConf
 
         //Greedy undef
         int      greedy_undef;
-        std::vector<uint32_t>* independent_vars;
+        std::vector<uint32_t>* sampling_vars;
 
         std::vector<uint32_t>* attack_vars;
         std::vector<uint32_t>* ob_vars;
@@ -383,6 +404,7 @@ class DLL_PUBLIC SolverConf
         unsigned reconfigure_at;
         unsigned preprocess;
         int      simulate_drat;
+        int      need_decisions_reaching;
         std::string simplified_cnf;
         std::string solution_file;
         std::string saved_state_file;

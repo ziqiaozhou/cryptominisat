@@ -70,45 +70,46 @@ void AnalyzeClauses(const Solver *solver, const vector<ClOffset> &cls,
   }
 }
 void ClauseDumper::findComponent(const Solver *solver,
-                                   std::map<uint32_t, bool> &useless, bool outer_numbering) {
-    cout << "try find component\n";
-    size_t nvar = solver->nVars();
+                                 std::map<uint32_t, bool> &useless,
+                                 bool outer_numbering) {
+  cout << "try find component\n";
+  size_t nvar = solver->nVars();
 
-    vector<int> nclause(nvar);
-    if (solver->conf.independent_vars == nullptr ||
-        solver->conf.independent_vars->size() == 0)
-      return;
-    size_t wsLit = 0;
-    DisjointSet ds(nvar);
-    auto first_var = solver->conf.independent_vars->at(0);
-    for (auto var : *solver->conf.independent_vars) {
-      ds.Union(first_var, var);
-    }
-    for (watch_array::const_iterator it = solver->watches.begin(),
-                                     end = solver->watches.end();
-         it != end; ++it, wsLit++) {
-      Lit lit = Lit::toLit(wsLit);
-      for (const Watched *it2 = it->begin(), *end2 = it->end(); it2 != end2;
-           it2++) {
-        if (it2->isBin() && lit < it2->lit2() && !it2->red()) {
-          auto var1= lit.var(), var2=it2->lit2().var();
+  vector<int> nclause(nvar);
+  if (solver->conf.sampling_vars == nullptr ||
+      solver->conf.sampling_vars->size() == 0)
+    return;
+  size_t wsLit = 0;
+  DisjointSet ds(nvar);
+  auto first_var = solver->conf.sampling_vars->at(0);
+  for (auto var : *solver->conf.sampling_vars) {
+    ds.Union(first_var, var);
+  }
+  for (watch_array::const_iterator it = solver->watches.begin(),
+                                   end = solver->watches.end();
+       it != end; ++it, wsLit++) {
+    Lit lit = Lit::toLit(wsLit);
+    for (const Watched *it2 = it->begin(), *end2 = it->end(); it2 != end2;
+         it2++) {
+      if (it2->isBin() && lit < it2->lit2() && !it2->red()) {
+        auto var1 = lit.var(), var2 = it2->lit2().var();
 
-          ds.Union(lit.var(), it2->lit2().var());
-          nclause[lit.var()]++;
-          nclause[it2->lit2().var()]++;
-        }
+        ds.Union(lit.var(), it2->lit2().var());
+        nclause[lit.var()]++;
+        nclause[it2->lit2().var()]++;
       }
     }
-    AnalyzeClauses(solver, solver->longIrredCls, ds, nclause,outer_numbering);
-    int group = ds.Find(first_var);
-    int nirrel = 0;
-    for (uint32_t i=0;i<nvar;++i) {
-      if (independent_set.count(i))
-        continue;
-      if (ds.Find(i) != group) {
-        if(outer_numbering){
-          cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
-        }else
+  }
+  AnalyzeClauses(solver, solver->longIrredCls, ds, nclause, outer_numbering);
+  int group = ds.Find(first_var);
+  int nirrel = 0;
+  for (uint32_t i = 0; i < nvar; ++i) {
+    if (independent_set.count(i))
+      continue;
+    if (ds.Find(i) != group) {
+      if (outer_numbering) {
+        cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
+      } else
         cout << "useless " << i << "\t";
         useless[i] = 1;
         nirrel++;
@@ -122,10 +123,10 @@ void ClauseDumper::findComponent(const Solver *solver,
         //nirrel++;
       }
     }
-    for (auto var : *solver->conf.independent_vars)
+    for (auto var : *solver->conf.sampling_vars)
       useless[var] = 0;
     cout << "number of unrelated vars:" << nirrel << "\n";
-  }
+}
 
   void ClauseDumper::write_unsat(std::ostream * out) {
     *out << "p cnf 0 1\n"
@@ -139,16 +140,7 @@ void ClauseDumper::findComponent(const Solver *solver,
     outfile = NULL;
   }
 
-  void ClauseDumper::write_sat(std::ostream * out) { *out << "p cnf 0 0\n"; }
-
-  void ClauseDumper::open_file_and_write_sat(const std::string &fname) {
-    open_dump_file(fname);
-    write_sat(outfile);
-    delete outfile;
-    outfile = NULL;
-  }
-
-  void ClauseDumper::dump_irred_clauses(std::ostream * out) {
+void ClauseDumper::dump_irred_clauses(std::ostream *out) {
     if (!solver->okay()) {
       write_unsat(out);
     } else {
@@ -219,10 +211,10 @@ void ClauseDumper::findComponent(const Solver *solver,
       }
       *out << "]\n";
     }
-    if (solver->conf.dump_ind && solver->conf.independent_vars) {
+    if (solver->conf.dump_ind && solver->conf.sampling_vars) {
       *out << "c ind ";
       vector<uint32_t> used(solver->nVars(), false);
-      for (auto var : *solver->conf.independent_vars) {
+      for (auto var : *solver->conf.sampling_vars) {
         if (used[var])
           continue;
         used[var] = true;
@@ -456,8 +448,8 @@ void ClauseDumper::findComponent(const Solver *solver,
       std::ostream * out, const bool outer_numbering) {
     indCompSet.clear();
     //  std::cout << "dump--\n";
-    if (solver->conf.independent_vars && compFinder) {
-      for (uint32_t var : *solver->conf.independent_vars) {
+    if (solver->conf.sampling_vars && compFinder) {
+      for (uint32_t var : *solver->conf.sampling_vars) {
         if (solver->value(var) != l_Undef) {
           indFixSet.insert(var);
           // cout << "fix var:" << var + 1 << "\n";
@@ -470,7 +462,7 @@ void ClauseDumper::findComponent(const Solver *solver,
       }
       /*  for (auto c : indCompSet)
           std::cout << c << "--\n";*/
-      for (uint32_t var : *solver->conf.independent_vars) {
+      for (uint32_t var : *solver->conf.sampling_vars) {
         independent_set.insert(var);
         auto comp = compFinder->getVarComp(var);
         if (comp == 0)

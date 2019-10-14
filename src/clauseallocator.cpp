@@ -232,6 +232,28 @@ ClOffset ClauseAllocator::move_cl(
     return new_offset;
 }
 
+void ClauseAllocator::move_one_watchlist(
+    watch_subarray& ws, ClOffset* newDataStart, ClOffset*& new_ptr)
+{
+    for(Watched& w: ws) {
+        if (w.isClause()) {
+            Clause* old = ptr(w.get_offset());
+            assert(!old->freed());
+            Lit blocked = w.getBlockedLit();
+            if (old->reloced) {
+                ClOffset new_offset = (*old)[0].toInt();
+                #ifdef LARGE_OFFSETS
+                new_offset += ((uint64_t)(*old)[1].toInt())<<32;
+                #endif
+                w = Watched(new_offset, blocked);
+            } else {
+                ClOffset new_offset = move_cl(newDataStart, new_ptr, old);
+                w = Watched(new_offset, blocked);
+            }
+        }
+    }
+}
+
 /**
 @brief If needed, compacts stacks, removing unused clauses
 
@@ -243,6 +265,7 @@ stacks, updates all pointers and offsets, and frees the original stacks.
 void ClauseAllocator::consolidate(
     Solver* solver
     , const bool force
+    , bool lower_verb
 ) {
     //If re-allocation is not really neccessary, don't do it
     //Neccesities:
@@ -252,7 +275,9 @@ void ClauseAllocator::consolidate(
     if (!force
         && (float_div(currentlyUsedSize, size) > 0.8 || currentlyUsedSize < (100ULL*1000ULL))
     ) {
-        if (solver->conf.verbosity >= 1) {
+        if (solver->conf.verbosity >= 3
+            || (lower_verb && solver->conf.verbosity)
+        ) {
             cout << "c Not consolidating memory." << endl;
         }
         return;
@@ -264,28 +289,38 @@ void ClauseAllocator::consolidate(
     BASE_DATA_TYPE * new_ptr = newDataStart;
 
     assert(sizeof(BASE_DATA_TYPE) % sizeof(Lit) == 0);
-    for(auto& ws: solver->watches) {
-        for(Watched& w: ws) {
-            if (w.isClause()) {
-                Clause* old = ptr(w.get_offset());
-                assert(!old->freed());
-                Lit blocked = w.getBlockedLit();
-                if (old->reloced) {
-                    ClOffset new_offset = (*old)[0].toInt();
-                    #ifdef LARGE_OFFSETS
-                    new_offset += ((uint64_t)(*old)[1].toInt())<<32;
-                    #endif
-                    w = Watched(new_offset, blocked);
-                } else {
-                    ClOffset new_offset = move_cl(newDataStart, new_ptr, old);
-                    w = Watched(new_offset, blocked);
-                }
+
+    vector<bool> visited(solver->watches.size(), 0);
+    Heap<Solver::VarOrderLt> &order_heap = solver->VSIDS ? solver->order_heap_vsids : solver->order_heap_maple;
+    if (solver->conf.static_mem_consolidate_order) {
+        for(auto& ws: solver->watches) {
+            move_one_watchlist(ws, newDataStart, new_ptr);
+        }
+    } else {
+        for(uint32_t i = 0; i < order_heap.size(); i++) {
+            for(uint32_t i2 = 0; i2 < 2; i2++) {
+                Lit lit = Lit(order_heap[i], i2);
+                assert(lit.toInt() < solver->watches.size());
+                move_one_watchlist(solver->watches[lit], newDataStart, new_ptr);
+                visited[lit.toInt()] = 1;
+            }
+        }
+        for(uint32_t i = 0; i < solver->watches.size(); i++) {
+            Lit lit = Lit::toLit(i);
+            watch_subarray ws = solver->watches[lit];
+            if (!visited[lit.toInt()]) {
+                move_one_watchlist(ws, newDataStart, new_ptr);
+                visited[lit.toInt()] = 1;
             }
         }
     }
 
     #ifdef USE_GAUSS
     for (EGaussian* gauss : solver->gmatrixes) {
+        if (gauss == NULL) {
+            continue;
+        }
+
         for(auto& gcl: gauss->clauses_toclear) {
             Clause* old = ptr(gcl.first);
             if (old->reloced) {
@@ -339,11 +374,18 @@ void ClauseAllocator::consolidate(
     dataStart = newDataStart;
 
     const double time_used = cpuTime() - myTime;
-    if (solver->conf.verbosity >= 1) {
-        cout << "c [mem] Consolidated memory ";
-        cout << " old size "; print_value_kilo_mega(old_size*sizeof(BASE_DATA_TYPE));
-        cout << "B new size"; print_value_kilo_mega(size*sizeof(BASE_DATA_TYPE));
-        cout << "B bits of offset:" << std::fixed << std::setprecision(2) << std::log2(size);
+    if (solver->conf.verbosity >= 2
+        || (lower_verb && solver->conf.verbosity)
+    ) {
+        size_t log_2_size = 0;
+        if (size > 0) {
+            //yes, it can be 0 (only binary clauses, for example)
+            std::log2(size);
+        }
+        cout << "c [mem] consolidate ";
+        cout << " old-sz: "; print_value_kilo_mega(old_size*sizeof(BASE_DATA_TYPE));
+        cout << " new-sz: "; print_value_kilo_mega(size*sizeof(BASE_DATA_TYPE));
+        cout << " new bits offs: " << std::fixed << std::setprecision(2) << log_2_size;
         cout << solver->conf.print_times(time_used)
         << endl;
     }

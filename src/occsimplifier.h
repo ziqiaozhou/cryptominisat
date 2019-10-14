@@ -108,7 +108,6 @@ struct BVEStats
     int64_t numVarsElimed = 0;
     uint64_t varElimTimeOut = 0;
     uint64_t clauses_elimed_long = 0;
-    uint64_t clauses_elimed_tri = 0;
     uint64_t clauses_elimed_bin = 0;
     uint64_t clauses_elimed_sumsize = 0;
     uint64_t longRedClRemThroughElim = 0;
@@ -181,15 +180,12 @@ struct BVEStats
         print_stats_line("c cl-elim-bin"
             , clauses_elimed_bin);
 
-        print_stats_line("c cl-elim-tri"
-            , clauses_elimed_tri);
-
         print_stats_line("c cl-elim-long"
             , clauses_elimed_long);
 
         print_stats_line("c cl-elim-avg-s",
             ((double)clauses_elimed_sumsize
-            /(double)(clauses_elimed_bin + clauses_elimed_tri + clauses_elimed_long))
+            /(double)(clauses_elimed_bin + clauses_elimed_long))
         );
 
         print_stats_line("c v-elim-sub"
@@ -214,7 +210,6 @@ public:
     ~OccSimplifier();
 
     //Called from main
-    bool setup();
     bool simplify(const bool _startup, const std::string schedule);
     void new_var(const uint32_t orig_outer);
     void new_vars(const size_t n);
@@ -236,18 +231,20 @@ public:
 
     struct Stats
     {
-        void print(const size_t nVars) const;
-        void print_short() const;
+        void print(const size_t nVars, OccSimplifier* occs) const;
+        void print_extra_times() const;
         Stats& operator+=(const Stats& other);
         void clear();
-        double total_time() const;
+        double total_time(OccSimplifier* occs) const;
 
         uint64_t numCalls = 0;
+        uint64_t ternary_added = 0;
 
         //Time stats
         double linkInTime = 0;
-        double blockTime = 0;
         double varElimTime = 0;
+        double xorTime = 0;
+        double triresolveTime = 0;
         double finalCleanupTime = 0;
 
         //General stat
@@ -258,11 +255,11 @@ public:
     BVEStats bvestats_global;
 
     const Stats& get_stats() const;
-    const SubsumeStrengthen* getSubsumeStrengthen() const;
+    const SubsumeStrengthen* get_sub_str() const;
     void check_elimed_vars_are_unassigned() const;
-    void check_clid_correct() const;
     bool getAnythingHasBeenBlocked() const;
-    void freeXorMem();
+
+    /// Used ONLY for XOR, changes occur setup
     void sort_occurs_and_set_abst();
     void save_state(SimpleOutFile& f);
     void load_state(SimpleInFile& f);
@@ -279,7 +276,13 @@ public:
         , bool only_set_is_removed = false
     );
     void free_clauses_to_free();
-    void cleanBlockedClausesIfDirty();
+
+    //Setup and teardown. Should be private, but testing needs it to be public
+    bool setup();
+    void finishUp(size_t origTrailSize);
+
+    //Ternary resolution. Should be private but testing needs it to be public
+    bool ternary_res();
 
 private:
     friend class SubsumeStrengthen;
@@ -290,6 +293,11 @@ private:
     bool backward_sub_str();
     bool execute_simplifier_strategy(const string& strategy);
 
+    //Ternary resolution
+    bool perform_ternary(Clause* cl, ClOffset offs);
+    void check_ternary_cl(Clause* cl, ClOffset offs, watch_subarray ws);
+    vector<vector<Lit>> cl_to_add_ternary;
+
     //debug
     bool subsetReverse(const Clause& B) const;
 
@@ -298,12 +306,12 @@ private:
     vector<uint16_t>& seen;
     vector<uint8_t>& seen2;
     vector<Lit>& toClear;
-    vector<bool> indep_vars;
+    vector<bool> sampling_vars_occsimp;
 
     //Temporaries
     vector<Lit>     dummy;       ///<Used by merge()
 
-    //Limits
+    //Time Limits
     uint64_t clause_lits_added;
     int64_t  strengthening_time_limit;              ///<Max. number self-subsuming resolution tries to do this run
     int64_t  subsumption_time_limit;              ///<Max. number backward-subsumption tries to do this run
@@ -311,12 +319,16 @@ private:
     int64_t  empty_varelim_time_limit;
     int64_t  varelim_num_limit;
     int64_t  varelim_sub_str_limit;
+    int64_t  ternary_res_time_limit;
+    int64_t  ternary_res_cls_limit;
     int64_t* limit_to_decrease;
+
+    //Memory limits
+    int64_t  varelim_linkin_limit_bytes;
 
     //Start-up
     bool fill_occur();
     bool fill_occur_and_print_stats();
-    void finishUp(size_t origTrailSize);
     struct LinkInData
     {
         LinkInData()
@@ -342,7 +354,6 @@ private:
     uint64_t calc_mem_usage_of_occur(const vector<ClOffset>& toAdd) const;
     void     print_mem_usage_of_occur(uint64_t memUsage) const;
     void     print_linkin_data(const LinkInData link_in_data) const;
-    bool     decide_occur_limit(bool irred, uint64_t memUsage);
     OccSimplifier::LinkInData link_in_clauses(
         const vector<ClOffset>& toAdd
         , bool alsoOccur
@@ -568,7 +579,7 @@ inline bool OccSimplifier::subsetReverse(const Clause& B) const
     return true;
 }
 
-inline const SubsumeStrengthen* OccSimplifier::getSubsumeStrengthen() const
+inline const SubsumeStrengthen* OccSimplifier::get_sub_str() const
 {
     return sub_str;
 }

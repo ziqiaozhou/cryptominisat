@@ -146,7 +146,7 @@ void Count::readVictimModel(SATSolver *&solver) {
   for (auto lits : new_symbol_vars)
     for (auto lit : lits.second)
       ind_vars.push_back(lit.var());
-  solver->set_independent_vars(&ind_vars);
+  solver->set_sampling_vars(&ind_vars);
   solver->simplify();
   solver->renumber_variables(true);
   string victim_cnf_file = out_dir_ + "//" + out_file_ + ".simp";
@@ -157,7 +157,7 @@ void Count::readVictimModel(SATSolver *&solver) {
   auto newconf = conf;
   solver = new SATSolver((void *)&newconf);
   symbol_vars.clear();
-  independent_vars.clear();
+  sampling_vars.clear();
   readInAFile(solver, victim_cnf_file);
   /*
   vector<uint32_t> secret_vars(victim_model_[SECRET_].begin(),
@@ -319,7 +319,7 @@ void Count::run() {
 
   if (symmap_file_.length() > 0){
     symbol_vars.clear();
-    independent_vars.clear();
+    sampling_vars.clear();
     readInAFile(solver, symmap_file_);
   }
   cerr << "read model\n";
@@ -351,7 +351,7 @@ void Count::run() {
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
                   std::ofstream *count_f) {
   cerr << "count\n" << solver;
-  solver->set_independent_vars(&count_vars);
+  solver->set_sampling_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
   trimVar(solver,secret_vars);

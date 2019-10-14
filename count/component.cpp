@@ -40,13 +40,13 @@ void findComponent(const SATSolver *sat_solver) {
   cout << "try find component\n";
   vector<int> nclause(sat_solver->nVars());
   Solver *solver = sat_solver->GetSolver(0);
-  if (solver->conf.independent_vars == nullptr ||
-      solver->conf.independent_vars->size() == 0)
+  if (solver->conf.sampling_vars == nullptr ||
+      solver->conf.sampling_vars->size() == 0)
     return;
   size_t wsLit = 0;
   DisjointSet ds(sat_solver->nVars());
-  auto first_var = solver->conf.independent_vars->at(0);
-  for (auto var : *solver->conf.independent_vars) {
+  auto first_var = solver->conf.sampling_vars->at(0);
+  for (auto var : *solver->conf.sampling_vars) {
     ds.Union(first_var, var);
   }
   for (watch_array::const_iterator it = solver->watches.begin(),

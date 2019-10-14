@@ -70,7 +70,8 @@ class InTree;
 
 struct SolveStats
 {
-    uint64_t numSimplify = 0;
+    uint32_t num_simplify = 0;
+    uint32_t num_simplify_this_solve_call = 0;
     uint32_t num_solve_calls = 0;
 };
 
@@ -97,15 +98,18 @@ class Solver : public Searcher
         lbool full_model_value (const Lit p) const;  ///<Found model value for lit
         lbool full_model_value (const uint32_t p) const;  ///<Found model value for var
         const vector<lbool>& get_model() const;
+        const vector<Lit>& get_decisions_reaching_model() const;
         const vector<Lit>& get_final_conflict() const;
         vector<pair<Lit, Lit> > get_all_binary_xors() const;
         vector<Xor> get_recovered_xors(bool elongate);
+        bool get_decision_reaching_valid() const;
 
         //get learnt clauses
         void start_getting_small_clauses(uint32_t max_len, uint32_t max_glue);
         bool get_next_small_clause(std::vector<Lit>& out);
         void end_getting_small_clauses();
-        void dump_irred_clauses_ind_only(std::ostream *out);
+
+        void dump_irred_clauses_ind_only(std::ostream *out) ;
         void dump_irred_clauses(std::ostream *out) const;
         void dump_red_clauses(std::ostream *out) const;
         void open_file_and_dump_irred_clauses(const std::string &fname) const;
@@ -168,9 +172,7 @@ class Solver : public Searcher
         void update_assumptions_after_varreplace();
 
         //State load/unload
-
-        void save_all(lbool status) const;
-		void save_state(const string& fname, const lbool status) const;
+        void save_state(const string& fname, const lbool status) const;
         lbool load_state(const string& fname);
         template<typename A>
         void parse_v_line(A* in, const size_t lineNum);
@@ -262,17 +264,15 @@ class Solver : public Searcher
         //Helper
         void renumber_xors_to_outside(const vector<Xor>& xors, vector<Xor>& xors_ret);
         void testing_set_solver_not_fresh();
-        void renumber_clauses(const vector<uint32_t>& outerToInter);
-        void renumber_clauses_by_table(const std::vector<uint32_t> &outer,
-                                       const std::vector<uint32_t> &innner);
+        void check_assigns_for_assumptions() const;
+        bool check_assumptions_contradict_foced_assignement() const;
+
     private:
         friend class Prober;
         friend class ClauseDumper;
         #ifdef CMS_TESTING_ENABLED
         FRIEND_TEST(SearcherTest, pickpolar_auto_not_changed_by_simp);
         #endif
-        void EnsureUnRemovedTrackedVars(vector<uint32_t> * lits);
-        void EnsureUnRemovedTrackedLits(vector<Lit> * lits);
 
         vector<Lit> add_clause_int_tmp_cl;
         lbool iterate_until_solved();
@@ -326,12 +326,14 @@ class Solver : public Searcher
         void print_full_restart_stat(const double cpu_time, const double cpu_time_total) const;
 
         lbool simplify_problem(const bool startup);
-        bool execute_inprocess_strategy(const bool startup, const string& strategy);
+        lbool execute_inprocess_strategy(const bool startup, const string& strategy);
         SolveStats solveStats;
         void check_minimization_effectiveness(lbool status);
         void check_recursive_minimization_effectiveness(const lbool status);
         void extend_solution(const bool only_indep_solution);
         void check_too_many_low_glues();
+        void EnsureUnRemovedTrackedVars(vector<uint32_t> *vars);
+        void EnsureUnRemovedTrackedLits(vector<Lit> *lit);
         bool adjusted_glue_cutoff_if_too_many = false;
 
         /////////////////////////////
@@ -354,12 +356,14 @@ class Solver : public Searcher
         //Renumberer
         double calc_renumber_saving();
         void free_unused_watches();
+        uint64_t last_full_watch_consolidate = 0;
         void save_on_var_memory(uint32_t newNumVars);
         void unSaveVarMem();
         size_t calculate_interToOuter_and_outerToInter(
             vector<uint32_t>& outerToInter
             , vector<uint32_t>& interToOuter
         );
+        void renumber_clauses(const vector<uint32_t>& outerToInter);
         void test_renumbering() const;
         bool clean_xor_clauses_from_duplicate_and_set_vars();
 
@@ -580,6 +584,11 @@ inline const vector<lbool>& Solver::get_model() const
     return model;
 }
 
+inline const vector<Lit>& Solver::get_decisions_reaching_model() const
+{
+    return decisions_reaching_model;
+}
+
 inline const vector<Lit>& Solver::get_final_conflict() const
 {
     return conflict;
@@ -612,19 +621,14 @@ inline lbool Solver::model_value (const uint32_t p) const
     return model[p];
 }
 
-inline lbool Solver::full_model_value (const Lit p) const
-{
-    return full_model[p.var()] ^ p.sign();
-}
-
-inline lbool Solver::full_model_value  (const uint32_t p) const
-{
-    return full_model[p];
-}
-
 inline void Solver::testing_set_solver_not_fresh()
 {
     fresh_solver = false;
+}
+
+inline bool Solver::get_decision_reaching_valid() const
+{
+    return decisions_reaching_model_valid;
 }
 
 } //end namespace

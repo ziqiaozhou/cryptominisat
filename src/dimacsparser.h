@@ -44,7 +44,7 @@ public:
   template <class T>
   bool parse_DIMACS(T input_stream, const bool strict_header);
   uint64_t max_var = std::numeric_limits<uint64_t>::max();
-  vector<uint32_t> independent_vars;
+  vector<uint32_t> sampling_vars;
   vector<uint32_t> dependent_vars;
   vector<uint32_t> jaccard_vars;
   vector<uint32_t> jaccard_vars2;
@@ -459,50 +459,55 @@ template <class C> bool DimacsParser<C>::parse_and_add_xor_clause(C &in) {
   return true;
 }
 
-template <class C> bool DimacsParser<C>::parse_DIMACS_main(C &in) {
-  std::string str;
+template<class C>
+bool DimacsParser<C>::parse_DIMACS_main(C& in)
+{
+    std::string str;
 
-  for (;;) {
-    in.skipWhitespace();
-    switch (*in) {
-    case EOF:
-      return true;
-    case 'p':
-      if (!printHeader(in)) {
-        return false;
-      }
-      in.skipLine();
-      lineNum++;
-      break;
-    case 'c':
-      ++in;
-      in.parseString(str);
-      if (!parseComments(in, str)) {
-        return false;
-      }
-      break;
-    case 'x':
-      ++in;
-      if (!parse_and_add_xor_clause(in)) {
-        return false;
-      }
-      break;
-    case '\n':
-      std::cerr << "c WARNING: Empty line at line number " << lineNum + 1
-                << " -- this is not part of the DIMACS specifications ("
-                << dimacs_spec << "). Ignoring." << endl;
-      in.skipLine();
-      lineNum++;
-      break;
-    default:
-      if (!parse_and_add_clause(in)) {
-        return false;
-      }
-      break;
+    for (;;) {
+        in.skipWhitespace();
+        switch (*in) {
+        case EOF:
+            return true;
+        case 'p':
+            if (!printHeader(in)) {
+                return false;
+            }
+            in.skipLine();
+            lineNum++;
+            break;
+        case 'c':
+        case 'w':
+            ++in;
+            in.parseString(str);
+            if (!parseComments(in, str)) {
+                return false;
+            }
+            break;
+        case 'x':
+            ++in;
+            if (!parse_and_add_xor_clause(in)) {
+                return false;
+            }
+            break;
+        case '\n':
+            std::cerr
+            << "c WARNING: Empty line at line number " << lineNum+1
+            << " -- this is not part of the DIMACS specifications ("
+            << dimacs_spec << "). Ignoring."
+            << endl;
+            in.skipLine();
+            lineNum++;
+            break;
+        default:
+            if (!parse_and_add_clause(in)) {
+                return false;
+            }
+            break;
+        }
     }
-  }
 
-  return true;
+    return true;
 }
 
 template <class C>
@@ -608,7 +613,7 @@ template <class C> bool DimacsParser<C>::parseIndependentSet(C &in) {
       break;
     }
     uint32_t var = std::abs(parsed_lit) - 1;
-    independent_vars.push_back(var);
+    sampling_vars.push_back(var);
   }
   return true;
 }
@@ -622,7 +627,7 @@ template <class C> bool DimacsParser<C>::parseAttackSet(C &in) {
       break;
     }
     uint32_t var = std::abs(parsed_lit) - 1;
-    independent_vars.push_back(var);
+    sampling_vars.push_back(var);
     attack_vars.push_back(var);
   }
   return true;
@@ -638,7 +643,7 @@ template <class C> bool DimacsParser<C>::parseObSet(C &in) {
     }
     uint32_t var = std::abs(parsed_lit) - 1;
     ob_vars.push_back(var);
-    independent_vars.push_back(var);
+    sampling_vars.push_back(var);
   }
   return true;
 }

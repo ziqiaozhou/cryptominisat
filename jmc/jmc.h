@@ -123,8 +123,8 @@ class JaccardMC : public Main
 		std::set<std::string> cachedSolutions;
 		std::vector<std::string> cachedSubSolutions[3];
 		std::vector<std::string> cachedFullSolutions[3];
-		std::vector<uint32_t> independent_vars0;
-	
+		std::vector<uint32_t> sampling_vars0;
+
 
 		std::set<std::string> independent_samples;
 		std::set<std::string> jaccard_samples;
@@ -224,7 +224,7 @@ void SetSampledJaccardHatHash(unsigned int, std::vector<std::vector<CMSat::Lit>>
     double tStdError = 0.05;
     double prevTime;
     unsigned endJaccardIndex = 0;
-    
+
     int printXor = 0;
     int trimOnly = 0;
     int onlyOne = 0;

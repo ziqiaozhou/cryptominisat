@@ -51,7 +51,8 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , clause_decay(0.999)
         , adjust_glue_if_too_many_low(0.7)
         , min_num_confl_adjust_glue_cutoff(150ULL*1000ULL)
-        , guess_cl_effectiveness(0)
+        //NOTE: The "Scavel" system's "usedt" does NOT speed up the solver
+        //test conducted: out-drat-check-8359337.wlm01-1-drat0
 
         //maple
         , maple(true)
@@ -91,7 +92,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , print_all_restarts (false)
         , verbStats        (0)
         , do_print_times(1)
-        , print_restart_line_every_n_confl(4096)
+        , print_restart_line_every_n_confl(8192)
 
         //Limits
         , maxTime          (std::numeric_limits<double>::max())
@@ -104,6 +105,12 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , otfHyperbin      (true)
         , doOTFSubsume     (false)
         , doOTFSubsumeOnlyAtOrBelowGlue(5)
+
+        //decision-based clause generation. These values have been validated
+        //see 8099966.wlm01
+        , do_decision_based_cl(1)
+        , decision_based_cl_max_levels(9)
+        , decision_based_cl_min_learned_size(50)
 
         //SQL
         , dump_individual_restarts_and_clauses(true)
@@ -120,23 +127,30 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , varElimRatioPerIter(1.60)
         , skip_some_bve_resolvents(true) //based on gates
         , velim_resolvent_too_large(20)
+        , var_linkin_limit_MB(1000)
 
         //Subs, str limits for simplifier
         , subsumption_time_limitM(300)
         , strengthening_time_limitM(300)
         , aggressive_elim_time_limitM(300)
 
+
+        //Ternary resolution
+        , doTernary(false)
+        , ternary_res_time_limitM(100)
+
         //Bounded variable addition
-        , do_bva(false)
+        , do_bva(true)
         #ifdef USE_GAUSS
         , min_bva_gain(2)
         #else
         , min_bva_gain(32)
         #endif
         , bva_limit_per_call(150000)
-        , bva_also_twolit_diff(true)
+        , bva_also_twolit_diff(false)
         , bva_extra_lit_and_red_start(0)
-        , bva_time_limitM(100)
+        , bva_time_limitM(50)
+        , bva_every_n(20)
 
         //Probing
         , doProbe          (false)
@@ -182,31 +196,40 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , num_conflicts_of_search(50ULL*1000ULL)
         , num_conflicts_of_search_inc(1.4)
         , num_conflicts_of_search_inc_max(10)
+        , max_num_simplify_per_solve_call(25)
         , simplify_schedule_startup(
             "sub-impl,"
             "occ-backw-sub-str, occ-clean-implicit, occ-bve,"
-            "occ-backw-sub-str, occ-xor,"
+            "occ-ternary-res, occ-backw-sub-str, occ-xor, "
+            "cl-consolidate," //consolidate after OCC
             "scc-vrepl,"
             "sub-cls-with-bin,"
+            "sls,"
         )
+
+        //validated with run 8114195.wlm01
         , simplify_schedule_nonstartup(
             "handle-comps,"
             "scc-vrepl, cache-clean, cache-tryboth,"
             "sub-impl, intree-probe, probe,"
             "sub-str-cls-with-bin, distill-cls,"
             "scc-vrepl, sub-impl, str-impl, sub-impl,"
-            "occ-backw-sub-str, occ-clean-implicit, occ-bve, occ-bva, "//occ-gates,"
-            "occ-xor,"
+            "occ-backw-sub-str, occ-clean-implicit, occ-bve, occ-bva,"//occ-gates,"
+            "occ-ternary-res, occ-xor,"
+            "cl-consolidate," //consolidate after OCC
             "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls,"
             "scc-vrepl, check-cache-size, renumber,"
+            "sls,"
         )
         , simplify_schedule_preproc(
             "handle-comps,"
             "scc-vrepl, cache-clean, cache-tryboth,"
             "sub-impl,"
             "sub-str-cls-with-bin, distill-cls, scc-vrepl, sub-impl,"
-            "occ-backw-sub-str, occ-xor, occ-clean-implicit, occ-bve, occ-bva,"
+            "occ-backw-sub-str, occ-clean-implicit, occ-bve, occ-bva,"
+            "occ-ternary-res, occ-xor,"
             //"occ-gates,"
+            "cl-consolidate," //consolidate after OCC
             "str-impl, cache-clean, sub-str-cls-with-bin, distill-cls, scc-vrepl, sub-impl,"
             "str-impl, sub-impl, sub-str-cls-with-bin,"
             "intree-probe, probe,"
@@ -222,6 +245,14 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , maxOccurRedLitLinkedM(50)
         , subsume_gothrough_multip(2.0)
 
+        //WalkSAT
+        , doSLS(true)
+        , sls_every_n(4)
+        , yalsat_max_mems(150)
+        , sls_memoutMB(500)
+        , walksat_max_runs(50)
+        , which_sls("yalsat")
+
         //Distillation
         , do_distill_clauses(true)
         , distill_long_cls_time_limitM(20ULL)
@@ -230,7 +261,10 @@ DLL_PUBLIC SolverConf::SolverConf() :
 
         //Memory savings
         , doRenumberVars   (true)
+        , must_renumber    (false)
         , doSaveMem        (true)
+        , full_watch_consolidate_every_n_confl (4ULL*1000ULL*1000ULL) //validated in run 8113323.wlm01
+        , static_mem_consolidate_order(true)
 
         //Component finding
         , doCompHandler    (false)
@@ -255,7 +289,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
 
         //Greedy Undef
         , greedy_undef(false)
-        , independent_vars(NULL)
+        , sampling_vars(NULL)
         ,symbol_vars(NULL)
         ,keep_symbol(true)
         ,max_sol_(1)
@@ -275,6 +309,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         , reconfigure_at(2)
         , preprocess(0)
         , simulate_drat(false)
+        , need_decisions_reaching(false)
         , saved_state_file("savedstate.dat")
 {
     ratio_keep_clauses[clean_to_int(ClauseClean::glue)] = 0;
