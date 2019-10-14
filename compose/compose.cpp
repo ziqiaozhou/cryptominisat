@@ -366,6 +366,9 @@ int main(int argc, char **argv) {
   compose.conf.verbStats = 1;
   compose.conf.preprocess = 1;
   compose.conf.doRenumberVars = false;
+  compose.conf.do_bva=1;
+  compose.conf.velim_resolvent_too_large=-1;
+  compose.conf.varelim_cutoff_too_many_clauses=200000;
   compose.parseCommandLine();
   compose.run();
 }

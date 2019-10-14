@@ -33,19 +33,20 @@ using namespace CMSat;
 class DisjointSet { // to represent disjoint set
 
 public:
-  std::unordered_map<uint32_t,uint32_t> parent;
+  std::vector<uint32_t> parent;
 
-  DisjointSet(int n) {}
-  int Find(int l) { // Find the root of the set in which element l belongs
-    if (parent.count(l)==0)
-      return l;
+  DisjointSet(uint32_t n) {
+    parent.resize(n);
+    for(int i=0;i<n;++i) parent[i]=i;
+  }
+  uint32_t Find(uint32_t l) { // Find the root of the set in which element l belongs
     if (parent[l] == l) // if l is root
       return l;
     return Find(parent[l]); // recurs for parent till we find root
   }
-  int Union(int m, int n) { // perform Union of two subsets m and n
-    int x = Find(m);
-    int y = Find(n);
+  int Union(uint32_t m, uint32_t n) { // perform Union of two subsets m and n
+    uint32_t x = Find(m);
+    uint32_t y = Find(n);
     if (y < x)
       parent[x] = y;
     else
@@ -61,7 +62,7 @@ void AnalyzeClauses(const Solver *solver, const vector<ClOffset> &cls,
        it != end; ++it) {
       Clause &cl = *(solver->cl_alloc.ptr(*it));
 
-      int group = cl[0].var();
+      uint32_t group = cl[0].var();
       for (size_t i = 0; i < cl.size(); i++) {
         group = ds.Union(group, cl[i].var());
         nclause[cl[i].var()]++;
@@ -71,7 +72,7 @@ void AnalyzeClauses(const Solver *solver, const vector<ClOffset> &cls,
 void ClauseDumper::findComponent(const Solver *solver,
                                    std::map<uint32_t, bool> &useless, bool outer_numbering) {
     cout << "try find component\n";
-    size_t nvar = solver->nVarsOutside();
+    size_t nvar = solver->nVars();
 
     vector<int> nclause(nvar);
     if (solver->conf.independent_vars == nullptr ||
@@ -101,15 +102,14 @@ void ClauseDumper::findComponent(const Solver *solver,
     AnalyzeClauses(solver, solver->longIrredCls, ds, nclause,outer_numbering);
     int group = ds.Find(first_var);
     int nirrel = 0;
-    for (auto var_group : ds.parent) {
-      auto i = var_group.first;
+    for (uint32_t i=0;i<nvar;++i) {
       if (independent_set.count(i))
         continue;
       if (ds.Find(i) != group) {
         if(outer_numbering){
           cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
         }else
-        cout << " " << i << "\t";
+        cout << "useless " << i << "\t";
         useless[i] = 1;
         nirrel++;
       } else if (nclause[i] < 2) {
