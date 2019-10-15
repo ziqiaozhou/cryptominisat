@@ -728,9 +728,10 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
   size_t numEffectiveVars = 0;
   if (conf.sampling_vars != nullptr) {
     for (auto &i : *conf.sampling_vars) {
-      assert(varData[i].removed != Removed::replaced);
-      assert(varData[i].removed != Removed::elimed);
-      assert(varData[i].removed != Removed::decomposed);
+      uint32_t int_var = map_outer_to_inter(i);
+      assert(varData[int_var].removed != Removed::replaced);
+      assert(varData[int_var].removed != Removed::elimed);
+      assert(varData[int_var].removed != Removed::decomposed);
       if (outerToInter[i] != -1)
         continue;
       outerToInter[i] = at;
@@ -887,7 +888,7 @@ void Solver::EnsureUnRemovedTrackedLits(vector<Lit> *lits) {
       uint32_t int_var = this->map_outer_to_inter(replaced_with.var());
       lit = replaced_with;
       //std::cerr<<lit<<"is replaced with"<<replaced_with<<"\n";
-      if(varData[int_var].removed!=Removed::none){
+      if(varData[replaced_with.var()].removed!=Removed::none){
         std::cerr<<lit<<"is replaced with"<<replaced_with<<((varData[replaced_with.var()].removed==Removed::elimed)?"elimed":"other")<<"\n";
       }
       assert(varData[int_var].removed==Removed::none);
