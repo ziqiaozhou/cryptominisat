@@ -251,10 +251,10 @@ void Compose::copy_compose() {
     // if (prev_state != "s0")
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    if (simplify_interval_ < 2 || (i > 0 && i % simplify_interval_ == 0)) {
+    init_solver->simplify();
+    /*if (simplify_interval_ < 2 || (i > 0 && i % simplify_interval_ == 0)) {
       init_solver->simplify();
-    //  init_solver->renumber_variables(true);
-    }
+    }*/
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
