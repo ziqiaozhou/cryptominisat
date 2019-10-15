@@ -1111,6 +1111,29 @@ void DLL_PUBLIC SATSolver::set_up_for_scalmc()
     }
 }
 
+void DLL_PUBLIC SATSolver::set_up_for_jaccard_count()
+{
+    for (size_t i = 0; i < data->solvers.size(); i++) {
+        SolverConf conf = data->solvers[i]->getConf();
+        conf.gaussconf.max_num_matrixes = 5*4;
+        conf.gaussconf.max_matrix_rows = 5000*4;
+        conf.gaussconf.autodisable = false;
+        conf.global_multiplier_multiplier_max = 6;
+        conf.global_timeout_multiplier_multiplier = 1.5;
+        uint32_t xor_cut = 4;
+        assert(xor_cut >= 3);
+        conf.xor_var_per_cut = xor_cut-2;
+        conf.simplify_at_startup = 1;
+        conf.varElimRatioPerIter = 1;
+        conf.restartType = Restart::geom;
+        conf.polarity_mode = CMSat::PolarityMode::polarmode_neg;
+        conf.maple = 0;
+        conf.do_simplify_problem = true;
+        conf.keep_symbol=false;
+        data->solvers[i]->setConf(conf);
+    }
+}
+
 DLL_PUBLIC const std::vector<Lit>& SATSolver::get_decisions_reaching_model() const
 {
     if (!get_decision_reaching_valid()) {

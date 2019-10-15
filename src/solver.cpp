@@ -883,6 +883,10 @@ void Solver::EnsureUnRemovedTrackedLits(vector<Lit> *lits) {
       auto replaced_with = solver->varReplacer->get_lit_replaced_with_outer(Lit(outer_var,lit.sign()));
       i=outer_var;
       lit = replaced_with;
+      std::cerr<<lit<<"is replaced with"<<replaced_with<<"\n";
+      if(varData[replaced_with.var()].removed!=Removed::none){
+        std::cerr<<lit<<"is replaced with"<<replaced_with<<((varData[replaced_with.var()].removed==Removed::elimed)?"elimed":"other")<<"\n";
+      }
       assert(varData[replaced_with.var()].removed==Removed::none);
     /*
     if (varData[i].removed == Removed::replaced) {
@@ -929,11 +933,11 @@ bool Solver::renumber_variables(bool must_renumber) {
   /*replace the removed vars*/
   if (conf.sampling_vars)
     EnsureUnRemovedTrackedVars(conf.sampling_vars);
-
-  if (conf.symbol_vars)
-    for (auto &one_symbol_vars : *conf.symbol_vars) {
-      EnsureUnRemovedTrackedLits(&one_symbol_vars.second);
-    }
+  if(conf.keep_symbol)
+    if (conf.symbol_vars)
+      for (auto &one_symbol_vars : *conf.symbol_vars) {
+        EnsureUnRemovedTrackedLits(&one_symbol_vars.second);
+      }
 
   size_t numEffectiveVars =
       calculate_interToOuter_and_outerToInter(outerToInter, interToOuter);
@@ -966,7 +970,7 @@ bool Solver::renumber_variables(bool must_renumber) {
     map_user_specified_vars(conf.sampling_vars, outerToInter,
                             numEffectiveVars);
   }
-  if (conf.symbol_vars)
+  if (conf.symbol_vars && conf.keep_symbol)
     for (auto &one_symbol_vars : *conf.symbol_vars) {
       map_user_specified_lits(&one_symbol_vars.second, outerToInter,
                               numEffectiveVars);

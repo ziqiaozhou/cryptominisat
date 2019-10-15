@@ -57,10 +57,20 @@ template <class T> void print_map(std::map<std::string, vector<T>> &map) {
   }
 }
 
-void Count::RecordCount(int sol, int hash_count) {
+void Count::RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_secret_lits) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
-  count_f << sol << "\t" << hash_count << "\n";
+  string sxor="";
+  for(auto x: added_secret_lits){
+    sxor+="xor(";
+    for(auto l: x){
+      if(sxor[sxor.length()-1]!=',' && sxor[sxor.length()-1]!='(')
+        sxor+=",";
+      sxor+=std::to_string(l);
+    }
+    sxor+=");";
+  }
+  count_f << sol << "\t" << hash_count << "\t%"<<sxor<<"\n";
   count_f.close();
 }
 
@@ -68,7 +78,7 @@ void Count::RecordSolution() {
 
   if (!record_solution_)
     return;
-  std::cerr << "start record solution";
+  std::cout << "start record solution\n";
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
@@ -268,7 +278,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
       if (ret == l_True) {
-        cerr << " sol no.  " << std::setw(3) << solutions;
+        cout << " sol no.  " << std::setw(3) << solutions;
       } else {
         cout << " No more. " << std::setw(3) << "";
       }
@@ -331,23 +341,23 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
 }
 
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
-  cerr << "count\n" << solver;
+  cout << "count\n" << solver;
   solver->set_sampling_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
   trimVar(solver, secret_vars);
-  cerr << "Sample\n";
+  cout << "Sample\n";
   Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
          true);
-  cerr << "Sample end\n";
+  cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
   solver->simplify();
   trimVar(solver, count_vars);
-  cerr << "count size=" << count_vars.size();
+  cout << "count size=" << count_vars.size();
 
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
   RecordSolution();
-  cerr << "count end\n";
+  cout << "count end\n";
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
   int prev_hash_count = 0, hash_count = 0;
@@ -358,7 +368,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     return;
   cout << "found solution" << nsol << "* 2^" << hash_count;
   if (nsol < max_sol_) {
-    RecordCount(nsol, hash_count);
+    RecordCount(nsol, hash_count,added_secret_lits);
     return;
   }
   if (search_all == false) {
@@ -373,6 +383,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     solution_lits.clear();
     while (left < right) {
       hash_count = left + (right - left) / 2;
+      cout << "starting... hash_count="<<hash_count<<"\n";
       Sample(solver, count_vars, hash_count, count_watch, added_count_lits);
       assump.clear();
       assump = secret_watch;
@@ -397,7 +408,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     while (solutions[hash_count] == 0)
       hash_count--;
     cout << "found solution" << solutions[hash_count] << "* 2^" << hash_count;
-    RecordCount(solutions[hash_count], hash_count);
+    RecordCount(solutions[hash_count], hash_count,added_secret_lits);
     RecordSolution();
     left = hash_count - hash_count / 2;
     right = std::min(int(count_vars.size()), hash_count + hash_count / 2);
@@ -424,10 +435,10 @@ void Count::run() {
   cerr << "read model\n";
   readVictimModel(solver);
   cerr << "end model\n";
-  solver->set_up_for_scalmc();
-  conf.gaussconf.max_num_matrixes *= 4;
-  conf.gaussconf.autodisable = false;
-  conf.gaussconf.max_matrix_rows *= 20;
+
+  // this will set keep_symbol=0, which means it will keep sampling_var but eliminate symbol
+  solver->set_up_for_jaccard_count();
+
 
   vector<uint32_t> secret_vars;
   for (auto lit : symbol_vars[SECRET_]) {
@@ -457,7 +468,8 @@ int main(int argc, char **argv) {
   Count.conf.verbStats = 1;
   Count.conf.preprocess = 0;
   Count.conf.restart_first = 1000000;
-  Count.conf.doRenumberVars = true;
+  Count.conf.keep_symbol=1;
+  //Count.conf.doRenumberVars = true;
   Count.parseCommandLine();
   Count.run();
 }

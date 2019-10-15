@@ -43,7 +43,7 @@ private:
     return true;
   }
   void RecordSolution();
-  void RecordCount(int sol, int hash_count);
+  void RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_secret_lits);
 
   void readVictimModel(SATSolver *&solver);
   po::options_description countOptions_;
