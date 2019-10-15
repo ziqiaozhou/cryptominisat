@@ -56,28 +56,30 @@ template <class T> void print_map(std::map<std::string, vector<T>> &map) {
     cout << "\n";
   }
 }
-static string getSSignature(vector<vector<uint32_t>>& added_secret_lits){
-  string sxor="";
-  for(auto x: added_secret_lits){
-    sxor+="xor(";
-    for(auto l: x){
-      if(sxor[sxor.length()-1]!=',' && sxor[sxor.length()-1]!='(')
-        sxor+=",";
-      sxor+=std::to_string(l);
+static string getSSignature(vector<vector<uint32_t>> &added_secret_lits) {
+  string sxor = "";
+  for (auto x : added_secret_lits) {
+    sxor += "xor(";
+    for (auto l : x) {
+      if (sxor[sxor.length() - 1] != ',' && sxor[sxor.length() - 1] != '(')
+        sxor += ",";
+      sxor += std::to_string(l);
     }
-    sxor+=");";
+    sxor += ");";
   }
   return sxor;
 }
-void Count::RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_secret_lits) {
+void Count::RecordCount(int sol, int hash_count,
+                        vector<vector<uint32_t>> &added_secret_lits) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
 
-  count_f << sol << "\t" << hash_count << "\t%"<<getSSignature(added_secret_lits)<<"\n";
+  count_f << sol << "\t" << hash_count << "\t%"
+          << getSSignature(added_secret_lits) << "\n";
   count_f.close();
 }
 
-void Count::RecordSolution(vector<vector<uint32_t>>& added_secret_lits) {
+void Count::RecordSolution(vector<vector<uint32_t>> &added_secret_lits) {
 
   if (!record_solution_)
     return;
@@ -85,7 +87,7 @@ void Count::RecordSolution(vector<vector<uint32_t>>& added_secret_lits) {
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
-    solution_f << lit << " % "<<getSSignature(added_secret_lits)<<"\n";
+    solution_f << lit << " % " << getSSignature(added_secret_lits) << "\n";
   solution_f.close();
 }
 
@@ -208,8 +210,15 @@ void Count::readVictimModel(SATSolver *&solver) {
 void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
                    int num_xor_cls, vector<Lit> &watch,
                    vector<vector<uint32_t>> &alllits, bool addInner) {
+  double ratio = xor_ratio_;
+  if (num_xor_cls * ratio > max_xor_per_var_) {
+    ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
+    cout << "to many xor... we hope to use at most" << max_xor_per_var_
+         << " xor per var, thus change ratio to" << ratio << "\n";
+  }
+
   string randomBits =
-      GenerateRandomBits_prob((vars.size()) * num_xor_cls, xor_ratio_);
+      GenerateRandomBits_prob((vars.size()) * num_xor_cls, ratio);
   string randomBits_rhs = GenerateRandomBits(num_xor_cls);
   vector<uint32_t> lits;
   // assert watch=0;?
@@ -344,12 +353,16 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
 }
 
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
-  cout << "count\n" << solver;
   solver->set_sampling_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
   trimVar(solver, secret_vars);
+  cout << "count\n" << solver<<", secret size="<<secret_vars.size();
   cout << "Sample\n";
+  if(secret_vars.size()<num_xor_cls_){
+    cerr<<"add more xor "<<num_xor_cls_<<" than secret var size\n";
+    num_xor_cls_=secret_vars.size();
+  }
   Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
          true);
   cout << "Sample end\n";
@@ -371,7 +384,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     return;
   cout << "found solution" << nsol << "* 2^" << hash_count;
   if (nsol < max_sol_) {
-    RecordCount(nsol, hash_count,added_secret_lits);
+    RecordCount(nsol, hash_count, added_secret_lits);
     return;
   }
   if (search_all == false) {
@@ -386,7 +399,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     solution_lits.clear();
     while (left < right) {
       hash_count = left + (right - left) / 2;
-      cout << "starting... hash_count="<<hash_count<<"\n";
+      cout << "starting... hash_count=" << hash_count << "\n";
       Sample(solver, count_vars, hash_count, count_watch, added_count_lits);
       assump.clear();
       assump = secret_watch;
@@ -411,7 +424,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     while (solutions[hash_count] == 0)
       hash_count--;
     cout << "found solution" << solutions[hash_count] << "* 2^" << hash_count;
-    RecordCount(solutions[hash_count], hash_count,added_secret_lits);
+    RecordCount(solutions[hash_count], hash_count, added_secret_lits);
     RecordSolution(added_secret_lits);
     left = hash_count - hash_count / 2;
     right = std::min(int(count_vars.size()), hash_count + hash_count / 2);
@@ -439,9 +452,9 @@ void Count::run() {
   readVictimModel(solver);
   cerr << "end model\n";
 
-  // this will set keep_symbol=0, which means it will keep sampling_var but eliminate symbol
+  // this will set keep_symbol=0, which means it will keep sampling_var but
+  // eliminate symbol
   solver->set_up_for_jaccard_count();
-
 
   vector<uint32_t> secret_vars;
   for (auto lit : symbol_vars[SECRET_]) {
@@ -471,8 +484,8 @@ int main(int argc, char **argv) {
   Count.conf.verbStats = 1;
   Count.conf.preprocess = 0;
   Count.conf.restart_first = 1000000;
-  Count.conf.keep_symbol=1;
-  //Count.conf.doRenumberVars = true;
+  Count.conf.keep_symbol = 1;
+  // Count.conf.doRenumberVars = true;
   Count.parseCommandLine();
   Count.run();
 }

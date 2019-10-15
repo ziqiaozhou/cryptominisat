@@ -16,7 +16,7 @@ public:
   void add_count_options();
 
   explicit Count(int argc, char **argv)
-      : Main(argc, argv), countOptions_("Count options") {}
+      : Main(argc, argv), countOptions_("Count options"),max_xor_per_var_(32) {}
   void add_supported_options() override;
   void run();
 
@@ -71,6 +71,7 @@ private:
   bool record_solution_;
   int max_log_size_;
   vector<vector<Lit>> solution_lits;
+  int max_xor_per_var_;
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H
