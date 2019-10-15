@@ -303,7 +303,6 @@ void Compose::incremental_compose() {
             << "\nsym:" << symbol_vars.size() ;
   std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
   current_trans_symbol_vars = trans_symbol_vars;
-  auto base_trans_symbol_vars = trans_symbol_vars;
   current_trans_symbol_vars.erase("s0");
   current_trans_symbol_vars.erase("s1");
   for (int i = start_cycle_; i < cycles_; ++i) {
@@ -321,12 +320,17 @@ void Compose::incremental_compose() {
     //init_symbol_vars.erase(prev_state);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
+    auto old_init_symbol_vars=init_symbol_vars;
+    auto old_sampling_vars=sampling_vars;
     init_solver->simplify();
     /*if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       init_solver->simplify();
     }*/
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
+    // restore to the old var map after dumping
+    init_symbol_vars=old_init_symbol_vars;
+    sampling_vars=old_sampling_vars;
     finalout.close();
     if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       delete init_solver;

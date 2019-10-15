@@ -206,8 +206,8 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
 	  if(solver->conf.symbol_vars==nullptr) return;
     for (auto one_symbol_vars : *solver->conf.symbol_vars) {
       *out << "c " << one_symbol_vars.first << " --> [";
-      for (auto var : one_symbol_vars.second) {
-        *out << " " << var;
+      for (auto lit : one_symbol_vars.second) {
+        *out << " " << lit;
       }
       *out << "]\n";
     }
