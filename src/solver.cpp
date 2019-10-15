@@ -856,7 +856,7 @@ static void map_user_specified_lits(std::vector<Lit> *lits,
 void Solver::EnsureUnRemovedTrackedVars(vector<uint32_t> *vars) {
   for (auto &i : *vars) {
     uint32_t outer_var = i;
-    outer_var = solver->varReplacer->get_var_replaced_with_outer(outer_var);
+    outer_var = solver->varReplacer->get_var_replaced_with(outer_var);
     uint32_t int_var = solver->map_outer_to_inter(outer_var);
     i=outer_var;
     assert(varData[int_var].removed==Removed::none);
@@ -880,7 +880,7 @@ void Solver::EnsureUnRemovedTrackedLits(vector<Lit> *lits) {
   for (auto &lit : *lits) {
     auto i = lit.var();
       uint32_t outer_var = i;
-      auto replaced_with = solver->varReplacer->get_lit_replaced_with_outer(Lit(outer_var,lit.sign()));
+      auto replaced_with = solver->varReplacer->get_lit_replaced_with(Lit(outer_var,lit.sign()));
       i=outer_var;
       lit = replaced_with;
       //std::cerr<<lit<<"is replaced with"<<replaced_with<<"\n";
