@@ -883,7 +883,7 @@ void Solver::EnsureUnRemovedTrackedLits(vector<Lit> *lits) {
       auto replaced_with = solver->varReplacer->get_lit_replaced_with_outer(Lit(outer_var,lit.sign()));
       i=outer_var;
       lit = replaced_with;
-      std::cerr<<lit<<"is replaced with"<<replaced_with<<"\n";
+      //std::cerr<<lit<<"is replaced with"<<replaced_with<<"\n";
       if(varData[replaced_with.var()].removed!=Removed::none){
         std::cerr<<lit<<"is replaced with"<<replaced_with<<((varData[replaced_with.var()].removed==Removed::elimed)?"elimed":"other")<<"\n";
       }
