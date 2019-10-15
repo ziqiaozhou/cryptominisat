@@ -857,7 +857,7 @@ void Solver::EnsureUnRemovedTrackedVars(vector<uint32_t> *vars) {
   for (auto &i : *vars) {
     uint32_t outer_var = i;
     if(this->varReplacer)
-      outer_var = this->varReplacer->get_var_replaced_with(outer_var);
+      outer_var = this->varReplacer->get_var_replaced_with_outer(outer_var);
     uint32_t int_var = this->map_outer_to_inter(outer_var);
     i=outer_var;
     assert(varData[int_var].removed==Removed::none);
@@ -883,7 +883,7 @@ void Solver::EnsureUnRemovedTrackedLits(vector<Lit> *lits) {
       uint32_t outer_var = i;
       Lit replaced_with=lit;
       if(this->varReplacer)
-       replaced_with = this->varReplacer->get_lit_replaced_with(Lit(outer_var,lit.sign()));
+       replaced_with = this->varReplacer->get_lit_replaced_with_outer(Lit(outer_var,lit.sign()));
       uint32_t int_var = this->map_outer_to_inter(replaced_with.var());
       lit = replaced_with;
       //std::cerr<<lit<<"is replaced with"<<replaced_with<<"\n";
