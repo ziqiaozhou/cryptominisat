@@ -44,35 +44,35 @@ void Compose::add_supported_options() {
 
 static int
 createReplaceTable(int offset,
-                   std::map<std::string, vector<Lit>> &original_symbol_vars,
-                   std::map<std::string, vector<Lit>> &to_symbol_vars,
-                   vector<Lit> &outerToInter) {
-  for (auto &symbols : original_symbol_vars) {
+                   std::map<std::string, vector<Lit>> &transition_symbol_vars,
+                   std::map<std::string, vector<Lit>> &final_symbol_vars,
+                   vector<Lit> &oldToNew) {
+  for (auto &symbols : transition_symbol_vars) {
     std::string sym_name = symbols.first;
     auto &lits = symbols.second;
-    if (to_symbol_vars.count(sym_name) == 0)
+    if (final_symbol_vars.count(sym_name) == 0)
       continue;
     // cout << "going to map " << sym_name << "\n";
     for (int i = 0; i < lits.size(); ++i) {
       if (!lits[i].sign())
-        outerToInter[lits[i].var()] = to_symbol_vars[sym_name][i];
+        oldToNew[lits[i].var()] = final_symbol_vars[sym_name][i];
       else
-        outerToInter[lits[i].var()] = ~to_symbol_vars[sym_name][i];
-      // cout << lits[i] << " -> " << to_symbol_vars[sym_name][i] << "\n";
+        oldToNew[lits[i].var()] = ~final_symbol_vars[sym_name][i];
+      // cout << lits[i] << " -> " << final_symbol_vars[sym_name][i] << "\n";
     }
   }
-  for (int i = 0; i < outerToInter.size(); ++i) {
-    if (outerToInter[i] == Lit(-1, false)) {
+  for (int i = 0; i < oldToNew.size(); ++i) {
+    if (oldToNew[i] == lit_Undef) {
       uint32_t new_var = offset++;
-      outerToInter[i] = Lit(new_var, false);
+      oldToNew[i] = Lit(new_var, false);
     }
   }
-  for (auto &symbols : original_symbol_vars) {
+  for (auto &symbols : transition_symbol_vars) {
     std::string sym_name = symbols.first;
-    if (to_symbol_vars.count(sym_name) == 0) {
-      to_symbol_vars[sym_name] = original_symbol_vars[sym_name];
-      for (auto &lit : to_symbol_vars[sym_name]) {
-        lit = lit.sign() ? ~outerToInter[lit.var()] : outerToInter[lit.var()];
+    if (final_symbol_vars.count(sym_name) == 0) {
+      final_symbol_vars[sym_name] = transition_symbol_vars[sym_name];
+      for (auto &lit : final_symbol_vars[sym_name]) {
+        lit = lit.sign() ? ~oldToNew[lit.var()] : oldToNew[lit.var()];
       }
     }
   }
@@ -89,7 +89,7 @@ void Compose::createNextState(
     cout << "-->\n";
     print_map(symbol_vars2);
   }
-  vector<Lit> table(n_trans_vars, Lit(-1, false));
+  vector<Lit> table(n_trans_vars, lit_Undef);
   // std::cerr << "old nvar is " << solver2->nVars() << "\n";
   int nvar = createReplaceTable(solver2->nVars(), trans_symbol_vars,
                                 symbol_vars2, table);
@@ -329,8 +329,8 @@ void Compose::incremental_compose() {
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     // restore to the old var map after dumping
-    init_symbol_vars=old_init_symbol_vars;
-    sampling_vars=old_sampling_vars;
+    std::swap(init_symbol_vars,old_init_symbol_vars);
+    std::swap(sampling_vars,old_sampling_vars);
     finalout.close();
     if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       delete init_solver;
