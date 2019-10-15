@@ -42,7 +42,7 @@ private:
       return false;
     return true;
   }
-  void RecordSolution();
+  void RecordSolution(vector<vector<uint32_t>>& added_secret_lits);
   void RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_secret_lits);
 
   void readVictimModel(SATSolver *&solver);

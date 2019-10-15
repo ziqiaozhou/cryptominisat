@@ -359,7 +359,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   cout << "count size=" << count_vars.size();
 
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
-  RecordSolution();
+  RecordSolution(added_secret_lits);
   cout << "count end\n";
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
@@ -412,7 +412,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       hash_count--;
     cout << "found solution" << solutions[hash_count] << "* 2^" << hash_count;
     RecordCount(solutions[hash_count], hash_count,added_secret_lits);
-    RecordSolution();
+    RecordSolution(added_secret_lits);
     left = hash_count - hash_count / 2;
     right = std::min(int(count_vars.size()), hash_count + hash_count / 2);
   }
