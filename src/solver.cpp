@@ -836,6 +836,7 @@ static void map_user_specified_lits(std::vector<Lit> *lits,
                                     int numEffectiveVars) {
   for (int i = 0; i < lits->size(); ++i) {
     auto old_lit = (*lits)[i];
+    if(old_lit == lit_Undef)  continue;
     auto old_var = old_lit.var();
     /*    uint32_t outer_var = solver->map_to_with_bva(old_var);
         (*vars)[i] =
@@ -854,7 +855,17 @@ static void map_user_specified_lits(std::vector<Lit> *lits,
 }
 void Solver::EnsureUnRemovedTrackedVars(vector<uint32_t> *vars) {
   for (auto &i : *vars) {
+    uint32_t outer_var = solver->map_to_with_bva(i);
+    outer_var = solver->varReplacer->get_var_replaced_with_outer(outer_var);
+    uint32_t int_var = solver->map_outer_to_inter(outer_var);
+    i=outer_var;
+    assert(varData[int_var].removed==Removed::none);
+  }
+  /*
     if (varData[i].removed == Removed::replaced) {
+      uint32_t outer_var = solver->map_to_with_bva(outside_var);
+      outer_var = solver->varReplacer->get_var_replaced_with_outer(outer_var);
+      uint32_t int_var = solver->map_outer_to_inter(outer_var);
       uint32_t replaced_with = varReplacer->get_var_replaced_with(i);
       // std::cout<<i<<"is replace with "<< replaced_with<<"\n";
       i = replaced_with;
@@ -863,11 +874,17 @@ void Solver::EnsureUnRemovedTrackedVars(vector<uint32_t> *vars) {
       assert(varData[i].removed != Removed::replaced);
       assert(varData[i].removed != Removed::decomposed);
     }
-  }
+  */
 }
 void Solver::EnsureUnRemovedTrackedLits(vector<Lit> *lits) {
   for (auto &lit : *lits) {
     auto i = lit.var();
+      uint32_t outer_var = solver->map_to_with_bva(i);
+      auto replaced_with = solver->varReplacer->get_lit_replaced_with_outer(Lit(outer_var,lit.sign()));
+      i=outer_var;
+      lit = replaced_with;
+      assert(varData[replaced_with.var()].removed==Removed::none);
+    /*
     if (varData[i].removed == Removed::replaced) {
       Lit replaced_with = varReplacer->get_lit_replaced_with(lit);
       //std::cout << lit << "is replace with " << replaced_with << "\n";
@@ -875,10 +892,13 @@ void Solver::EnsureUnRemovedTrackedLits(vector<Lit> *lits) {
       i = lit.var();
     } else {
       //std::cout << lit <<"\n";
-      assert(varData[i].removed != Removed::elimed);
+      if(varData[i].removed != Removed::elimed){
+        std::cerr<<lit<<" is removed\n";
+        lit = lit_Undef;
+      }
       assert(varData[i].removed != Removed::replaced);
       assert(varData[i].removed != Removed::decomposed);
-    }
+    }*/
   }
 }
 // Beware. Cannot be called while Searcher is running.

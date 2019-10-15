@@ -135,8 +135,9 @@ void Main::readInAFile(SATSolver *solver2, const string &filename) {
   symbol_vars.insert(parser.symbol_vars.begin(), parser.symbol_vars.end());
   if (conf.keep_symbol) {
     for (auto one_symbol_vars : symbol_vars) {
+      string name = one_symbol_vars.first;
       for (auto lit : one_symbol_vars.second)
-      sampling_vars.push_back(lit.var());
+        sampling_vars.push_back(lit.var());
     }
   }
   jaccard_vars.swap(parser.jaccard_vars);
@@ -151,6 +152,7 @@ void Main::readInAFile(SATSolver *solver2, const string &filename) {
       exit(-1);
     }
   } else {
+    cout<<"set samp"<<sampling_vars.size()<<"\n";
     solver2->set_sampling_vars(&sampling_vars);
 
   }
@@ -753,6 +755,8 @@ void Main::add_supported_options()
         , "Sampling vars, separated by comma")
     ("onlysampling", po::bool_switch(&only_sampling_solution)
         , "Print and ban(!) solutions only in terms of variables declared in 'c ind' or as --sampling '...'")
+    ("keepsymbol", po::value(&conf.keep_symbol)
+          , "set symbol map to independent_vars")
 
     //these a kind of special and determine positional options' meanings
     ("input", po::value< vector<string> >(), "file(s) to read")

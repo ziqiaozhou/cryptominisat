@@ -387,7 +387,7 @@ class DLL_PUBLIC SolverConf
         std::vector<uint32_t>* attack_vars;
         std::vector<uint32_t>* ob_vars;
         std::map<std::string,std::vector<Lit>> * symbol_vars;
-        bool keep_symbol;
+        int keep_symbol;
         int max_sol_;
         int nsol;
         //Timeouts
