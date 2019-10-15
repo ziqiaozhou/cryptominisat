@@ -68,6 +68,7 @@ private:
   bool search_all;
   int max_count_times_;
   bool record_solution_;
+  int max_log_size_;
   vector<vector<Lit>> solution_lits;
 };
 void findComponent(const SATSolver *solver);

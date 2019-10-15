@@ -83,6 +83,8 @@ void Count::add_count_options() {
                               po::value(&max_sol_)->default_value(64));
   countOptions_.add_options()("max_count_times",
                               po::value(&max_count_times_)->default_value(10));
+  countOptions_.add_options()("max_log_size",
+                              po::value(&max_log_size_)->default_value(-1));
   countOptions_.add_options()("count_mode",
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
@@ -384,7 +386,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
   int prev_hash_count = 0, hash_count = 0;
-  int left = 0, right = count_vars.size();
+  int left = 0, right = max_log_size_==-1?count_vars.size():max_log_size_;
   vector<vector<uint32_t>> added_count_lits;
   cout << "size=" << count_vars.size() << " " << nsol << "\n";
   if (nsol == -1)
