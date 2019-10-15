@@ -34,8 +34,7 @@ private:
               bool addInner = false);
   int64_t bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
-  void count(SATSolver *solver, vector<uint32_t> &secret_vars,
-             std::ofstream *count_f);
+  void count(SATSolver *solver, vector<uint32_t> &secret_vars);
   bool IsValidVictimLabel(std::string label) {
     static std::unordered_set<std::string> labels = {SECRET_, CONTROLLED_,
                                                      OBSERVABLE_, OTHER_};
@@ -44,6 +43,8 @@ private:
     return true;
   }
   void RecordSolution();
+  void RecordCount(int sol, int hash_count);
+
   void readVictimModel(SATSolver *&solver);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
