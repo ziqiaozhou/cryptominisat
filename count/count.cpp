@@ -56,10 +56,7 @@ template <class T> void print_map(std::map<std::string, vector<T>> &map) {
     cout << "\n";
   }
 }
-
-void Count::RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_secret_lits) {
-  std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
-                        std::ofstream::out | std::ofstream::app);
+static string getSSignature(vector<vector<uint32_t>>& added_secret_lits){
   string sxor="";
   for(auto x: added_secret_lits){
     sxor+="xor(";
@@ -70,11 +67,17 @@ void Count::RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_
     }
     sxor+=");";
   }
-  count_f << sol << "\t" << hash_count << "\t%"<<sxor<<"\n";
+  return sxor;
+}
+void Count::RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_secret_lits) {
+  std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
+                        std::ofstream::out | std::ofstream::app);
+
+  count_f << sol << "\t" << hash_count << "\t%"<<getSSignature(added_secret_lits)<<"\n";
   count_f.close();
 }
 
-void Count::RecordSolution() {
+void Count::RecordSolution(vector<vector<uint32_t>>& added_secret_lits) {
 
   if (!record_solution_)
     return;
@@ -82,7 +85,7 @@ void Count::RecordSolution() {
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
-    solution_f << lit << "\n";
+    solution_f << lit << " % "<<getSSignature(added_secret_lits)<<"\n";
   solution_f.close();
 }
 
