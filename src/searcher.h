@@ -364,6 +364,8 @@ class Searcher : public HyperEngine
         double   var_decay_vsids;
 
     private:
+      template<bool update_bogoprops>
+        void UpdateBacktrack();
         //////////////
         // Conflict minimisation
         bool litRedundant(Lit p, uint32_t abstract_levels);

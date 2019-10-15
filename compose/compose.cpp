@@ -322,10 +322,11 @@ void Compose::incremental_compose() {
     // print_map(init_symbol_vars);
     auto old_init_symbol_vars=init_symbol_vars;
     auto old_sampling_vars=sampling_vars;
-    init_solver->simplify();
-    /*if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
+
+    if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       init_solver->simplify();
-    }*/
+      init_solver->simplify();
+    }
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     // restore to the old var map after dumping

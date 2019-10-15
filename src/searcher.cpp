@@ -1149,6 +1149,58 @@ void Searcher::check_blocking_restart()
         stats.blocked_restart++;
     }
 }
+
+template<bool update_bogoprops>
+void Searcher::UpdateBacktrack(){
+  bool check_sol = false;
+  auto &solutions=conf.solutions;
+  // if (decisionLevel() > backtrack_)
+  for (int i = trail_lim[trail_lim.size() - 1] + 1; i < trail.size(); ++i) {
+    if (independent_set.count(trail[i].var())) {
+// if(conf.verbosity>=1)
+#ifdef DEBUG
+      cout << "select " << trail[trail_lim[trail_lim.size() - 1]] << " at "
+           << decisionLevel() << "\t ind var" << trail[i] << "\n";
+#endif
+      if ((ind_level.size() == 0 ||
+           ind_level[ind_level.size() - 1] != decisionLevel()) &&
+          decisionLevel() > backtrack_)
+        ind_level.push_back(decisionLevel());
+      check_sol = true;
+      break;
+    }
+  }
+
+  if (check_sol) {
+    std::stringstream solution;
+    for (auto var : independent_set) {
+      if (value(var) == l_Undef)
+        break;
+      solution << " " << Lit(var, value(var) == l_False);
+    }
+
+    if (solutions.count(solution.str()) != 0) {
+#ifdef DEBUG
+      cout << "ind_levels=";
+      for (auto l : ind_level)
+        cout << l << "\t";
+      cout << "\n";
+      std::cerr << "conflict solutions";
+      std::cerr << "solution conflict track to" << backtrack_;
+      std::cout << solution.str() << "\n";
+#endif
+      backtrack_ = ind_level[ind_level.size() - 1];
+      backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
+#ifdef DEBUG
+      cout << "ind_levels=";
+      for (auto l : ind_level)
+        cout << l << "\t";
+      cout << "\n";
+#endif
+    }
+  }
+}
+
 // chronological backtrack from a given level
 template<bool update_bogoprops>
 void Searcher::backtrack(int level) {
@@ -1169,7 +1221,7 @@ void Searcher::backtrack(int level) {
 template <bool update_bogoprops> lbool Searcher::search() {
   bool soon_after_backtrack=false;
   auto& solutions=conf.solutions;
-  solutions.clear();
+
   backtrack_=0;
   ind_level.clear();
   cancelUntil<true,update_bogoprops>(0);
@@ -1182,102 +1234,56 @@ template <bool update_bogoprops> lbool Searcher::search() {
   conf.nsol = 0;
   assert(ok);
 #ifdef SLOW_DEBUG
-    check_no_duplicate_lits_anywhere();
-    check_order_heap_sanity();
-    #endif
-    const double myTime = cpuTime();
+  check_no_duplicate_lits_anywhere();
+  check_order_heap_sanity();
+#endif
+  const double myTime = cpuTime();
 
-    //Stats reset & update
-    if (!update_bogoprops) {
-        stats.numRestarts++;
-        stats.clauseID_at_start_inclusive = clauseID;
-    }
-    hist.clear();
-    hist.reset_glue_hist_size(conf.shortTermHistorySize);
+  // Stats reset & update
+  if (!update_bogoprops) {
+    stats.numRestarts++;
+    stats.clauseID_at_start_inclusive = clauseID;
+  }
+  hist.clear();
+  hist.reset_glue_hist_size(conf.shortTermHistorySize);
 
-    assert(solver->prop_at_head());
+  assert(solver->prop_at_head());
 
-    //Loop until restart or finish (SAT/UNSAT)
-    blocked_restart = false;
-    PropBy confl;
-    lbool dec_ret = l_Undef;
-    bool finish_search=false;
-    while (!params.needToStopSearch ||
-           !confl.isNULL() // always finish the last conflict
-    ) {
-      #ifdef TRACK_DECVAR_FOR_IND
-      if (decisionLevel() < backtrack_) {
-        if (ind_level.size() != 0) {
-          std::cerr << "need back track more to"
-                    << ind_level[ind_level.size() - 1] << "\t"
-                    << decisionLevel() << " " << backtrack_ << "\n";
-          backtrack_ = ind_level[ind_level.size() - 1];
-          backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
-          soon_after_backtrack = true;
-        } else {
-          finish_search = true;
-        }
-      }
-      #endif
-        //assert(int(decisionLevel())>=backtrack_);
-        #ifdef USE_GAUSS
-        gqhead = qhead;
-        #endif
-        if (update_bogoprops) {
-            confl = propagate<update_bogoprops>();
-        } else {
-          confl = propagate_any_order_fast();
-        }
-        //cout<<"soon_after_backtrack"<<soon_after_backtrack<<"\n";
+  // Loop until restart or finish (SAT/UNSAT)
+  blocked_restart = false;
+  PropBy confl;
+  lbool dec_ret = l_Undef;
+  bool finish_search = false;
+  while (!params.needToStopSearch ||
+         !confl.isNULL() // always finish the last conflict
+  ) {
 #ifdef TRACK_DECVAR_FOR_IND
-        if (confl.isNULL() && decisionLevel() > assumptions.size()) {
-          bool check_sol = false;
-          // if (decisionLevel() > backtrack_)
-          for (int i = trail_lim[trail_lim.size() - 1] + 1; i < trail.size();
-               ++i) {
-            if (independent_set.count(trail[i].var())) {
-// if(conf.verbosity>=1)
-#ifdef DEBUG
-          cout << "select " << trail[trail_lim[trail_lim.size() - 1]] << " at "
-               << decisionLevel() << "\t ind var" << trail[i] << "\n";
-#endif
-          if ((ind_level.size() == 0 ||
-               ind_level[ind_level.size() - 1] != decisionLevel()) &&
-              decisionLevel() > backtrack_)
-            ind_level.push_back(decisionLevel());
-          check_sol = true;
-          // break;
-        }
+    if (decisionLevel() < backtrack_) {
+      if (ind_level.size() != 0) {
+        std::cerr << "need back track more to"
+                  << ind_level[ind_level.size() - 1] << "\t" << decisionLevel()
+                  << " " << backtrack_ << "\n";
+        backtrack_ = ind_level[ind_level.size() - 1];
+        backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
+        soon_after_backtrack = true;
+      } else {
+        finish_search = true;
       }
-
-      if (check_sol) {
-        std::stringstream solution;
-        for (auto var : independent_set) {
-          if (value(var) == l_Undef)
-            break;
-          solution << " " << Lit(var, value(var) == l_False);
-        }
-
-        if (solutions.count(solution.str()) != 0) {
-#ifdef DEBUG
-          cout << "ind_levels=";
-          for (auto l : ind_level)
-            cout << l << "\t";
-          cout << "\n";
-          std::cerr << "conflict solutions";
-          std::cerr << "solution conflict track to" << backtrack_;
-          std::cout << solution.str() << "\n";
+    }
 #endif
-          backtrack_ = ind_level[ind_level.size() - 1];
-          backtrack<update_bogoprops>(ind_level[ind_level.size() - 1]);
-#ifdef DEBUG
-          cout << "ind_levels=";
-          for (auto l : ind_level)
-            cout << l << "\t";
-          cout << "\n";
+// assert(int(decisionLevel())>=backtrack_);
+#ifdef USE_GAUSS
+    gqhead = qhead;
 #endif
-        }
-      }
+    if (update_bogoprops) {
+      confl = propagate<update_bogoprops>();
+    } else {
+      confl = propagate_any_order_fast();
+    }
+    // cout<<"soon_after_backtrack"<<soon_after_backtrack<<"\n";
+#ifdef TRACK_DECVAR_FOR_IND
+    if (confl.isNULL() && decisionLevel() > assumptions.size()) {
+      UpdateBacktrack<update_bogoprops>();
     }
 #endif
 
@@ -1309,8 +1315,8 @@ template <bool update_bogoprops> lbool Searcher::search() {
                 dump_search_loop_stats(myTime);
                 return l_False;
             }
-            if (conf.max_sol_ == 1 && conf.nsol == 0)
-              check_need_restart();
+            //if (conf.max_sol_ == 1 && conf.nsol == 0)
+            check_need_restart();
 #ifdef DEBUG
             cout << "conflict handling from "<<old_level<<" to " << decisionLevel() << "\n";
             for (auto i : trail_lim)
@@ -1324,7 +1330,7 @@ template <bool update_bogoprops> lbool Searcher::search() {
             if (!update_bogoprops) {
                 llbool ret = Gauss_elimination();
                 if (ret == l_Continue) {
-                if(conf.max_sol_==1&& conf.nsol==0)
+                //if(conf.max_sol_==1&& conf.nsol==0)
                     check_need_restart();
                     continue;
                 //TODO conflict should be goto-d to "confl" label
@@ -2407,6 +2413,7 @@ lbool Searcher::solve(
     }
     #endif //USE_GAUSS
     assert(solver->check_order_heap_sanity());
+    conf.solutions.clear();
     while(stats.conflStats.numConflicts < max_confl_per_search_solve_call
         && status == l_Undef
     ) {
