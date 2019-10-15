@@ -83,7 +83,6 @@ void Compose::createNextState(
     SATSolver *solver2, std::map<std::string, vector<Lit>> &trans_symbol_vars,
     std::map<std::string, vector<Lit>> &symbol_vars2,std::string prev_state) {
   int add_clause = 0;
-  vector<uint32_t> ind_vars;
   if (conf.verbosity > 1) {
     cout << "------------\n";
     print_map(trans_symbol_vars);
@@ -105,11 +104,11 @@ void Compose::createNextState(
   std::cerr << "extend nvar to " << solver2->nVars() << "\n";
   symbol_vars2.erase(prev_state);
   solver2->set_symbol_vars(&symbol_vars2);
-  ind_vars.clear();
+  sampling_vars.clear();
   for (auto lits : symbol_vars2)
     for (auto lit : lits.second)
-      ind_vars.push_back(lit.var());
-  solver2->set_sampling_vars(&ind_vars);
+      sampling_vars.push_back(lit.var());
+  solver2->set_sampling_vars(&sampling_vars);
   for (auto lits : trans_clauses) {
     // cout << "old add clause" << lits << "\n";
     for (auto &lit : lits) {
