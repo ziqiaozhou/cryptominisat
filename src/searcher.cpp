@@ -1168,7 +1168,8 @@ void Searcher::backtrack(int level) {
 }
 template <bool update_bogoprops> lbool Searcher::search() {
   bool soon_after_backtrack=false;
-  std::set<std::string> solutions;
+  auto& solutions=conf.solutions;
+  solutions.clear();
   backtrack_=0;
   ind_level.clear();
   cancelUntil<true,update_bogoprops>(0);

@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include <map>
 #include <cstdlib>
 #include <cassert>
+#include <unordered_set>
 #include "constants.h"
 #include "cryptominisat5/solvertypesmini.h"
 
@@ -390,6 +391,7 @@ class DLL_PUBLIC SolverConf
         int keep_symbol;
         int max_sol_;
         int nsol;
+        std::unordered_set<std::string> solutions;
         //Timeouts
         double orig_global_timeout_multiplier;
         double global_timeout_multiplier;

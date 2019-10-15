@@ -582,6 +582,9 @@ DLL_PUBLIC void SATSolver::set_sampling_vars(vector<uint32_t> *ind_vars) {
 DLL_PUBLIC int SATSolver::n_seareched_solutions() {
   return data->solvers[data->which_solved]->conf.nsol;
 }
+DLL_PUBLIC  std::unordered_set<std::string> SATSolver::get_solutions(){
+  return data->solvers[data->which_solved]->conf.solutions;
+}
 
 DLL_PUBLIC void SATSolver::set_symbol_vars(
     std::map<std::string, std::vector<Lit>> *symbol_vars) {

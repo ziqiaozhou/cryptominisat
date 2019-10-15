@@ -209,6 +209,8 @@ public:
   bool get_next_small_clause(std::vector<Lit> &ret); // returns FALSE if no more
   void end_getting_small_clauses();
   Solver * GetSolver(int i) const;
+  std::unordered_set<std::string> get_solutions();
+
 private:
   ////////////////////////////
   // Do not bother with this, it's private

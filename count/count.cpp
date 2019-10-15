@@ -212,7 +212,9 @@ static void RecordCount(int sol, int hash_count, ofstream *count_f) {
   *count_f << sol << "\t" << hash_count << "\n";
 }
 void Count::RecordSolution() {
+
 if(!record_solution_) return;
+  std::cerr<<"start record solution";
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
@@ -222,7 +224,19 @@ if(!record_solution_) return;
 int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
   if (mode_ == "nonblock") {
+    vector<Lit> solution;
     solver->solve(&assumps, only_ind);
+    for(auto sol_str: solver->get_solutions()){
+      std::stringstream ss(sol_str);
+      string token;
+      solution.clear();
+      while(ss>>token){
+        int int_lit =std::stoi(token);
+        uint32_t var= abs(int_lit)-1;
+        solution.push_back(Lit(var,int_lit<0));
+      }
+      solution_lits.push_back(solution);
+    }
     return solver->n_seareched_solutions();
   }
   // Set up things for adding clauses that can later be removed
@@ -266,7 +280,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
           assert(false);
         }
       }
-      if (conf.verbosity > 0) {
+      if (conf.verbosity > 1) {
         cout << "====result==="
              << "\n";
         cout << std::setbase(16);
@@ -325,7 +339,7 @@ void Count::run() {
   cerr << "read model\n";
   readVictimModel(solver);
   cerr << "end model\n";
-  std::ofstream count_f(out_file_ + ".count",
+  std::ofstream count_f(out_dir_+"/"+out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
   vector<uint32_t> secret_vars;
   for (auto lit : symbol_vars[SECRET_]) {
@@ -376,7 +390,6 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars,
   if (nsol == -1)
     return;
   cout << "found solution" << nsol << "* 2^" << hash_count;
-
   if (nsol < max_sol_) {
     RecordCount(nsol, hash_count, count_f);
     return;
