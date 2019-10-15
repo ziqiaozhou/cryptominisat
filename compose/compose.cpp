@@ -213,7 +213,7 @@ void Compose::copy_compose() {
   SolverConf conf2 = conf;
   SolverConf conf_copy = conf;
   vector<uint32_t> ind_vars;
-  conf2.doRenumberVars = false;
+  //conf2.doRenumberVars = false;
   SATSolver *init_solver = new SATSolver((void *)&conf2);
   // Read transition CNF
   std::cerr << "read1"
@@ -229,7 +229,7 @@ void Compose::copy_compose() {
   // readInAFile(init_solver, init_file_);
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
-            << "\nsym:" << conf.symbol_vars << "\t" << conf2.symbol_vars;
+            << "\nsym:" << init_symbol_vars.size();
   std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
 
   auto base_trans_symbol_vars = trans_symbol_vars;
@@ -254,7 +254,7 @@ void Compose::copy_compose() {
     // print_map(init_symbol_vars);
     if (simplify_interval_ < 2 || (i > 0 && i % simplify_interval_ == 0)) {
       init_solver->simplify();
-      init_solver->renumber_variables(true);
+    //  init_solver->renumber_variables(true);
     }
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
@@ -276,7 +276,7 @@ void Compose::copy_compose() {
   }
   if ((cycles_ - 1) % simplify_interval_ != 0) {
     init_solver->simplify();
-    init_solver->renumber_variables(true);
+    //init_solver->renumber_variables(true);
   }
   std::ofstream finalout(out_dir_ + "//" + out_file_);
   init_solver->dump_irred_clauses_ind_only(&finalout);
@@ -303,7 +303,7 @@ void Compose::incremental_compose() {
   readInAFile(init_solver, init_file_);
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
-            << "\nsym:" << conf.symbol_vars << "\t" << conf2.symbol_vars;
+            << "\nsym:" << symbol_vars.size() ;
   std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
   current_trans_symbol_vars = trans_symbol_vars;
   auto base_trans_symbol_vars = trans_symbol_vars;
@@ -326,7 +326,7 @@ void Compose::incremental_compose() {
     // print_map(init_symbol_vars);
     if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       init_solver->simplify();
-      init_solver->renumber_variables(true);
+      //init_solver->renumber_variables(true);
     }
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
@@ -348,7 +348,7 @@ void Compose::incremental_compose() {
   }
   if ( simplify_interval_>0 &&( (cycles_ - 1) % simplify_interval_ != 0)) {
     init_solver->simplify();
-    init_solver->renumber_variables(true);
+    //init_solver->renumber_variables(true);
   }
   std::ofstream finalout(out_dir_ + "//" + out_file_);
   init_solver->dump_irred_clauses_ind_only(&finalout);
@@ -365,7 +365,7 @@ int main(int argc, char **argv) {
   compose.conf.verbosity = 1;
   compose.conf.verbStats = 1;
   compose.conf.preprocess = 1;
-  compose.conf.doRenumberVars = false;
+  //compose.conf.doRenumberVars = false;
   compose.conf.do_bva=1;
   compose.conf.velim_resolvent_too_large=-1;
   compose.conf.varelim_cutoff_too_many_clauses=200000;
