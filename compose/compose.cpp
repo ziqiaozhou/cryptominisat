@@ -285,8 +285,6 @@ void Compose::incremental_compose() {
   transition_solver_ = new SATSolver((void *)&conf);
   SolverConf conf2 = conf;
   SolverConf conf_copy = conf;
-
-  conf2.doRenumberVars = false;
   SATSolver *init_solver = new SATSolver((void *)&conf2);
   // Read transition CNF
   std::cerr << "read1"
@@ -323,10 +321,10 @@ void Compose::incremental_compose() {
     //init_symbol_vars.erase(prev_state);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
+    init_solver->simplify();
+    /*if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       init_solver->simplify();
-      //init_solver->renumber_variables(true);
-    }
+    }*/
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
