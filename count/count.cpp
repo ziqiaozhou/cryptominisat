@@ -122,9 +122,10 @@ void Count::add_count_options() {
   countOptions_.add_options()("count_mode",
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
-  countOptions_.add_options()("pick_sample_first",
-                              po::value(&conf.pickSampleFirst)->default_value(false),
-                              "Initilization constraint file.");
+  countOptions_.add_options()(
+      "pick_sample_first",
+      po::value(&conf.pickSampleFirst)->default_value(false),
+      "Initilization constraint file.");
   countOptions_.add_options()(
       "record_solution", po::value(&record_solution_)->default_value(true),
       "True: write solutions; false: do not write solutions");
@@ -147,7 +148,6 @@ void Count::readVictimModel(SATSolver *&solver) {
   vconfig_f.open(victim_model_config_);
   map<string, vector<Lit>> new_symbol_vars;
   string line;
-  vector<uint32_t> ind_vars;
   while (std::getline(vconfig_f, line)) {
     std::stringstream ss(line);
     std::string token;
@@ -183,11 +183,11 @@ void Count::readVictimModel(SATSolver *&solver) {
   solver->set_symbol_vars(&new_symbol_vars);
   for (auto &vars : new_symbol_vars)
     trimVar(solver, vars.second);
-  ind_vars.clear();
+  sampling_vars.clear();
   for (auto lits : new_symbol_vars)
     for (auto lit : lits.second)
-      ind_vars.push_back(lit.var());
-  solver->set_sampling_vars(&ind_vars);
+      sampling_vars.push_back(lit.var());
+  solver->set_sampling_vars(&sampling_vars);
   solver->simplify();
   string victim_cnf_file = out_dir_ + "//" + out_file_ + ".simp";
   std::ofstream finalout(victim_cnf_file);
@@ -259,9 +259,12 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
 
 int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
+  uint64_t solutions = 0;
+  lbool ret;
   if (mode_ == "nonblock") {
     vector<Lit> solution;
-    solver->solve(&assumps, only_ind);
+    ret = solver->solve(&assumps, only_ind);
+    if(ret==l_Undef) return 0;
     for (auto sol_str : solver->get_solutions()) {
       std::stringstream ss(sol_str);
       string token;
@@ -284,8 +287,6 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
 
-  uint64_t solutions = 0;
-  lbool ret;
   while (solutions < maxSolutions) {
     ret = solver->solve(&new_assumps, only_ind);
     assert(ret == l_False || ret == l_True);
@@ -360,11 +361,11 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
   trimVar(solver, secret_vars);
-  cout << "count\n" << solver<<", secret size="<<secret_vars.size();
+  cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n";
-  if(secret_vars.size()<num_xor_cls_){
-    cerr<<"add more xor "<<num_xor_cls_<<" than secret var size\n";
-    num_xor_cls_=secret_vars.size();
+  if (secret_vars.size() < num_xor_cls_) {
+    cerr << "add more xor " << num_xor_cls_ << " than secret var size\n";
+    num_xor_cls_ = secret_vars.size();
   }
   Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
          true);
@@ -380,7 +381,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
   int prev_hash_count = 0, hash_count = 0;
-  int left = max_log_size_ == -1 ? 1 : max_log_size_/2, right = max_log_size_ == -1 ? count_vars.size() : max_log_size_;
+  int left = max_log_size_ == -1 ? 1 : max_log_size_ / 2,
+      right = max_log_size_ == -1 ? count_vars.size() : max_log_size_;
   vector<vector<uint32_t>> added_count_lits;
   cout << "size=" << count_vars.size() << " " << nsol << "\n";
   if (nsol == -1)
@@ -388,6 +390,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   cout << "found solution" << nsol << "* 2^" << hash_count;
   if (nsol < max_sol_) {
     RecordCount(nsol, hash_count, added_secret_lits);
+    int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
+    cout << "again found solution" << nsol << "* 2^" << hash_count;
     return;
   }
   if (search_all == false) {
@@ -410,16 +414,16 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       assump.insert(assump.end(), count_watch.begin(),
                     count_watch.begin() + hash_count);
       cout << assump.size();
-      if(!solution_counts.count(hash_count))
+      if (!solution_counts.count(hash_count))
         nsol = bounded_sol_count(solver, max_sol_, assump, true);
-        else
-        nsol=solution_counts[hash_count];
+      else
+        nsol = solution_counts[hash_count];
       if (nsol >= max_sol_) {
         left = hash_count + 1;
       } else if (nsol < max_sol_ * 0.8) {
         right = hash_count;
-        if(nsol>0)
-          left = std::max(left,hash_count - int(2+log2(max_sol_/nsol)));
+        if (nsol > 0)
+          left = std::max(left, hash_count - int(2 + log2(max_sol_ / nsol)));
       } else {
         right = hash_count;
         left = hash_count;
@@ -430,18 +434,22 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       prev_hash_count = hash_count;
     }
     hash_count = right;
-    if (!solution_counts.count(hash_count) && hash_count>=0){
-        solution_counts[hash_count] = bounded_sol_count(solver, max_sol_, assump, true);
-        //hash_count--;
+    if (!solution_counts.count(hash_count) && hash_count >= 0) {
+      solution_counts[hash_count] =
+          bounded_sol_count(solver, max_sol_, assump, true);
+      // hash_count--;
     }
-    while((!solution_counts.count(hash_count)||solution_counts[hash_count]==0) && hash_count>=0){
+    while ((!solution_counts.count(hash_count) ||
+            solution_counts[hash_count] == 0) &&
+           hash_count >= 0) {
       hash_count--;
     }
-    cout << "found solution" << solution_counts[hash_count] << "* 2^" << hash_count<<"\n";
+    cout << "found solution" << solution_counts[hash_count] << "* 2^"
+         << hash_count << "\n";
     RecordCount(solution_counts[hash_count], hash_count, added_secret_lits);
     RecordSolution(added_secret_lits);
-    left = hash_count - hash_count / 2 -1;
-    right = std::min(int(count_vars.size()), hash_count + hash_count / 2 +1);
+    left = hash_count - hash_count / 2 - 1;
+    right = std::min(int(count_vars.size()), hash_count + hash_count / 2 + 1);
   }
 }
 
