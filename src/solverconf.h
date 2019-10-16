@@ -392,6 +392,7 @@ class DLL_PUBLIC SolverConf
         int max_sol_;
         int nsol;
         std::unordered_set<std::string> solutions;
+        bool pickSampleFirst;
         //Timeouts
         double orig_global_timeout_multiplier;
         double global_timeout_multiplier;

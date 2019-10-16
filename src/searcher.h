@@ -68,8 +68,10 @@ struct VariableVariance
 class Searcher : public HyperEngine
 {
     public:
-      template<bool update_bogoprops>
+        template<bool update_bogoprops>
         void backtrack(int level);
+        template<bool update_bogoprops>
+        void sample_backtrack();
         Searcher(const SolverConf* _conf, Solver* solver, std::atomic<bool>* _must_interrupt_inter);
         virtual ~Searcher();
         ///////////////////////////////
@@ -475,7 +477,8 @@ class Searcher : public HyperEngine
         SearchStats stats;
         vector<int> ind_level;
         set<uint32_t> used_ind_decision;
-        set<uint32_t> independent_set;
+        set<std::pair<double,uint32_t>> sampling_vars_active_set;
+        int need_search_samping;
         bool normal_state;
         int backtrack_;
 };

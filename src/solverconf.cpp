@@ -294,6 +294,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         ,keep_symbol(1)
         ,max_sol_(1)
         ,nsol(0)
+        ,pickSampleFirst(1)
 
         //Timeouts
         , orig_global_timeout_multiplier(4.0)
