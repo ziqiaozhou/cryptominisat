@@ -257,14 +257,21 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
   }
 }
 
-int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
+int64_t Count::bounded_sol_count(SATSolver *&solver, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
   uint64_t solutions = 0;
   lbool ret;
+  delete solver;
+  solver=new SATSolver(&conf);
+  //solver->load_state(conf.saved_state_file);
+  symbol_vars.clear();
+  sampling_vars.clear();
+  readInAFile(solver,conf.simplified_cnf);
+  setCountVars();
+  solver->set_sampling_vars(&count_vars);
   if (mode_ == "nonblock") {
     vector<Lit> solution;
     ret = solver->solve(&assumps, only_ind);
-    if(ret==l_Undef) return 0;
     for (auto sol_str : solver->get_solutions()) {
       std::stringstream ss(sol_str);
       string token;
@@ -371,10 +378,12 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
          true);
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
+  solver->set_preprocess(1);
   solver->simplify();
   trimVar(solver, count_vars);
   cout << "count size=" << count_vars.size();
-
+  solver->solve();
+  solver->set_preprocess(0);
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
   RecordSolution(added_secret_lits);
   cout << "count end\n";
@@ -482,15 +491,7 @@ void Count::run() {
   for (auto lit : symbol_vars[SECRET_]) {
     secret_vars.push_back(lit.var());
   }
-  for (auto lit : symbol_vars[CONTROLLED_]) {
-    count_vars.push_back(lit.var());
-  }
-  for (auto lit : symbol_vars[OBSERVABLE_]) {
-    count_vars.push_back(lit.var());
-  }
-  for (auto lit : symbol_vars[OTHER_]) {
-    count_vars.push_back(lit.var());
-  }
+  setCountVars();
   cerr << "secret size=" << secret_vars.size();
   cerr << "count size=" << count_vars.size();
   count(solver, secret_vars);
@@ -507,6 +508,7 @@ int main(int argc, char **argv) {
   Count.conf.preprocess = 0;
   Count.conf.restart_first = 1000000;
   Count.conf.keep_symbol = 1;
+  Count.conf.simplified_cnf=".simpfile.cnf";
   // Count.conf.doRenumberVars = true;
   Count.parseCommandLine();
   Count.run();

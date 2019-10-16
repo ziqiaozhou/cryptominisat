@@ -48,8 +48,9 @@ class SATSolver
 public:
   SATSolver(void *config = NULL, std::atomic<bool> *interrupt_asap = NULL);
   ~SATSolver();
-
-  ////////////////////////////
+  void save_state(const string& fname, const lbool status);
+  void set_preprocess(int p);
+  lbool load_state(const string& fname);  ////////////////////////////
   // Adding variables and clauses
   ////////////////////////////
 

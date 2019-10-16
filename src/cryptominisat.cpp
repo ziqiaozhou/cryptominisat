@@ -1134,6 +1134,18 @@ void DLL_PUBLIC SATSolver::set_up_for_jaccard_count()
         data->solvers[i]->setConf(conf);
     }
 }
+DLL_PUBLIC void SATSolver::save_state(const string& fname, const lbool status){
+  data->solvers[data->which_solved]->save_state(fname,status);
+}
+DLL_PUBLIC lbool SATSolver::load_state(const string& fname){
+  data->solvers[data->which_solved]->load_state(fname);
+}
+
+DLL_PUBLIC void SATSolver::set_preprocess(int p){
+  for (size_t i = 0; i < data->solvers.size(); i++){
+  data->solvers[i]->conf.preprocess=p;
+}
+}
 
 DLL_PUBLIC const std::vector<Lit>& SATSolver::get_decisions_reaching_model() const
 {

@@ -32,7 +32,7 @@ private:
   void Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
               vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
               bool addInner = false);
-  int64_t bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
+  int64_t bounded_sol_count(SATSolver *&solver, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
   void count(SATSolver *solver, vector<uint32_t> &secret_vars);
   bool IsValidVictimLabel(std::string label) {
@@ -41,6 +41,18 @@ private:
     if (labels.count(label) == 0)
       return false;
     return true;
+  }
+  void setCountVars(){
+    count_vars.clear();
+    for (auto lit : symbol_vars[CONTROLLED_]) {
+      count_vars.push_back(lit.var());
+    }
+    for (auto lit : symbol_vars[OBSERVABLE_]) {
+      count_vars.push_back(lit.var());
+    }
+    for (auto lit : symbol_vars[OTHER_]) {
+      count_vars.push_back(lit.var());
+    }
   }
   void RecordSolution(vector<vector<uint32_t>>& added_secret_lits);
   void RecordCount(int sol, int hash_count,vector<vector<uint32_t>>& added_secret_lits);

@@ -72,6 +72,8 @@ class Searcher : public HyperEngine
         void backtrack(int level);
         template<bool update_bogoprops>
         void sample_backtrack();
+        template<bool update_bogoprops>
+        bool sample_back_track_after_conflict(int old_level);
         Searcher(const SolverConf* _conf, Solver* solver, std::atomic<bool>* _must_interrupt_inter);
         virtual ~Searcher();
         ///////////////////////////////
@@ -478,9 +480,12 @@ class Searcher : public HyperEngine
         vector<int> ind_level;
         set<uint32_t> used_ind_decision;
         set<std::pair<double,uint32_t>> sampling_vars_active_set;
+        vector<std::pair<int,PropBy>> sample_back_track_conflict;
         int need_search_samping;
         bool normal_state;
+        bool is_backtrack_decision;
         int backtrack_;
+        Lit last_lit;
 };
 
 inline uint32_t Searcher::abstractLevel(const uint32_t x) const

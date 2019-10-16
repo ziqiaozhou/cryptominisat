@@ -140,12 +140,12 @@ protected:
     //Stats for conflicts
     ConflCausedBy lastConflictCausedBy;
     std::unordered_set<uint32_t> is_sampling_var;
-
+    int sample_back_track_level;
     // Solver state:
     //
     vector<Lit>         sample_trail;            ///< Assignment stack; stores all assigments made in the order they were made.
     vector<uint32_t>    sample_trail_lim;
-    vector<uint32_t>    sample_trail_lim_lim;
+    vector<std::pair<uint32_t,Lit>>    sample_trail_lim_lim;
     vector<Lit>         trail;            ///< Assignment stack; stores all assigments made in the order they were made.
     vector<uint32_t>    trail_lim;        ///< Separator indices for different decision levels in 'trail'.
     uint32_t            qhead;            ///< Head of queue (as index into the trail)
@@ -439,16 +439,6 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
         #endif
     }
     trail.push_back(p);
-    if(is_sampling_var.count(p.var()))
-      sample_trail.push_back(p);
-      sample_trail_lim.push_back(sample_trail.size()-1);
-      if(sample_trail_lim_lim.size()==0|| sample_trail_lim_lim[sample_trail_lim_lim.size()-1]!=decisionLevel())
-        sample_trail_lim_lim.push_back(decisionLevel());
-    else{
-      if(sample_trail_lim_lim.size()==0)
-      sample_trail.push_back(lit_Undef);
-      sample_trail.push_back(sample_trail[sample_trail.size()-1]);
-    }
     if (update_bogoprops) {
         propStats.bogoProps += 1;
     }
