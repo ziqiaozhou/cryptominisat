@@ -2,7 +2,10 @@
 #include "src/dimacsparser.h"
 #include <boost/lexical_cast.hpp>
 #include <iostream>
+#include <sys/types.h>
+#include <unistd.h>
 #include <unordered_map>
+
 using boost::lexical_cast;
 using std::cerr;
 using std::exit;
@@ -212,7 +215,8 @@ void Count::readVictimModel(SATSolver *&solver) {
 
 void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
                    int num_xor_cls, vector<Lit> &watch,
-                   vector<vector<uint32_t>> &alllits, bool addInner) {
+                   vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
+                   bool addInner) {
   double ratio = xor_ratio_;
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
@@ -246,27 +250,33 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
       for (unsigned j = 0; j < vars.size(); j++) {
         if (randomBits[i * vars.size() + j] == '1')
           lits.push_back(vars[j]);
+        if (hashf)
+          *hashf << vars[j] + 1 << " ";
       }
       alllits.push_back(lits);
+      rhs.push_back(randomBits_rhs[i] == '1');
       // 0 xor 1 = 1, 0 xor 0= 0, thus,we add watch=0 => xor(1,2,4) = r
-      if (!addInner)
+      if (!addInner) {
+
         lits.push_back(watch[i].var());
+      }
       // e.g., xor watch 1 2 4 ..
       solver->add_xor_clause(lits, randomBits_rhs[i] == '1');
     }
   }
 }
 
-int64_t Count::bounded_sol_count(SATSolver *&solver, uint32_t maxSolutions,
+int64_t Count::bounded_sol_count(SATSolver *&solver2, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
   uint64_t solutions = 0;
   lbool ret;
-  delete solver;
-  solver=new SATSolver(&conf);
-  //solver->load_state(conf.saved_state_file);
+  SATSolver *solver = new SATSolver(&conf);
+  // solver->load_state(conf.saved_state_file);
   symbol_vars.clear();
   sampling_vars.clear();
-  readInAFile(solver,conf.simplified_cnf);
+  readInAFile(solver, conf.simplified_cnf);
+  if (hashf)
+    readInAFile(solver, hash_file);
   setCountVars();
   solver->set_sampling_vars(&count_vars);
   if (mode_ == "nonblock") {
@@ -283,6 +293,7 @@ int64_t Count::bounded_sol_count(SATSolver *&solver, uint32_t maxSolutions,
       }
       solution_lits.push_back(solution);
     }
+    // delete solver;
     return solver->n_seareched_solutions();
   }
   // Set up things for adding clauses that can later be removed
@@ -360,6 +371,7 @@ int64_t Count::bounded_sol_count(SATSolver *&solver, uint32_t maxSolutions,
   solver->add_clause(cl_that_removes);
 
   assert(ret != l_Undef);
+  delete solver;
   return solutions;
 }
 
@@ -367,6 +379,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   solver->set_sampling_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
+  vector<bool> secret_rhs;
   trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n";
@@ -375,7 +388,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     num_xor_cls_ = secret_vars.size();
   }
   Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
-         true);
+         secret_rhs, true);
+
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
   solver->set_preprocess(1);
@@ -393,6 +407,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   int left = max_log_size_ == -1 ? 1 : max_log_size_ / 2,
       right = max_log_size_ == -1 ? count_vars.size() : max_log_size_;
   vector<vector<uint32_t>> added_count_lits;
+  vector<bool> count_rhs;
   cout << "size=" << count_vars.size() << " " << nsol << "\n";
   if (nsol == -1)
     return;
@@ -408,7 +423,9 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   }
   unordered_map<int, uint64_t> solution_counts;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
+
     added_count_lits.clear();
+    count_rhs.clear();
     solution_counts.clear();
     count_watch.clear();
     prev_hash_count = 0;
@@ -417,7 +434,9 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     while (left < right) {
       hash_count = left + (right - left) / 2;
       cout << "starting... hash_count=" << hash_count << "\n";
-      Sample(solver, count_vars, hash_count, count_watch, added_count_lits);
+      std::ofstream hash_f(hash_file, std::ofstream::out);
+      Sample(solver, count_vars, hash_count, count_watch, added_count_lits,
+             count_rhs, false);
       assump.clear();
       assump = secret_watch;
       assump.insert(assump.end(), count_watch.begin(),
@@ -462,6 +481,80 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   }
 }
 
+static void RecordHash(string filename,
+                       const vector<vector<uint32_t>> &added_secret_lits,
+                       const vector<bool> &count_rhs) {
+  std::ofstream f(filename, std::ofstream::out | std::ofstream::app);
+  int i = 0;
+  f << "p cnf 1000 " << added_secret_lits.size() << "\n";
+  for (auto xor_lits : added_secret_lits) {
+    f << "x" << (count_rhs[i] ? "-" : "");
+    for (auto v : xor_lits) {
+      f << v + 1 << " ";
+    }
+    f << " 0\n";
+    i++;
+  }
+  f.close();
+}
+
+void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
+  solver->set_sampling_vars(&count_vars);
+  vector<vector<uint32_t>> added_secret_lits;
+  vector<Lit> secret_watch;
+  vector<bool> secret_rhs;
+  trimVar(solver, secret_vars);
+  cout << "count\n" << solver << ", secret size=" << secret_vars.size();
+  cout << "Sample\n";
+  if (secret_vars.size() < num_xor_cls_) {
+    cerr << "add more xor " << num_xor_cls_ << " than secret var size\n";
+    num_xor_cls_ = secret_vars.size();
+  }
+  Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
+         secret_rhs, true);
+  RecordHash("secret_hash.cnf", added_secret_lits, secret_rhs);
+  cout << "Sample end\n";
+  //  solver->add_clause(secret_watch);
+  trimVar(solver, count_vars);
+  vector<Lit> count_watch;
+  // solver->add_clause(secret_watch);
+  int prev_hash_count = 0, hash_count = 0;
+  hash_count = max_log_size_;
+
+  vector<vector<uint32_t>> added_count_lits;
+  vector<bool> count_rhs;
+  int pid=-1;
+  string secret_cnf="final_secret_hash.cnf";
+  std::ofstream f(secret_cnf,std::ofstream::out);
+  solver->dump_irred_clauses_ind_only(&f);
+  f.close();
+  for (int count_times = 0; count_times < max_count_times_; ++count_times) {
+    if(pid==0){
+      continue;
+    }
+    pid=0;
+    pid=fork();
+    if(pid!=0){
+      continue;
+    }
+    SATSolver newsolver(&conf);
+    readInAFile(&newsolver,secret_cnf);
+    cout << count_times << "\n";
+    added_count_lits.clear();
+    count_watch.clear();
+    count_rhs.clear();
+    Sample(solver, count_vars, hash_count, count_watch, added_count_lits,
+           count_rhs, true);
+    RecordHash("count_hash" + std::to_string(count_times) + ".cnf",
+               added_count_lits, count_rhs);
+    solver->GetSolver(0)->conf.simplified_cnf =
+        "final_count_hash" + std::to_string(count_times) + ".cnf";
+    solver->set_preprocess(1);
+    solver->solve();
+    solver->set_preprocess(0);
+  }
+}
+
 void Count::run() {
   if (mode_ == "nonblock")
     conf.max_sol_ = max_sol_;
@@ -494,7 +587,10 @@ void Count::run() {
   setCountVars();
   cerr << "secret size=" << secret_vars.size();
   cerr << "count size=" << count_vars.size();
-  count(solver, secret_vars);
+  if (mode_ == "simulate") {
+    simulate_count(solver, secret_vars);
+  } else
+    count(solver, secret_vars);
 
   /*solver = new SATSolver((void *)&conf);
   parseInAllFiles(solver, filesToRead[0]);*/
@@ -503,12 +599,12 @@ void Count::run() {
 int main(int argc, char **argv) {
   srand(time(NULL));
   Count Count(argc, argv);
-  Count.conf.verbosity = 0;
+  Count.conf.verbosity = 1;
   Count.conf.verbStats = 0;
   Count.conf.preprocess = 0;
   Count.conf.restart_first = 1000000;
   Count.conf.keep_symbol = 1;
-  Count.conf.simplified_cnf=".simpfile.cnf";
+  Count.conf.simplified_cnf = ".simpfile.cnf";
   // Count.conf.doRenumberVars = true;
   Count.parseCommandLine();
   Count.run();

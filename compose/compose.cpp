@@ -325,7 +325,6 @@ void Compose::incremental_compose() {
 
     if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
       init_solver->simplify();
-      init_solver->simplify();
     }
     std::ofstream finalout(state_path);
     init_solver->dump_irred_clauses_ind_only(&finalout);

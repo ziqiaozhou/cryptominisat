@@ -16,7 +16,11 @@ public:
   void add_count_options();
 
   explicit Count(int argc, char **argv)
-      : Main(argc, argv), countOptions_("Count options"),max_xor_per_var_(32) {}
+      : Main(argc, argv), countOptions_("Count options"),max_xor_per_var_(32) {hash_file=".hash.cnf";
+      hashf=nullptr;}
+      ~Count(){
+
+      }
   void add_supported_options() override;
   void run();
 
@@ -29,12 +33,15 @@ private:
   const std::string CONTROLLED_ = "control";
   const std::string OBSERVABLE_ = "observe";
   const std::string OTHER_ = "other";
-  void Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
-              vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
-              bool addInner = false);
+  void Sample(SATSolver *solver, std::vector<uint32_t> vars,
+                     int num_xor_cls, vector<Lit> &watch,
+                     vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
+                     bool addInner=false);
   int64_t bounded_sol_count(SATSolver *&solver, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
   void count(SATSolver *solver, vector<uint32_t> &secret_vars);
+  void simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars);
+
   bool IsValidVictimLabel(std::string label) {
     static std::unordered_set<std::string> labels = {SECRET_, CONTROLLED_,
                                                      OBSERVABLE_, OTHER_};
@@ -84,6 +91,8 @@ private:
   int max_log_size_;
   vector<vector<Lit>> solution_lits;
   int max_xor_per_var_;
+  string hash_file;
+  std::ofstream* hashf;
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H
