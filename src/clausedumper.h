@@ -46,13 +46,7 @@ public:
                         const CompFinder *_compFinder = nullptr)
       : solver(_solver), compFinder(_compFinder) {
 
-    std::ofstream f;
-    f.open("renumber.map3");
-    f << solver << "\n";
-    for (unsigned i = 0; i < 5; ++i) {
-      f << i << " " << solver->map_outer_to_inter(i) << "\n";
-    }
-    f.close();
+  
     // do not use compFinder as it is timeout.
     if (compFinder && compFinder->getTimedOut()){
       std::cerr<<"!!!!!! attention, trying to use a timeout comp finder.";
