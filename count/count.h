@@ -33,7 +33,9 @@ private:
   const std::string CONTROLLED_ = "control";
   const std::string OBSERVABLE_ = "observe";
   const std::string OTHER_ = "other";
-  void AddVariableDiff(SATSolver * solver);
+  void AddVariableDiff(SATSolver * solver,map<string,vector<Lit>> all_vars);
+  void AddVariableSame(SATSolver * solver,map<string,vector<Lit>> all_vars);
+
   void Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
               vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
               vector<bool> &rhs, bool addInner = false,
@@ -114,6 +116,8 @@ private:
   vector<uint32_t> count_vars;
   vector<uint32_t> full_count_vars;
   vector<uint32_t> secret_vars;
+  vector<uint32_t> full_secret_vars;
+
   std::map<string, vector<Lit>> all_observe_vars;
   std::map<string, vector<Lit>> all_secret_vars;
   double xor_ratio_;
@@ -128,7 +132,7 @@ private:
   int max_xor_per_var_;
   string hash_file;
   std::ofstream *hashf;
-  bool inter_mode_;
+  int inter_mode_;
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H

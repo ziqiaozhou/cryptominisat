@@ -13,12 +13,12 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
-void Count::AddVariableDiff(SATSolver *solver) {
+void Count::AddVariableDiff(SATSolver *solver,map<string,vector<Lit>> all_vars) {
   int len = -1;
   vector<vector<uint32_t>> clauses;
   vector<Lit> watches;
-  assert(all_observe_vars.size()>0);
-  for (auto id_lits : all_observe_vars) {
+  assert(all_vars.size()>0);
+  for (auto id_lits : all_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
     if (len > 0) {
@@ -49,6 +49,37 @@ void Count::AddVariableDiff(SATSolver *solver) {
   solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();
 }
+
+void Count::AddVariableSame(SATSolver *solver,map<string,vector<Lit>> all_vars) {
+  int len = -1;
+  vector<vector<uint32_t>> clauses;
+  vector<Lit> watches;
+  assert(all_vars.size()>0);
+  for (auto id_lits : all_vars) {
+    auto id = id_lits.first;
+    auto lits = id_lits.second;
+    if (len > 0) {
+      assert(len == lits.size());
+    }
+    len = lits.size();
+  }
+  for (int i = 0; i < len; ++i) {
+    vector<uint32_t> clause;
+    bool xor_bool=false;
+    for (auto id_vars : all_observe_vars) {
+      auto id = id_vars.first;
+      auto &lits = id_vars.second;
+      clause.push_back(lits[i].var());
+      if(lits[i].sign())xor_bool=~xor_bool;
+    }
+    solver->add_xor_clause(clause, xor_bool);
+  }
+  string diff_file = out_dir_ + "//" + out_file_ + ".diff";
+  std::ofstream finalout(diff_file);
+  solver->dump_irred_clauses_ind_only(&finalout);
+  finalout.close();
+}
+
 static void trimVar(SATSolver *solver, vector<uint32_t> &secret_vars) {
   std::unordered_set<uint32_t> fixed_var_set;
   vector<uint32_t> new_secret_vars;
@@ -162,7 +193,7 @@ void Count::add_count_options() {
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
   countOptions_.add_options()("inter_mode",
-                              po::value(&inter_mode_)->default_value(false),
+                              po::value(&inter_mode_)->default_value(0),
                               "true-> secret_1 and secret_2, observe_1 and observe_2, false: single");
   countOptions_.add_options()(
       "pick_sample_first",
@@ -223,8 +254,8 @@ void Count::readVictimModel(SATSolver *&solver) {
     }
   }
   solver->set_symbol_vars(&new_symbol_vars);
-  /*for (auto &vars : new_symbol_vars)
-    trimVar(solver, vars.second);*/
+  for (auto &vars : new_symbol_vars)
+    trimVar(solver, vars.second);
   sampling_vars.clear();
   for (auto lits : new_symbol_vars)
     for (auto lit : lits.second)
@@ -388,6 +419,13 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
           assert(false);
         }
       }
+      for (const uint32_t var : full_secret_vars) {
+        if (solver->get_model()[var] != l_Undef) {
+          solution.push_back(Lit(var, solver->get_model()[var] == l_False));
+        }else{
+          assert(false);
+        }
+      }
       if (conf.verbosity > 1) {
         cout << "====result==="
              << "\n";
@@ -432,6 +470,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
+  full_secret_vars=secret_vars;
   trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n";
@@ -635,9 +674,14 @@ void Count::run() {
     secret_vars.push_back(lit.var());
   }*/
   setCountVars();
-  //if(inter_mode_){
-    AddVariableDiff(solver);
-  //}
+  if(inter_mode_>0)
+    AddVariableDiff(solver,all_secret_vars);
+  if(inter_mode_==1){
+    AddVariableDiff(solver,all_observe_vars);
+  }
+  if(inter_mode_==2){
+    AddVariableSame(solver,all_observe_vars);
+  }
   cerr << "secret size=" << secret_vars.size();
   cerr << "count size=" << count_vars.size();
   if (mode_ == "simulate") {
