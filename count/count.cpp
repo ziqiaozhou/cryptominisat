@@ -13,11 +13,11 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
-void Count::AddVariableDiff(SATSolver *solver,map<string,vector<Lit>> all_vars) {
+void Count::AddVariableDiff(SATSolver *solver,
+                            map<string, vector<Lit>> all_vars) {
   int len = -1;
-  vector<vector<uint32_t>> clauses;
   vector<Lit> watches;
-  assert(all_vars.size()>0);
+  assert(all_vars.size() > 0);
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
@@ -26,31 +26,40 @@ void Count::AddVariableDiff(SATSolver *solver,map<string,vector<Lit>> all_vars) 
     }
     len = lits.size();
   }
+  string diff_file = out_dir_ + "//" + out_file_ + ".testhash";
+  std::ofstream finalout(diff_file);
   for (int i = 0; i < len; ++i) {
     vector<uint32_t> clause;
-    auto new_watch= solver->nVars();
+    auto new_watch = solver->nVars();
     solver->new_var();
     clause.push_back(new_watch);
     watches.push_back(Lit(new_watch, true));
-    bool xor_bool=true;
-    for (auto id_vars : all_observe_vars) {
+    bool xor_bool = true;
+    for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
-      if(lits[i].sign())xor_bool=~xor_bool;
-
+      if (lits[i].sign())
+        xor_bool = ~xor_bool;
     }
     solver->add_xor_clause(clause, xor_bool);
+    finalout << "x" << xor_bool ? "" : "-";
+    for (auto v : clause)
+      finalout << v + 1;
+    finalout << "\n";
+
   }
-  cout<<"add watches"<< watches;
+  cout << "add watches" << watches;
   solver->add_clause(watches);
+  finalout<<watches<<" 0\n";
+  finalout.close();
 }
 
-void Count::AddVariableSame(SATSolver *solver,map<string,vector<Lit>> all_vars) {
+void Count::AddVariableSame(SATSolver *solver,
+                            map<string, vector<Lit>> all_vars) {
   int len = -1;
-  vector<vector<uint32_t>> clauses;
   vector<Lit> watches;
-  assert(all_vars.size()>0);
+  assert(all_vars.size() > 0);
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
@@ -59,20 +68,24 @@ void Count::AddVariableSame(SATSolver *solver,map<string,vector<Lit>> all_vars) 
     }
     len = lits.size();
   }
+  string diff_file = out_dir_ + "//" + out_file_ + ".testsamehash";
+  std::ofstream finalout(diff_file);
   for (int i = 0; i < len; ++i) {
     vector<uint32_t> clause;
-    bool xor_bool=false;
-    for (auto id_vars : all_observe_vars) {
+    bool xor_bool = false;
+    for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
-      if(lits[i].sign())xor_bool=~xor_bool;
+      if (lits[i].sign())
+        xor_bool = ~xor_bool;
     }
     solver->add_xor_clause(clause, xor_bool);
+    finalout << "x" << xor_bool ? "" : "-";
+    for (auto v : clause)
+      finalout << v + 1;
+    finalout << "\n";
   }
-  string diff_file = out_dir_ + "//" + out_file_ + ".diff";
-  std::ofstream finalout(diff_file);
-  solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();
 }
 
@@ -188,9 +201,9 @@ void Count::add_count_options() {
   countOptions_.add_options()("count_mode",
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
-  countOptions_.add_options()("inter_mode",
-                              po::value(&inter_mode_)->default_value(0),
-                              "true-> secret_1 and secret_2, observe_1 and observe_2, false: single");
+  countOptions_.add_options()(
+      "inter_mode", po::value(&inter_mode_)->default_value(0),
+      "true-> secret_1 and secret_2, observe_1 and observe_2, false: single");
   countOptions_.add_options()(
       "pick_sample_first",
       po::value(&conf.pickSampleFirst)->default_value(false),
@@ -411,7 +424,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
       for (const uint32_t var : full_count_vars) {
         if (solver->get_model()[var] != l_Undef) {
           solution.push_back(Lit(var, solver->get_model()[var] == l_False));
-        }else{
+        } else {
           assert(false);
         }
       }
@@ -466,7 +479,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<vector<uint32_t>> added_secret_lits;
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
-  full_secret_vars=secret_vars;
+  full_secret_vars = secret_vars;
   trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n";
@@ -479,7 +492,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
 
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
-  full_count_vars=count_vars;
+  full_count_vars = count_vars;
   trimVar(solver, count_vars);
   solver->simplify();
   cout << "count size=" << count_vars.size();
@@ -599,7 +612,7 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   RecordHash("secret_hash.cnf", added_secret_lits, secret_rhs);
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
-  full_count_vars=count_vars;
+  full_count_vars = count_vars;
   trimVar(solver, count_vars);
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
@@ -670,17 +683,17 @@ void Count::run() {
     secret_vars.push_back(lit.var());
   }*/
   setCountVars();
-  if(inter_mode_>0)
-    AddVariableDiff(solver,all_secret_vars);
-  if(inter_mode_==1){
-    AddVariableDiff(solver,all_observe_vars);
+  /*if(inter_mode_>0)
+    AddVariableDiff(solver,all_secret_vars);*/
+  if (inter_mode_ == 1) {
+    AddVariableDiff(solver, all_observe_vars);
     string diff_file = out_dir_ + "//" + out_file_ + ".diff";
     std::ofstream finalout(diff_file);
     solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
   }
-  if(inter_mode_==2){
-    AddVariableSame(solver,all_observe_vars);
+  if (inter_mode_ == 2) {
+    AddVariableSame(solver, all_observe_vars);
     string diff_file = out_dir_ + "//" + out_file_ + ".same";
     std::ofstream finalout(diff_file);
     solver->dump_irred_clauses_ind_only(&finalout);
