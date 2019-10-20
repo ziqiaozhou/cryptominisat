@@ -112,6 +112,7 @@ private:
   string mode_;
   // model counting setting
   vector<uint32_t> count_vars;
+  vector<uint32_t> full_count_vars;
   vector<uint32_t> secret_vars;
   std::map<string, vector<Lit>> all_observe_vars;
   std::map<string, vector<Lit>> all_secret_vars;

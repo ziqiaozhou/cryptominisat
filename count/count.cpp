@@ -17,6 +17,7 @@ void Count::AddVariableDiff(SATSolver *solver) {
   int len = -1;
   vector<vector<uint32_t>> clauses;
   vector<Lit> watches;
+  assert(all_observe_vars.size()>0);
   for (auto id_lits : all_observe_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
@@ -41,6 +42,7 @@ void Count::AddVariableDiff(SATSolver *solver) {
     }
     solver->add_xor_clause(clause, xor_bool);
   }
+  cout<<"add watches"<< watches;
   solver->add_clause(watches);
   string diff_file = out_dir_ + "//" + out_file_ + ".diff";
   std::ofstream finalout(diff_file);
@@ -221,8 +223,8 @@ void Count::readVictimModel(SATSolver *&solver) {
     }
   }
   solver->set_symbol_vars(&new_symbol_vars);
-  for (auto &vars : new_symbol_vars)
-    trimVar(solver, vars.second);
+  /*for (auto &vars : new_symbol_vars)
+    trimVar(solver, vars.second);*/
   sampling_vars.clear();
   for (auto lits : new_symbol_vars)
     for (auto lit : lits.second)
@@ -375,8 +377,14 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
       for (const uint32_t var : count_vars) {
         if (solver->get_model()[var] != l_Undef) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
-          solution.push_back(Lit(var, solver->get_model()[var] == l_False));
         } else {
+          assert(false);
+        }
+      }
+      for (const uint32_t var : full_count_vars) {
+        if (solver->get_model()[var] != l_Undef) {
+          solution.push_back(Lit(var, solver->get_model()[var] == l_False));
+        }else{
           assert(false);
         }
       }
@@ -436,6 +444,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
 
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
+  full_count_vars=count_vars;
   trimVar(solver, count_vars);
   solver->simplify();
   cout << "count size=" << count_vars.size();
@@ -555,6 +564,7 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   RecordHash("secret_hash.cnf", added_secret_lits, secret_rhs);
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
+  full_count_vars=count_vars;
   trimVar(solver, count_vars);
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
@@ -625,9 +635,9 @@ void Count::run() {
     secret_vars.push_back(lit.var());
   }*/
   setCountVars();
-  if(inter_mode_){
+  //if(inter_mode_){
     AddVariableDiff(solver);
-  }
+  //}
   cerr << "secret size=" << secret_vars.size();
   cerr << "count size=" << count_vars.size();
   if (mode_ == "simulate") {
