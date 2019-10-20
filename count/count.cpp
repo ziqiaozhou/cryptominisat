@@ -216,7 +216,7 @@ void Count::readVictimModel(SATSolver *&solver) {
 void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
                    int num_xor_cls, vector<Lit> &watch,
                    vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
-                   bool addInner) {
+                   bool addInner,bool is_restarted) {
   double ratio = xor_ratio_;
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
@@ -245,6 +245,17 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
     if (alllits.size() > i) {
       // reuse generated xor lits;
       // lits = alllits[i];
+      if(is_restarted){
+        auto lit=alllits[i];
+        if (!addInner) {
+          if(watch[i].var()>=solver->nVars()){
+            cout<<"new var for watch";
+            solver->new_vars(watch[i].var()-solver->nVars()+1);
+          }
+          lits.push_back(watch[i].var());
+        }
+        solver->add_xor_clause(lits,rhs[i] );
+      }
       continue;
     } else {
       for (unsigned j = 0; j < vars.size(); j++) {
@@ -257,7 +268,10 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
       rhs.push_back(randomBits_rhs[i] == '1');
       // 0 xor 1 = 1, 0 xor 0= 0, thus,we add watch=0 => xor(1,2,4) = r
       if (!addInner) {
-
+        if(watch[i].var()>=solver->nVars()){
+          cout<<"new var for watch";
+          solver->new_vars(watch[i].var()-solver->nVars()+1);
+        }
         lits.push_back(watch[i].var());
       }
       // e.g., xor watch 1 2 4 ..
@@ -266,18 +280,12 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
   }
 }
 
-int64_t Count::bounded_sol_count(SATSolver *&solver2, uint32_t maxSolutions,
+int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
   uint64_t solutions = 0;
   lbool ret;
-  SATSolver *solver = new SATSolver(&conf);
   // solver->load_state(conf.saved_state_file);
-  symbol_vars.clear();
-  sampling_vars.clear();
-  readInAFile(solver, conf.simplified_cnf);
-  if (hashf)
-    readInAFile(solver, hash_file);
-  setCountVars();
+  //setCountVars();
   solver->set_sampling_vars(&count_vars);
   if (mode_ == "nonblock") {
     vector<Lit> solution;
@@ -371,7 +379,6 @@ int64_t Count::bounded_sol_count(SATSolver *&solver2, uint32_t maxSolutions,
   solver->add_clause(cl_that_removes);
 
   assert(ret != l_Undef);
-  delete solver;
   return solutions;
 }
 
@@ -392,12 +399,9 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
 
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
-  solver->set_preprocess(1);
-  solver->simplify();
   trimVar(solver, count_vars);
+  solver->simplify();
   cout << "count size=" << count_vars.size();
-  solver->solve();
-  solver->set_preprocess(0);
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
   RecordSolution(added_secret_lits);
   cout << "count end\n";
@@ -423,7 +427,6 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   }
   unordered_map<int, uint64_t> solution_counts;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
-
     added_count_lits.clear();
     count_rhs.clear();
     solution_counts.clear();
@@ -431,6 +434,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     prev_hash_count = 0;
     vector<Lit> assump;
     solution_lits.clear();
+
     while (left < right) {
       hash_count = left + (right - left) / 2;
       cout << "starting... hash_count=" << hash_count << "\n";
@@ -441,7 +445,6 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       assump = secret_watch;
       assump.insert(assump.end(), count_watch.begin(),
                     count_watch.begin() + hash_count);
-      cout << assump.size();
       if (!solution_counts.count(hash_count))
         nsol = bounded_sol_count(solver, max_sol_, assump, true);
       else
@@ -599,7 +602,6 @@ void Count::run() {
 int main(int argc, char **argv) {
   srand(time(NULL));
   Count Count(argc, argv);
-  Count.conf.verbosity = 1;
   Count.conf.verbStats = 0;
   Count.conf.preprocess = 0;
   Count.conf.restart_first = 1000000;

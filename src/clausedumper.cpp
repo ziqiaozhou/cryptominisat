@@ -207,6 +207,13 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
     for (auto one_symbol_vars : *solver->conf.symbol_vars) {
       *out << "c " << one_symbol_vars.first << " --> [";
       for (auto lit : one_symbol_vars.second) {
+        cout<<lit<<" 0\n";
+        auto outer_lit=solver->map_to_with_bva(lit);
+        cout<<outer_lit<<" 1\n";
+        outer_lit=solver->varReplacer->get_lit_replaced_with_outer(outer_lit);
+        cout<<outer_lit<<" 's var is "<<outer_lit.var()<<"\n";
+        cout<<solver->map_outer_to_inter(outer_lit.var())<<" 3\n";
+        lit= Lit(solver->map_outer_to_inter(outer_lit.var()),outer_lit.sign());
         *out << " " << lit;
       }
       *out << "]\n";
@@ -218,6 +225,8 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
         if (used[var])
           continue;
         used[var] = true;
+        var=solver->varReplacer->get_var_replaced_with_outer(var);
+        var=solver->map_outer_to_inter(var);
         *out << " " << var + 1;
       }
       *out << " 0\n";
@@ -229,19 +238,26 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
     } else {
       *out << "p cnf " << solver->nVars() << " "
            << get_preprocessor_num_cls(false) << "\n";
-
-      dump_irred_cls_for_preprocessor(out, false);
       std::cout << "dump symbol\n";
       dump_symbol_vars(out);
+      dump_irred_cls_for_preprocessor(out, false);
+
+
     }
   }
 
   void ClauseDumper::open_file_and_dump_irred_clauses_preprocessor(
       const string &irredDumpFname) {
-
     open_dump_file(irredDumpFname);
     try {
       std::cout << "dump file 2--\n";
+      std::ofstream f;
+      f.open("renumber.map3");
+      f << solver << "\n";
+      for (unsigned i = 0; i < 5; ++i) {
+        f << i << " " << solver->map_outer_to_inter(i) << "\n";
+      }
+      f.close();
       dump_irred_clauses_preprocessor(outfile);
     } catch (std::ifstream::failure &e) {
       cout << "Error writing clause dump to file: " << e.what() << endl;

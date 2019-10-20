@@ -36,8 +36,8 @@ private:
   void Sample(SATSolver *solver, std::vector<uint32_t> vars,
                      int num_xor_cls, vector<Lit> &watch,
                      vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
-                     bool addInner=false);
-  int64_t bounded_sol_count(SATSolver *&solver, uint32_t maxSolutions,
+                     bool addInner=false,bool is_restarted=false);
+  int64_t bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
   void count(SATSolver *solver, vector<uint32_t> &secret_vars);
   void simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars);

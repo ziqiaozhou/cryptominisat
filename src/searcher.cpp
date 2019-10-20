@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ***********************************************/
-#define DEBUG
+//#define DEBUG
 //#define VERBOSE_DEBUG
 #include "searcher.h"
 #include "occsimplifier.h"
@@ -1281,7 +1281,7 @@ template <bool update_bogoprops> void Searcher::sample_backtrack() {
 }
 
 template <bool update_bogoprops> lbool Searcher::search() {
-  std::cerr<<"search\n";
+  //std::cerr<<"search\n";
   sample_trail_lim_lim.clear();
   bool soon_after_backtrack=false;
   auto& solutions=conf.solutions;
@@ -1333,7 +1333,7 @@ template <bool update_bogoprops> lbool Searcher::search() {
           if (sample_trail_lim_lim.size() == 0 ||
                sample_trail_lim_lim[sample_trail_lim_lim.size() - 1].first !=
                    decisionLevel()){
-            std::cout<<"sample_trail_lim_lim.push_back(decisionLevel())"<<decisionLevel()<<"dut to"<<trail[trail_lim[lvl - 1]]<<"\n";
+            //std::cout<<"sample_trail_lim_lim.push_back(decisionLevel())"<<decisionLevel()<<"dut to"<<trail[trail_lim[lvl - 1]]<<"\n";
             sample_trail_lim_lim.push_back(std::make_pair(decisionLevel(),trail[trail_lim[lvl - 1]]));
           }
         } else {
@@ -1374,7 +1374,7 @@ template <bool update_bogoprops> lbool Searcher::search() {
 
             //if (conf.max_sol_ == 1 && conf.nsol == 0)
             check_need_restart();
-            cout << "conflict handling from "<<old_level<<" to " << decisionLevel()<<",assumpsiez=" << assumptions.size()<<"\n";
+          //  cout << "conflict handling from "<<old_level<<" to " << decisionLevel()<<",assumpsiez=" << assumptions.size()<<"\n";
 /*
             if ( !sample_back_track_after_conflict<update_bogoprops>(old_level)){
               if(found_a_solution){
@@ -2419,7 +2419,7 @@ lbool Searcher::solve(
       sampling_vars_active_set.insert(std::make_pair(var_act_vsids[var],var));
       is_sampling_var.insert(var);
     }
-    cout<<"conf.sampling_vars->size()="<<conf.sampling_vars->size();
+    //cout<<"conf.sampling_vars->size()="<<conf.sampling_vars->size();
     need_search_samping=conf.sampling_vars->size();
   }else{
     need_search_samping=0;
@@ -2487,7 +2487,7 @@ lbool Searcher::solve(
     while(stats.conflStats.numConflicts < max_confl_per_search_solve_call
         && status == l_Undef
     ) {
-        std::cout<<"restart\n";
+        //std::cout<<"restart\n";
         #ifdef SLOW_DEBUG
         assert(solver->check_order_heap_sanity());
         #endif

@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include <set>
 #include <unordered_set>
 #include <vector>
+#include "solver.h"
 
 using std::vector;
 
@@ -44,7 +45,15 @@ public:
   explicit ClauseDumper(const Solver *_solver,
                         const CompFinder *_compFinder = nullptr)
       : solver(_solver), compFinder(_compFinder) {
-        // do not use compFinder as it is timeout.
+
+    std::ofstream f;
+    f.open("renumber.map3");
+    f << solver << "\n";
+    for (unsigned i = 0; i < 5; ++i) {
+      f << i << " " << solver->map_outer_to_inter(i) << "\n";
+    }
+    f.close();
+    // do not use compFinder as it is timeout.
     if (compFinder && compFinder->getTimedOut()){
       std::cerr<<"!!!!!! attention, trying to use a timeout comp finder.";
       compFinder = nullptr;
