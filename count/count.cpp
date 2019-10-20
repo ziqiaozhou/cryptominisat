@@ -44,10 +44,6 @@ void Count::AddVariableDiff(SATSolver *solver,map<string,vector<Lit>> all_vars) 
   }
   cout<<"add watches"<< watches;
   solver->add_clause(watches);
-  string diff_file = out_dir_ + "//" + out_file_ + ".diff";
-  std::ofstream finalout(diff_file);
-  solver->dump_irred_clauses_ind_only(&finalout);
-  finalout.close();
 }
 
 void Count::AddVariableSame(SATSolver *solver,map<string,vector<Lit>> all_vars) {
@@ -419,13 +415,13 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
           assert(false);
         }
       }
-      for (const uint32_t var : full_secret_vars) {
+      /*for (const uint32_t var : full_secret_vars) {
         if (solver->get_model()[var] != l_Undef) {
           solution.push_back(Lit(var, solver->get_model()[var] == l_False));
         }else{
           assert(false);
         }
-      }
+      }*/
       if (conf.verbosity > 1) {
         cout << "====result==="
              << "\n";
@@ -678,9 +674,17 @@ void Count::run() {
     AddVariableDiff(solver,all_secret_vars);
   if(inter_mode_==1){
     AddVariableDiff(solver,all_observe_vars);
+    string diff_file = out_dir_ + "//" + out_file_ + ".diff";
+    std::ofstream finalout(diff_file);
+    solver->dump_irred_clauses_ind_only(&finalout);
+    finalout.close();
   }
   if(inter_mode_==2){
     AddVariableSame(solver,all_observe_vars);
+    string diff_file = out_dir_ + "//" + out_file_ + ".same";
+    std::ofstream finalout(diff_file);
+    solver->dump_irred_clauses_ind_only(&finalout);
+    finalout.close();
   }
   cerr << "secret size=" << secret_vars.size();
   cerr << "count size=" << count_vars.size();
