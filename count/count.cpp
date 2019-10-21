@@ -47,11 +47,10 @@ void Count::AddVariableDiff(SATSolver *solver,
     for (auto v : clause)
       finalout << v + 1;
     finalout << "\n";
-
   }
   cout << "add watches" << watches;
   solver->add_clause(watches);
-  finalout<<watches<<" 0\n";
+  finalout << watches << " 0\n";
   finalout.close();
 }
 
@@ -135,9 +134,9 @@ template <class T> void print_map(std::map<std::string, vector<T>> &map) {
     cout << "\n";
   }
 }
-static string getSSignature(vector<vector<uint32_t>> &added_secret_lits) {
+static string getSSignature(vector<vector<uint32_t>> &added_secret_vars) {
   string sxor = "";
-  for (auto x : added_secret_lits) {
+  for (auto x : added_secret_vars) {
     sxor += "xor(";
     for (auto l : x) {
       if (sxor[sxor.length() - 1] != ',' && sxor[sxor.length() - 1] != '(')
@@ -149,16 +148,16 @@ static string getSSignature(vector<vector<uint32_t>> &added_secret_lits) {
   return sxor;
 }
 void Count::RecordCount(int sol, int hash_count,
-                        vector<vector<uint32_t>> &added_secret_lits) {
+                        vector<vector<uint32_t>> &added_secret_vars) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
 
   count_f << sol << "\t" << hash_count << "\t%"
-          << getSSignature(added_secret_lits) << "\n";
+          << getSSignature(added_secret_vars) << "\n";
   count_f.close();
 }
 
-void Count::RecordSolution(vector<vector<uint32_t>> &added_secret_lits) {
+void Count::RecordSolution(vector<vector<uint32_t>> &added_secret_vars) {
 
   if (!record_solution_)
     return;
@@ -166,7 +165,7 @@ void Count::RecordSolution(vector<vector<uint32_t>> &added_secret_lits) {
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
-    solution_f << lit << " % " << getSSignature(added_secret_lits) << "\n";
+    solution_f << lit << " % " << getSSignature(added_secret_vars) << "\n";
   solution_f.close();
 }
 
@@ -476,7 +475,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
 
 void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   solver->set_sampling_vars(&count_vars);
-  vector<vector<uint32_t>> added_secret_lits;
+  vector<vector<uint32_t>> added_secret_vars;
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
   full_secret_vars = secret_vars;
@@ -487,8 +486,39 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     cerr << "add more xor " << num_xor_cls_ << " than secret var size\n";
     num_xor_cls_ = secret_vars.size();
   }
-  Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
-         secret_rhs, true);
+  if (inter_mode_) {
+    set<vector<bool>> secret_rhs_set;
+    map<uint32_t, int> var_index;
+    for (auto id_lits : all_secret_vars) {
+      vector<uint32_t> vars;
+      int offset = 0;
+      for (auto lit : id_lits.second) {
+        vars.push_back(lit.var());
+        var_index[lit.var()] = offset;
+        offset++;
+      }
+      // when one secret set is selcted, we should generate another set using
+      // same hash but with different rhs to ensure disjoint sets.
+      while (secret_rhs.size() > 0) {
+        for (int i = 0; i < secret_rhs.size(); ++i) {
+          secret_rhs[i] = (rand() % 2) ? ~secret_rhs[i] : secret_rhs[i];
+        }
+        for (auto &vars : added_secret_vars) {
+          // replace var from secret_1 to secret_2
+          for (auto &var : vars)
+            var = vars[var_index[var]];
+        }
+        if (secret_rhs_set.count(secret_rhs) != 0) {
+          break;
+        }
+      }
+      Sample(solver, vars, num_xor_cls_, secret_watch, added_secret_vars,
+             secret_rhs, true);
+      secret_rhs_set.insert(secret_rhs);
+    }
+  } else
+    Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
+           secret_rhs, true);
 
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
@@ -497,7 +527,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   solver->simplify();
   cout << "count size=" << count_vars.size();
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
-  RecordSolution(added_secret_lits);
+  RecordSolution(added_secret_vars);
   cout << "count end\n";
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
@@ -511,7 +541,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     return;
   cout << "found solution" << nsol << "* 2^" << hash_count;
   if (nsol < max_sol_) {
-    RecordCount(nsol, hash_count, added_secret_lits);
+    RecordCount(nsol, hash_count, added_secret_vars);
     int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
     cout << "again found solution" << nsol << "* 2^" << hash_count;
     return;
@@ -571,20 +601,20 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     }
     cout << "found solution" << solution_counts[hash_count] << "* 2^"
          << hash_count << "\n";
-    RecordCount(solution_counts[hash_count], hash_count, added_secret_lits);
-    RecordSolution(added_secret_lits);
+    RecordCount(solution_counts[hash_count], hash_count, added_secret_vars);
+    RecordSolution(added_secret_vars);
     left = hash_count - hash_count / 2 - 1;
     right = std::min(int(count_vars.size()), hash_count + hash_count / 2 + 1);
   }
 }
 
 static void RecordHash(string filename,
-                       const vector<vector<uint32_t>> &added_secret_lits,
+                       const vector<vector<uint32_t>> &added_secret_vars,
                        const vector<bool> &count_rhs) {
   std::ofstream f(filename, std::ofstream::out | std::ofstream::app);
   int i = 0;
-  f << "p cnf 1000 " << added_secret_lits.size() << "\n";
-  for (auto xor_lits : added_secret_lits) {
+  f << "p cnf 1000 " << added_secret_vars.size() << "\n";
+  for (auto xor_lits : added_secret_vars) {
     f << "x" << (count_rhs[i] ? "-" : "");
     for (auto v : xor_lits) {
       f << v + 1 << " ";
@@ -597,7 +627,7 @@ static void RecordHash(string filename,
 
 void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   solver->set_sampling_vars(&count_vars);
-  vector<vector<uint32_t>> added_secret_lits;
+  vector<vector<uint32_t>> added_secret_vars;
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
   trimVar(solver, secret_vars);
@@ -607,9 +637,9 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     cerr << "add more xor " << num_xor_cls_ << " than secret var size\n";
     num_xor_cls_ = secret_vars.size();
   }
-  Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_lits,
+  Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
          secret_rhs, true);
-  RecordHash("secret_hash.cnf", added_secret_lits, secret_rhs);
+  RecordHash("secret_hash.cnf", added_secret_vars, secret_rhs);
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
   full_count_vars = count_vars;
