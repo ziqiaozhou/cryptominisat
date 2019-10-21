@@ -7,7 +7,7 @@
 #include <unordered_map>
 
 using boost::lexical_cast;
-using std::cerr;
+using std::cout;
 using std::exit;
 using std::map;
 using std::ofstream;
@@ -237,22 +237,22 @@ void Count::readVictimModel(SATSolver *&solver) {
       tokens.push_back(token);
     }
     if (tokens.size() != 4) {
-      cerr << "error victim model: " << line;
+      cout << "error victim model: " << line;
       exit(1);
     }
     string name = tokens[1];
     int offset = std::stoi(tokens[2]);
     int size = std::stoi(tokens[3]);
     if (symbol_vars.count(name) == 0) {
-      cerr << "not found symbol: " << name;
+      cout << "not found symbol: " << name;
       exit(1);
     }
     if (!IsValidVictimLabel(tokens[0])) {
-      cerr << "Error Victim Label " << tokens[0];
+      cout << "Error Victim Label " << tokens[0];
       exit(1);
     }
     if (symbol_vars[name].size() < size) {
-      cerr << "Error symbol " << name << " " << symbol_vars[name].size() << " "
+      cout << "Error symbol " << name << " " << symbol_vars[name].size() << " "
            << size << "\n";
       exit(1);
     }
@@ -483,7 +483,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n";
   if (secret_vars.size() < num_xor_cls_) {
-    cerr << "add more xor " << num_xor_cls_ << " than secret var size\n";
+    cout << "add more xor " << num_xor_cls_ << " than secret var size\n";
     num_xor_cls_ = secret_vars.size();
   }
   if (inter_mode_) {
@@ -513,7 +513,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         if (secret_rhs_set.count(secret_rhs) != 0) {
           break;
         }else{
-          secret_rhs[0]~=secret_rhs[0];
+          secret_rhs[0]=!secret_rhs[0];
+          break;
         }
       }
       Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
@@ -644,7 +645,7 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n";
   if (secret_vars.size() < num_xor_cls_) {
-    cerr << "add more xor " << num_xor_cls_ << " than secret var size\n";
+    cout << "add more xor " << num_xor_cls_ << " than secret var size\n";
     num_xor_cls_ = secret_vars.size();
   }
   Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
@@ -710,9 +711,9 @@ void Count::run() {
     sampling_vars.clear();
     readInAFile(solver, symmap_file_);
   }
-  cerr << "read model\n";
+  cout << "read model\n";
   readVictimModel(solver);
-  cerr << "end model\n";
+  cout << "end model\n";
 
   // this will set keep_symbol=0, which means it will keep sampling_var but
   // eliminate symbol
@@ -739,8 +740,8 @@ void Count::run() {
     solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
   }
-  cerr << "secret size=" << secret_vars.size();
-  cerr << "count size=" << count_vars.size();
+  cout << "secret size=" << secret_vars.size();
+  cout << "count size=" << count_vars.size();
   if (mode_ == "simulate") {
     simulate_count(solver, secret_vars);
   } else
