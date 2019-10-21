@@ -72,6 +72,12 @@ void AnalyzeClauses(const Solver *solver, const vector<ClOffset> &cls,
 void ClauseDumper::findComponent(const Solver *solver,
                                  std::map<uint32_t, bool> &useless,
                                  bool outer_numbering) {
+  for (uint32_t var : *solver->conf.sampling_vars) {
+    if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
+     var=solver->varReplacer->get_var_replaced_with_outer(var);
+    var=solver->map_outer_to_inter(var);
+    independent_set.insert(var);
+  }
   cout << "try find component\n";
   size_t nvar = solver->nVars();
 
@@ -86,10 +92,7 @@ void ClauseDumper::findComponent(const Solver *solver,
   if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
    first_var=solver->varReplacer->get_var_replaced_with_outer(first_var);
   first_var=solver->map_outer_to_inter(first_var);
-  for (auto var : *solver->conf.sampling_vars) {
-    if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
-     var=solver->varReplacer->get_var_replaced_with_outer(var);
-    var=solver->map_outer_to_inter(var);
+  for (auto var : independent_set) {
     ds.Union(first_var, var);
   }
   for (watch_array::const_iterator it = solver->watches.begin(),
@@ -118,21 +121,21 @@ void ClauseDumper::findComponent(const Solver *solver,
         cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
       } else
         cout << "useless " << i << "\t";
-        useless[i] = 1;
-        nirrel++;
-      } else if (nclause[i] < 2) {
-        cout << "<2 \t";
-        if(outer_numbering){
-          cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
-        }else
-          cout << " " << i << "\t";
-        //useless[i] = 1;
-        //nirrel++;
-      }
+      useless[i] = 1;
+      nirrel++;
+    } else if (nclause[i] < 2) {
+      cout << "<2 \t";
+      if (outer_numbering) {
+        cout << "outer_numbering " << solver->map_inter_to_outer(i) << "\t";
+      } else
+        cout << " " << i << "\t";
+      // useless[i] = 1;
+      // nirrel++;
     }
-    for (auto var : *solver->conf.sampling_vars)
-      useless[var] = 0;
-    cout << "number of unrelated vars:" << nirrel << "\n";
+  }
+  for (auto var : independent_set)
+    useless[var] = 0;
+  cout << "number of unrelated vars:" << nirrel << "\n";
 }
 
   void ClauseDumper::write_unsat(std::ostream * out) {
