@@ -502,7 +502,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       // same hash but with different rhs to ensure disjoint sets.
       while (secret_rhs.size() > 0) {
         for (int i = 0; i < secret_rhs.size(); ++i) {
-          secret_rhs[i] = (rand() % 2) ? ~secret_rhs[i] : secret_rhs[i];
+          secret_rhs[i] = (rand() % 2) ? true : false;
         }
         for (auto &added_vars : added_secret_vars) {
           // replace var from secret_1 to secret_2
@@ -512,6 +512,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         }
         if (secret_rhs_set.count(secret_rhs) != 0) {
           break;
+        }else{
+          secret_rhs[0]~=secret_rhs[0];
         }
       }
       Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
