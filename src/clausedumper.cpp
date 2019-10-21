@@ -503,8 +503,9 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
           //  cout << "free var:" << var + 1 << "\n";
         }
       }
+      findComponent(solver, useless,outer_numbering);
+
     }
-    findComponent(solver, useless,outer_numbering);
 
     dump_unit_cls(out, outer_numbering);
 
