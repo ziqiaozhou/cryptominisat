@@ -736,12 +736,18 @@ void Solver::test_renumbering() const
 {
     //Check if we renumbered the variables in the order such as to make
     //the unknown ones first and the known/eliminated ones second
+    vector<bool> is_sampling_var(nVars(),false);
+    if(conf.sampling_vars)
+    for(auto i : *conf.sampling_vars){
+      is_sampling_var[i]=true;
+      is_sampling_var[varReplacer->get_var_replaced_with_outer(i)]=true;
+    }
     bool uninteresting = false;
     bool problem = false;
     for(size_t i = 0; i < nVars(); i++) {
         //cout << "val[" << i << "]: " << value(i);
 
-        if (value(i)  != l_Undef)
+        if (value(i)  != l_Undef && is_sampling_var[i]==false)
             uninteresting = true;
 
         if (varData[i].removed == Removed::elimed
@@ -793,11 +799,17 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     vector<uint32_t>& outerToInter
     , vector<uint32_t>& interToOuter
 ) {
+  vector<bool> is_sampling_var(nVars(),false);
+  if(conf.sampling_vars)
+  for(auto i : *conf.sampling_vars){
+    is_sampling_var[i]=true;
+    is_sampling_var[varReplacer->get_var_replaced_with_outer(i)]=true;
+  }
     size_t at = 0;
     vector<uint32_t> useless;
     size_t numEffectiveVars = 0;
     for(size_t i = 0; i < nVars(); i++) {
-        if (value(i) != l_Undef
+        if ((value(i) != l_Undef && !is_sampling_var[i])
             || varData[i].removed == Removed::elimed
             || varData[i].removed == Removed::replaced
             || varData[i].removed == Removed::decomposed

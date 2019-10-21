@@ -208,13 +208,10 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
       *out << "c " << one_symbol_vars.first << " --> [";
       for ( auto lit : one_symbol_vars.second) {
         //auto outer_lit=solver->map_to_with_bva(lit);
-        std::cerr<<"lit"<<lit<<" r:";
         auto outer_lit=lit;
         if(solver->varReplacer && solver->varReplacer->get_num_replaced_vars()){
-          std::cerr<<solver->varReplacer;
            outer_lit=solver->varReplacer->get_lit_replaced_with_outer(lit);
          }
-        std::cerr << " " << Lit(solver->map_outer_to_inter(outer_lit.var()),outer_lit.sign());
 
         *out << " " << Lit(solver->map_outer_to_inter(outer_lit.var()),outer_lit.sign());
       }

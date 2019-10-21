@@ -327,6 +327,9 @@ void Compose::incremental_compose() {
     auto old_sampling_vars = sampling_vars;
     if (simplify_interval_ > 0 &&
         (simplify_interval_ == 1 || i % simplify_interval_ == 0)) {
+      cout << "init_solver sample size=" << sampling_vars.size() << "\n"
+           << " symbol size=" << init_symbol_vars.size() << "\n";
+      init_solver->set_sampling_vars(&sampling_vars);
       init_solver->simplify();
       std::ofstream finalout(state_path);
       init_solver->dump_irred_clauses_ind_only(&finalout);
