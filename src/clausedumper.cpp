@@ -206,28 +206,34 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
 	  if(solver->conf.symbol_vars==nullptr) return;
     for (auto one_symbol_vars : *solver->conf.symbol_vars) {
       *out << "c " << one_symbol_vars.first << " --> [";
-      for (auto lit : one_symbol_vars.second) {
-        cout<<lit<<" 0\n";
-        auto outer_lit=solver->map_to_with_bva(lit);
-        cout<<outer_lit<<" 1\n";
-        outer_lit=solver->varReplacer->get_lit_replaced_with_outer(outer_lit);
-        cout<<outer_lit<<" 's var is "<<outer_lit.var()<<"\n";
-        cout<<solver->map_outer_to_inter(outer_lit.var())<<" 3\n";
-        lit= Lit(solver->map_outer_to_inter(outer_lit.var()),outer_lit.sign());
-        *out << " " << lit;
+      for ( auto lit : one_symbol_vars.second) {
+        //auto outer_lit=solver->map_to_with_bva(lit);
+        std::cerr<<"lit"<<lit<<" r:";
+        auto outer_lit=lit;
+        if(solver->varReplacer && solver->varReplacer->get_num_replaced_vars()){
+          std::cerr<<solver->varReplacer;
+           outer_lit=solver->varReplacer->get_lit_replaced_with_outer(lit);
+         }
+        std::cerr << " " << Lit(solver->map_outer_to_inter(outer_lit.var()),outer_lit.sign());
+
+        *out << " " << Lit(solver->map_outer_to_inter(outer_lit.var()),outer_lit.sign());
       }
       *out << "]\n";
     }
     if (solver->conf.dump_ind && solver->conf.sampling_vars) {
       *out << "c ind ";
       vector<uint32_t> used(solver->nVars(), false);
-      for (auto var : *solver->conf.sampling_vars) {
-        if (used[var])
+      for ( auto var : *solver->conf.sampling_vars) {
+
+        //var=solver->map_to_with_bva(var);
+        auto new_var=var;
+        if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
+         new_var=solver->varReplacer->get_var_replaced_with_outer(var);
+        new_var=solver->map_outer_to_inter(var);
+        if (used[new_var])
           continue;
-        used[var] = true;
-        var=solver->varReplacer->get_var_replaced_with_outer(var);
-        var=solver->map_outer_to_inter(var);
-        *out << " " << var + 1;
+        used[new_var] = true;
+        *out << " " << new_var + 1;
       }
       *out << " 0\n";
     }

@@ -490,10 +490,11 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     set<vector<bool>> secret_rhs_set;
     map<uint32_t, int> var_index;
     for (auto id_lits : all_secret_vars) {
-      vector<uint32_t> vars;
+      vector<uint32_t> current_secret_vars;
       int offset = 0;
+      current_secret_vars.clear();
       for (auto lit : id_lits.second) {
-        vars.push_back(lit.var());
+        current_secret_vars.push_back(lit.var());
         var_index[lit.var()] = offset;
         offset++;
       }
@@ -503,17 +504,24 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         for (int i = 0; i < secret_rhs.size(); ++i) {
           secret_rhs[i] = (rand() % 2) ? ~secret_rhs[i] : secret_rhs[i];
         }
-        for (auto &vars : added_secret_vars) {
+        for (auto &added_vars : added_secret_vars) {
           // replace var from secret_1 to secret_2
-          for (auto &var : vars)
-            var = vars[var_index[var]];
+          for (auto &var : added_vars){
+            var = current_secret_vars[var_index[var]];
+          }
         }
         if (secret_rhs_set.count(secret_rhs) != 0) {
           break;
         }
       }
-      Sample(solver, vars, num_xor_cls_, secret_watch, added_secret_vars,
+      Sample(solver, current_secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
              secret_rhs, true);
+      cout <<"secret_"<< id_lits.first << " add secret xor:\n";
+      for (auto &vars : added_secret_vars) {
+        for (auto var : vars)
+          cout << var << "\t";
+        cout << "\n";
+      }
       secret_rhs_set.insert(secret_rhs);
     }
   } else

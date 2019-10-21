@@ -17,7 +17,7 @@ void Compose::add_compose_options() {
       "Initilization constraint file.")(
       "composedfile", po::value(&out_file_)->default_value("out"),
       "Composed filename.")("simplify_interval",
-                            po::value(&simplify_interval_)->default_value(-1),
+                            po::value(&simplify_interval_)->default_value(1),
                             "n: simplify the cnf per n cycle.")(
       "start_cycle", po::value(&start_cycle_)->default_value(0),
       "set this if compose a multi-cycle CNF from an intermediate state. "
@@ -81,7 +81,7 @@ createReplaceTable(int offset,
 
 void Compose::createNextState(
     SATSolver *solver2, std::map<std::string, vector<Lit>> &trans_symbol_vars,
-    std::map<std::string, vector<Lit>> &symbol_vars2,std::string prev_state) {
+    std::map<std::string, vector<Lit>> &symbol_vars2, std::string prev_state) {
   int add_clause = 0;
   if (conf.verbosity > 1) {
     cout << "------------\n";
@@ -171,9 +171,8 @@ void Compose::readInAFileToCache(SATSolver *solver2, const string &filename) {
         ss.ignore();
     }
   } else {
-    sampling_vars.insert(sampling_vars.end(),
-                            parser.sampling_vars.begin(),
-                            parser.sampling_vars.end());
+    sampling_vars.insert(sampling_vars.end(), parser.sampling_vars.begin(),
+                         parser.sampling_vars.end());
   }
   symbol_vars.insert(parser.symbol_vars.begin(), parser.symbol_vars.end());
   if (conf.keep_symbol) {
@@ -212,7 +211,7 @@ void Compose::copy_compose() {
   SolverConf conf2 = conf;
   SolverConf conf_copy = conf;
   vector<uint32_t> ind_vars;
-  //conf2.doRenumberVars = false;
+  // conf2.doRenumberVars = false;
   SATSolver *init_solver = new SATSolver((void *)&conf2);
   // Read transition CNF
   std::cerr << "read1"
@@ -236,10 +235,10 @@ void Compose::copy_compose() {
     current_trans_symbol_vars = trans_symbol_vars;
     for (auto name_vars : trans_symbol_vars) {
       std::ostringstream newname;
-      if (name_vars.first=="secret" || name_vars.first=="observe"){
-      newname << name_vars.first << "_" << i;
-      current_trans_symbol_vars[newname.str()] = name_vars.second;
-      current_trans_symbol_vars.erase(name_vars.first);
+      if (name_vars.first == "secret" || name_vars.first == "observe") {
+        newname << name_vars.first << "_" << i;
+        current_trans_symbol_vars[newname.str()] = name_vars.second;
+        current_trans_symbol_vars.erase(name_vars.first);
       }
     }
     // compose;
@@ -248,7 +247,8 @@ void Compose::copy_compose() {
     std::string prev_state = "s" + std::to_string(i);
     std::string current_state = "s" + std::to_string(i + 1);
     state_path = state_path + "//" + current_state + ".cnf";
-    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars,prev_state);
+    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars,
+                    prev_state);
     current_trans_symbol_vars.erase(prev_state);
     // if (prev_state != "s0")
     // cout << "init_symbol_vars\n";
@@ -277,7 +277,7 @@ void Compose::copy_compose() {
   }
   if ((cycles_ - 1) % simplify_interval_ != 0) {
     init_solver->simplify();
-    //init_solver->renumber_variables(true);
+    // init_solver->renumber_variables(true);
   }
   std::ofstream finalout(out_dir_ + "//" + out_file_);
   init_solver->dump_irred_clauses_ind_only(&finalout);
@@ -302,7 +302,7 @@ void Compose::incremental_compose() {
   readInAFile(init_solver, init_file_);
   auto init_symbol_vars = symbol_vars;
   std::cerr << "after read2"
-            << "\nsym:" << symbol_vars.size() ;
+            << "\nsym:" << symbol_vars.size();
   std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
   current_trans_symbol_vars = trans_symbol_vars;
   current_trans_symbol_vars.erase("s0");
@@ -316,25 +316,22 @@ void Compose::incremental_compose() {
     state_path = state_path + "//" + current_state + ".cnf";
     current_trans_symbol_vars[prev_state] = trans_symbol_vars["s0"];
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
-    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars,prev_state);
+    createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars,
+                    prev_state);
     current_trans_symbol_vars.erase(prev_state);
     // if (prev_state != "s0")
-    //init_symbol_vars.erase(prev_state);
+    // init_symbol_vars.erase(prev_state);
     // cout << "init_symbol_vars\n";
     // print_map(init_symbol_vars);
-    auto old_init_symbol_vars=init_symbol_vars;
-    auto old_sampling_vars=sampling_vars;
-
-    if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
+    auto old_init_symbol_vars = init_symbol_vars;
+    auto old_sampling_vars = sampling_vars;
+    if (simplify_interval_ > 0 &&
+        (simplify_interval_ == 1 || i % simplify_interval_ == 0)) {
       init_solver->simplify();
-    }
-    std::ofstream finalout(state_path);
-    init_solver->dump_irred_clauses_ind_only(&finalout);
-    // restore to the old var map after dumping
-    std::swap(init_symbol_vars,old_init_symbol_vars);
-    std::swap(sampling_vars,old_sampling_vars);
-    finalout.close();
-    if (simplify_interval_>0 && (simplify_interval_==1 || i % simplify_interval_ == 0)) {
+      std::ofstream finalout(state_path);
+      init_solver->dump_irred_clauses_ind_only(&finalout);
+      // restore to the old var map after dumping
+      finalout.close();
       delete init_solver;
       conf2 = conf_copy;
       init_solver = new SATSolver((void *)&conf2);
@@ -344,18 +341,11 @@ void Compose::incremental_compose() {
       init_symbol_vars = symbol_vars;
     }
     // init_solver->renumber_variables(true);
-    if (conf.verbosity > 1) {
+    if (conf.verbosity >= 0) {
       cout << "after renumber: init_symbol_vars\n";
       print_map(init_symbol_vars);
     }
   }
-  if ( simplify_interval_>0 &&( (cycles_ - 1) % simplify_interval_ != 0)) {
-    init_solver->simplify();
-    //init_solver->renumber_variables(true);
-  }
-  std::ofstream finalout(out_dir_ + "//" + out_file_);
-  init_solver->dump_irred_clauses_ind_only(&finalout);
-  finalout.close();
 }
 void Compose::run() {
   if (mode_ == "inc")
@@ -368,10 +358,10 @@ int main(int argc, char **argv) {
   compose.conf.verbosity = 1;
   compose.conf.verbStats = 1;
   compose.conf.preprocess = 1;
-  //compose.conf.doRenumberVars = false;
-  compose.conf.do_bva=1;
-  compose.conf.velim_resolvent_too_large=-1;
-  compose.conf.varelim_cutoff_too_many_clauses=200000;
+  // compose.conf.doRenumberVars = false;
+  compose.conf.do_bva = 1;
+  compose.conf.velim_resolvent_too_large = -1;
+  compose.conf.varelim_cutoff_too_many_clauses = 200000;
   compose.parseCommandLine();
   compose.run();
 }
