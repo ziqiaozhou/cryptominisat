@@ -82,7 +82,7 @@ void Count::AddVariableSame(SATSolver *solver,
     solver->add_xor_clause(clause, xor_bool);
     finalout << "x" << xor_bool ? "" : "-";
     for (auto v : clause)
-      finalout << v + 1;
+      finalout << (v + 1) << " ";
     finalout << "\n";
   }
   finalout.close();
@@ -506,7 +506,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         }
         for (auto &added_vars : added_secret_vars) {
           // replace var from secret_1 to secret_2
-          for (auto &var : added_vars){
+          for (auto &var : added_vars) {
             var = current_secret_vars[var_index[var]];
           }
         }
@@ -514,9 +514,9 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
           break;
         }
       }
-      Sample(solver, current_secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
-             secret_rhs, true);
-      cout <<"secret_"<< id_lits.first << " add secret xor:\n";
+      Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
+             added_secret_vars, secret_rhs, true);
+      cout << "secret_" << id_lits.first << " add secret xor:\n";
       for (auto &vars : added_secret_vars) {
         for (auto var : vars)
           cout << var << "\t";

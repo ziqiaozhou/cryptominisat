@@ -199,7 +199,10 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
     num_cls += solver->undef_must_set_vars.size();
     num_cls +=
         solver->varReplacer->print_equivalent_literals(outer_numbering) * 2;
-
+    cout << "\nlong ir cls: " << solver->longIrredCls.size()
+         << "\nbinIr cls: " << solver->binTri.irredBins
+         << "\nundef cls:" << solver->undef_must_set_vars.size() << "\n eq cls="
+         << solver->varReplacer->print_equivalent_literals(outer_numbering) * 2;
     return num_cls;
   }
   void ClauseDumper::dump_symbol_vars(std::ostream * out) {

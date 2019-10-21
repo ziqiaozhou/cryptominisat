@@ -739,15 +739,14 @@ void Solver::test_renumbering() const
     vector<bool> is_sampling_var(nVars(),false);
     if(conf.sampling_vars)
     for(auto i : *conf.sampling_vars){
-      is_sampling_var[i]=true;
-      is_sampling_var[varReplacer->get_var_replaced_with_outer(i)]=true;
+      is_sampling_var[map_outer_to_inter(varReplacer->get_var_replaced_with_outer(i))]=true;
     }
     bool uninteresting = false;
     bool problem = false;
     for(size_t i = 0; i < nVars(); i++) {
         //cout << "val[" << i << "]: " << value(i);
 
-        if (value(i)  != l_Undef && is_sampling_var[i]==false)
+        if ((value(i)  != l_Undef) && (is_sampling_var[i]==false))
             uninteresting = true;
 
         if (varData[i].removed == Removed::elimed
@@ -760,7 +759,7 @@ void Solver::test_renumbering() const
             //cout << " non-removed" << endl;
         }
 
-        if (value(i) == l_Undef && is_sampling_var[i]==false
+        if (value(i) == l_Undef
             && varData[i].removed != Removed::elimed
             && varData[i].removed != Removed::replaced
             && varData[i].removed != Removed::decomposed

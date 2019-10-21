@@ -1078,8 +1078,10 @@ uint32_t VarReplacer::print_equivalent_literals(
     if (dumper) {
       auto comp1 = dumper->BelongsToIndComp(lit1);
       auto comp2 = dumper->BelongsToIndComp(lit2);
-      if (!comp1 && !comp2)
+      if (!comp1 && !comp2){
+        cout<<"eq lits is not used\n";
          continue;
+       }
     }
     if (os) {
       tmpCl.clear();
