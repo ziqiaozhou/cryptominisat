@@ -760,7 +760,7 @@ void Solver::test_renumbering() const
             //cout << " non-removed" << endl;
         }
 
-        if (value(i) == l_Undef
+        if (value(i) == l_Undef && is_sampling_var[i]==false
             && varData[i].removed != Removed::elimed
             && varData[i].removed != Removed::replaced
             && varData[i].removed != Removed::decomposed
