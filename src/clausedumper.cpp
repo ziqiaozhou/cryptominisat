@@ -81,8 +81,15 @@ void ClauseDumper::findComponent(const Solver *solver,
     return;
   size_t wsLit = 0;
   DisjointSet ds(nvar);
+
   auto first_var = solver->conf.sampling_vars->at(0);
+  if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
+   first_var=solver->varReplacer->get_var_replaced_with_outer(first_var);
+  first_var=solver->map_outer_to_inter(first_var);
   for (auto var : *solver->conf.sampling_vars) {
+    if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
+     var=solver->varReplacer->get_var_replaced_with_outer(var);
+    var=solver->map_outer_to_inter(var);
     ds.Union(first_var, var);
   }
   for (watch_array::const_iterator it = solver->watches.begin(),
@@ -493,8 +500,8 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
           //  cout << "free var:" << var + 1 << "\n";
         }
       }
-      findComponent(solver, useless,outer_numbering);
     }
+    findComponent(solver, useless,outer_numbering);
 
     dump_unit_cls(out, outer_numbering);
 
