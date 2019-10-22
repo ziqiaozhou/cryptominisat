@@ -798,15 +798,21 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
     vector<uint32_t>& outerToInter
     , vector<uint32_t>& interToOuter
 ) {
-  vector<bool> is_sampling_var(nVars(),false);
-  if(conf.sampling_vars)
-  for(auto i : *conf.sampling_vars){
-    is_sampling_var[i]=true;
-    is_sampling_var[varReplacer->get_var_replaced_with_outer(i)]=true;
-  }
-    size_t at = 0;
-    vector<uint32_t> useless;
-    size_t numEffectiveVars = 0;
+  vector<bool> is_sampling_var(nVars(), false);
+
+  size_t at = 0;
+  vector<uint32_t> useless;
+  size_t numEffectiveVars = 0;
+  if (conf.sampling_vars)
+    for (auto i : *conf.sampling_vars) {
+      // fill sampling_vars first;
+      i = varReplacer->get_var_replaced_with_outer(i);
+      is_sampling_var[i] = true;
+      outerToInter[i] = at;
+      interToOuter[at] = i;
+      at++;
+      numEffectiveVars++;
+    }
     for(size_t i = 0; i < nVars(); i++) {
         if ((value(i) != l_Undef && !is_sampling_var[i])
             || varData[i].removed == Removed::elimed
@@ -816,7 +822,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
             useless.push_back(i);
             continue;
         }
-
+        if(is_sampling_var[i]) continue;
         outerToInter[i] = at;
         interToOuter[at] = i;
         at++;
