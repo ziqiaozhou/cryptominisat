@@ -808,6 +808,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
       // fill sampling_vars first;
       i = varReplacer->get_var_replaced_with_outer(i);
       is_sampling_var[i] = true;
+      if(outerToInter[i]!=-1) continue;
       outerToInter[i] = at;
       interToOuter[at] = i;
       at++;
@@ -822,7 +823,7 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
             useless.push_back(i);
             continue;
         }
-        if(is_sampling_var[i]) continue;
+        if(outerToInter[i]!=-1) continue;
         outerToInter[i] = at;
         interToOuter[at] = i;
         at++;
@@ -924,8 +925,8 @@ bool Solver::renumber_variables(bool must_renumber)
     }
 
     //outerToInter[10] = 0 ---> what was 10 is now 0.
-    vector<uint32_t> outerToInter(nVarsOuter());
-    vector<uint32_t> interToOuter(nVarsOuter());
+    vector<uint32_t> outerToInter(nVarsOuter(),-1);
+    vector<uint32_t> interToOuter(nVarsOuter(),-1);
 
     size_t numEffectiveVars =
         calculate_interToOuter_and_outerToInter(outerToInter, interToOuter);
