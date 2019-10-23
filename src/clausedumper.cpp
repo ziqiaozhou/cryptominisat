@@ -76,7 +76,6 @@ void ClauseDumper::findComponent(const Solver *solver,
     if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
      var=solver->varReplacer->get_var_replaced_with_outer(var);
     var=solver->map_outer_to_inter(var);
-    independent_set.insert(var);
   }
   cout << "try find component\n";
   size_t nvar = solver->nVars();
@@ -335,9 +334,9 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
       lits = solver->get_toplevel_units_internal(false);
     }
     for (Lit lit : lits) {
-      uint32_t comp = BelongsToIndComp(lit);
-      if (!comp && indFixSet.count(lit.var()) == 0)
+      /*if (independent_set.count(lit.var()) == 0)
         continue;
+        */
       *out << lit << " 0\n";
     }
   }
@@ -479,13 +478,17 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
   void ClauseDumper::dump_irred_cls_for_preprocessor(
       std::ostream * out, const bool outer_numbering) {
     indCompSet.clear();
+    if (solver->conf.sampling_vars)
+    for (uint32_t var : *solver->conf.sampling_vars) {
+      auto new_var=var;
+      if(solver->varReplacer &&  solver->varReplacer->get_num_replaced_vars())
+       new_var=solver->varReplacer->get_var_replaced_with_outer(var);
+      new_var=solver->map_outer_to_inter(var);
+      independent_set.insert(new_var);
+    }
     //  std::cout << "dump--\n";
     if (solver->conf.sampling_vars && compFinder) {
       for (uint32_t var : *solver->conf.sampling_vars) {
-        if (solver->value(var) != l_Undef) {
-          indFixSet.insert(var);
-          // cout << "fix var:" << var + 1 << "\n";
-        }
         auto comp = compFinder->getVarComp(var);
         if (comp != -1) {
           indCompSet.insert(comp);
@@ -495,7 +498,6 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
       /*  for (auto c : indCompSet)
           std::cout << c << "--\n";*/
       for (uint32_t var : *solver->conf.sampling_vars) {
-        independent_set.insert(var);
         auto comp = compFinder->getVarComp(var);
         if (comp == 0)
           continue;
