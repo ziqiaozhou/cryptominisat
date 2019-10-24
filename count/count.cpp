@@ -158,16 +158,16 @@ static string getSSignature(vector<vector<uint32_t>> &added_secret_vars) {
   return sxor;
 }
 void Count::RecordCount(int sol, int hash_count,
-                        vector<vector<uint32_t>> &added_secret_vars) {
+                        string rnd) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
 
   count_f << sol << "\t" << hash_count << "\t%"
-          << getSSignature(added_secret_vars) << "\n";
+          << rnd << "\n";
   count_f.close();
 }
 
-void Count::RecordSolution(vector<vector<uint32_t>> &added_secret_vars) {
+void Count::RecordSolution(string rnd) {
 
   if (!record_solution_)
     return;
@@ -175,7 +175,7 @@ void Count::RecordSolution(vector<vector<uint32_t>> &added_secret_vars) {
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
-    solution_f << lit << " % " << getSSignature(added_secret_vars) << "\n";
+    solution_f << lit << " % " << rnd << "\n";
   solution_f.close();
 }
 
@@ -308,7 +308,7 @@ bool Count::readVictimModel(SATSolver *&solver) {
                     victim_model_[OTHER_].end());*/
 }
 
-void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
+string Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
                    int num_xor_cls, vector<Lit> &watch,
                    vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
                    bool addInner, bool is_restarted) {
@@ -373,6 +373,7 @@ void Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
       solver->add_xor_clause(lits, randomBits_rhs[i] == '1');
     }
   }
+  return randomBits+randomBits_rhs;
 }
 
 int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
@@ -495,6 +496,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<vector<uint32_t>> added_secret_vars;
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
+  string secret_rnd="";
   full_secret_vars = secret_vars;
   trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
@@ -534,7 +536,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
           break;
         }
       }
-      Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
+      secret_rnd+=Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
              added_secret_vars, secret_rhs, true);
       cout << "secret_" << id_lits.first << " add secret xor:\n";
       for (auto &vars : added_secret_vars) {
@@ -545,7 +547,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       secret_rhs_set.insert(secret_rhs);
     }
   } else
-    Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
+    secret_rnd=Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
            secret_rhs, true);
 
   cout << "Sample end\n";
@@ -555,7 +557,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   solver->simplify();
   cout << "count size=" << count_vars.size();
   int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
-  RecordSolution(added_secret_vars);
+  RecordSolution(secret_rnd);
   cout << "count end\n";
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
@@ -569,7 +571,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     return;
   cout << "found solution" << nsol << "* 2^" << hash_count;
   if (nsol < max_sol_) {
-    RecordCount(nsol, hash_count, added_secret_vars);
+    RecordCount(nsol, hash_count, secret_rnd);
     int nsol = bounded_sol_count(solver, max_sol_, secret_watch, true);
     cout << "again found solution" << nsol << "* 2^" << hash_count;
     return;
@@ -629,8 +631,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     }
     cout << "found solution" << solution_counts[hash_count] << "* 2^"
          << hash_count << "\n";
-    RecordCount(solution_counts[hash_count], hash_count, added_secret_vars);
-    RecordSolution(added_secret_vars);
+    RecordCount(solution_counts[hash_count], hash_count, secret_rnd);
+    RecordSolution(secret_rnd);
     left = hash_count - hash_count / 2 - 1;
     right = std::min(int(count_vars.size()), hash_count + hash_count / 2 + 1);
   }

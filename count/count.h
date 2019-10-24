@@ -36,7 +36,7 @@ private:
   void AddVariableDiff(SATSolver * solver,map<string,vector<Lit>> all_vars);
   void AddVariableSame(SATSolver * solver,map<string,vector<Lit>> all_vars);
 
-  void Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
+  string Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
               vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
               vector<bool> &rhs, bool addInner = false,
               bool is_restarted = false);
@@ -93,9 +93,9 @@ private:
       count_vars.push_back(lit.var());
     }*/
   }
-  void RecordSolution(vector<vector<uint32_t>> &added_secret_lits);
+  void RecordSolution(string rnd);
   void RecordCount(int sol, int hash_count,
-                   vector<vector<uint32_t>> &added_secret_lits);
+                  string rnd);
   // Return true if reading victim model;
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
