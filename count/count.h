@@ -96,8 +96,9 @@ private:
   void RecordSolution(vector<vector<uint32_t>> &added_secret_lits);
   void RecordCount(int sol, int hash_count,
                    vector<vector<uint32_t>> &added_secret_lits);
-
-  void readVictimModel(SATSolver *&solver);
+  // Return true if reading victim model;
+  // Return false if no model to read;
+  bool readVictimModel(SATSolver *&solver);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;

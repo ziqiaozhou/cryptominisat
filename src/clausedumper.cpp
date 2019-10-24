@@ -221,7 +221,7 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
       for ( auto lit : one_symbol_vars.second) {
         //auto outer_lit=solver->map_to_with_bva(lit);
         auto outer_lit=lit;
-        if(solver->varReplacer && solver->varReplacer->get_num_replaced_vars()){
+        if(solver->varReplacer){
            outer_lit=solver->varReplacer->get_lit_replaced_with_outer(lit);
          }
 

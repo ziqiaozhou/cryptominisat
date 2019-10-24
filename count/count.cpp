@@ -88,31 +88,41 @@ void Count::AddVariableSame(SATSolver *solver,
   finalout.close();
 }
 
-static void trimVar(SATSolver *solver, vector<uint32_t> &secret_vars) {
-  std::unordered_set<uint32_t> fixed_var_set;
+static string trimVar(SATSolver *solver, vector<uint32_t> &secret_vars) {
+  string ret="";
+  std::unordered_map<uint32_t,string> fixed_var_set;
   vector<uint32_t> new_secret_vars;
   for (auto lit : solver->get_zero_assigned_lits()) {
-    fixed_var_set.insert(lit.var());
+    fixed_var_set[lit.var()]=lit.sign()?"0":"1";
   }
   for (auto var : secret_vars) {
-    if (fixed_var_set.count(var) > 0)
+    if (fixed_var_set.count(var) > 0){
+      ret+=fixed_var_set[var];
       continue;
+    }
     new_secret_vars.push_back(var);
+    ret+="x";
   }
+
   std::swap(new_secret_vars, secret_vars);
 }
-static void trimVar(SATSolver *solver, vector<Lit> &secret_vars) {
-  std::unordered_set<uint32_t> fixed_var_set;
+static string trimVar(SATSolver *solver, vector<Lit> &secret_vars) {
+  string ret="";
+  std::unordered_map<uint32_t,string> fixed_var_set;
   vector<Lit> new_secret_vars;
   for (auto lit : solver->get_zero_assigned_lits()) {
-    fixed_var_set.insert(lit.var());
+    fixed_var_set[lit.var()]=lit.sign()?"0":"1";
   }
   for (auto lit : secret_vars) {
-    if (fixed_var_set.count(lit.var()) > 0)
+    if (fixed_var_set.count(lit.var()) > 0){
+      ret+=fixed_var_set[lit.var()];
       continue;
+    }
     new_secret_vars.push_back(lit);
+    ret+="x";
   }
   std::swap(new_secret_vars, secret_vars);
+  return ret;
 }
 static string GenerateRandomBits_prob(unsigned size, double prob) {
   string randomBits = "";
@@ -222,10 +232,10 @@ void Count::add_supported_options() {
   add_count_options();
 }
 
-void Count::readVictimModel(SATSolver *&solver) {
+bool Count::readVictimModel(SATSolver *&solver) {
   std::ifstream vconfig_f;
   if (victim_model_config_.length() == 0)
-    return;
+    return false;
   vconfig_f.open(victim_model_config_);
   map<string, vector<Lit>> new_symbol_vars;
   string line;
@@ -262,8 +272,14 @@ void Count::readVictimModel(SATSolver *&solver) {
     }
   }
   solver->set_symbol_vars(&new_symbol_vars);
-  for (auto &vars : new_symbol_vars)
-    trimVar(solver, vars.second);
+  string symbol_tmpfile = out_dir_ + "//" + out_file_ + ".symbol";
+  std::ofstream symbol_tmpf(symbol_tmpfile);
+
+  for (auto &vars : new_symbol_vars){
+    auto values=trimVar(solver, vars.second);
+    symbol_tmpf<<vars.first<<"\t"<<values<<"\n";
+  }
+  symbol_tmpf.close();
   sampling_vars.clear();
   for (auto lits : new_symbol_vars)
     for (auto lit : lits.second)
@@ -280,6 +296,7 @@ void Count::readVictimModel(SATSolver *&solver) {
   symbol_vars.clear();
   sampling_vars.clear();
   readInAFile(solver, victim_cnf_file);
+  return true;
   /*
   vector<uint32_t> secret_vars(victim_model_[SECRET_].begin(),
                                victim_model_[SECRET_].end());
@@ -712,7 +729,9 @@ void Count::run() {
     readInAFile(solver, symmap_file_);
   }
   cout << "read model\n";
-  readVictimModel(solver);
+  if (readVictimModel(solver)){
+    return;
+  }
   cout << "end model\n";
 
   // this will set keep_symbol=0, which means it will keep sampling_var but
