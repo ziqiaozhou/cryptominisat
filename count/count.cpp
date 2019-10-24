@@ -103,8 +103,8 @@ static string trimVar(SATSolver *solver, vector<uint32_t> &secret_vars) {
     new_secret_vars.push_back(var);
     ret+="x";
   }
-
   std::swap(new_secret_vars, secret_vars);
+  return ret;
 }
 static string trimVar(SATSolver *solver, vector<Lit> &secret_vars) {
   string ret="";
