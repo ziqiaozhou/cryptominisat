@@ -768,10 +768,17 @@ void Count::run() {
     simulate_count(solver, secret_vars);
   } else {
     for (int t = 0; t < nsample; ++t) {
-      SATSolver s((void *)&conf);
-      solver = &s;
+
+      symbol_vars.clear();
+      sampling_vars.clear();
+      delete solver;
+      solver = new SATSolver((void *)&conf);
       readInAFile(solver, target_file);
+      solver->set_up_for_jaccard_count();
+      setSecretVars();
+      setCountVars();
       count(solver, secret_vars);
+
     }
   }
   /*solver = new SATSolver((void *)&conf);
