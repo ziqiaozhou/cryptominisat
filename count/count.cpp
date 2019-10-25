@@ -89,37 +89,37 @@ void Count::AddVariableSame(SATSolver *solver,
 }
 
 static string trimVar(SATSolver *solver, vector<uint32_t> &secret_vars) {
-  string ret="";
-  std::unordered_map<uint32_t,string> fixed_var_set;
+  string ret = "";
+  std::unordered_map<uint32_t, string> fixed_var_set;
   vector<uint32_t> new_secret_vars;
   for (auto lit : solver->get_zero_assigned_lits()) {
-    fixed_var_set[lit.var()]=lit.sign()?"0":"1";
+    fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
   }
   for (auto var : secret_vars) {
-    if (fixed_var_set.count(var) > 0){
-      ret+=fixed_var_set[var];
+    if (fixed_var_set.count(var) > 0) {
+      ret += fixed_var_set[var];
       continue;
     }
     new_secret_vars.push_back(var);
-    ret+="x";
+    ret += "x";
   }
   std::swap(new_secret_vars, secret_vars);
   return ret;
 }
 static string trimVar(SATSolver *solver, vector<Lit> &secret_vars) {
-  string ret="";
-  std::unordered_map<uint32_t,string> fixed_var_set;
+  string ret = "";
+  std::unordered_map<uint32_t, string> fixed_var_set;
   vector<Lit> new_secret_vars;
   for (auto lit : solver->get_zero_assigned_lits()) {
-    fixed_var_set[lit.var()]=lit.sign()?"0":"1";
+    fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
   }
   for (auto lit : secret_vars) {
-    if (fixed_var_set.count(lit.var()) > 0){
-      ret+=fixed_var_set[lit.var()];
+    if (fixed_var_set.count(lit.var()) > 0) {
+      ret += fixed_var_set[lit.var()];
       continue;
     }
     new_secret_vars.push_back(lit);
-    ret+="x";
+    ret += "x";
   }
   std::swap(new_secret_vars, secret_vars);
   return ret;
@@ -157,13 +157,11 @@ static string getSSignature(vector<vector<uint32_t>> &added_secret_vars) {
   }
   return sxor;
 }
-void Count::RecordCount(int sol, int hash_count,
-                        string rnd) {
+void Count::RecordCount(int sol, int hash_count, string rnd) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
 
-  count_f << sol << "\t" << hash_count << "\t%"
-          << rnd << "\n";
+  count_f << sol << "\t" << hash_count << "\t%" << rnd << "\n";
   count_f.close();
 }
 
@@ -205,6 +203,8 @@ void Count::add_count_options() {
                               po::value(&max_sol_)->default_value(64));
   countOptions_.add_options()("max_count_times",
                               po::value(&max_count_times_)->default_value(10));
+  countOptions_.add_options()("nsample",
+                              po::value(&nsample)->default_value(5));
   countOptions_.add_options()("max_log_size",
                               po::value(&max_log_size_)->default_value(-1));
   countOptions_.add_options()("count_mode",
@@ -275,9 +275,9 @@ bool Count::readVictimModel(SATSolver *&solver) {
   string symbol_tmpfile = out_dir_ + "//" + out_file_ + ".symbol";
   std::ofstream symbol_tmpf(symbol_tmpfile);
 
-  for (auto &vars : new_symbol_vars){
-    auto values=trimVar(solver, vars.second);
-    symbol_tmpf<<vars.first<<"\t"<<values<<"\n";
+  for (auto &vars : new_symbol_vars) {
+    auto values = trimVar(solver, vars.second);
+    symbol_tmpf << vars.first << "\t" << values << "\n";
   }
   symbol_tmpf.close();
   sampling_vars.clear();
@@ -309,9 +309,9 @@ bool Count::readVictimModel(SATSolver *&solver) {
 }
 
 string Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
-                   int num_xor_cls, vector<Lit> &watch,
-                   vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
-                   bool addInner, bool is_restarted) {
+                     int num_xor_cls, vector<Lit> &watch,
+                     vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
+                     bool addInner, bool is_restarted) {
   double ratio = xor_ratio_;
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
@@ -373,7 +373,7 @@ string Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
       solver->add_xor_clause(lits, randomBits_rhs[i] == '1');
     }
   }
-  return randomBits+randomBits_rhs;
+  return randomBits + randomBits_rhs;
 }
 
 int64_t Count::bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
@@ -496,7 +496,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<vector<uint32_t>> added_secret_vars;
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
-  string secret_rnd="";
+  string secret_rnd = "";
   full_secret_vars = secret_vars;
   trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
@@ -531,13 +531,13 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         }
         if (secret_rhs_set.count(secret_rhs) != 0) {
           break;
-        }else{
-          secret_rhs[0]=!secret_rhs[0];
+        } else {
+          secret_rhs[0] = !secret_rhs[0];
           break;
         }
       }
-      secret_rnd+=Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
-             added_secret_vars, secret_rhs, true);
+      secret_rnd += Sample(solver, current_secret_vars, num_xor_cls_,
+                           secret_watch, added_secret_vars, secret_rhs, true);
       cout << "secret_" << id_lits.first << " add secret xor:\n";
       for (auto &vars : added_secret_vars) {
         for (auto var : vars)
@@ -547,8 +547,8 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       secret_rhs_set.insert(secret_rhs);
     }
   } else
-    secret_rnd=Sample(solver, secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
-           secret_rhs, true);
+    secret_rnd = Sample(solver, secret_vars, num_xor_cls_, secret_watch,
+                        added_secret_vars, secret_rhs, true);
 
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
@@ -714,6 +714,7 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
 }
 
 void Count::run() {
+  string target_file = filesToRead[0];
   if (mode_ == "nonblock")
     conf.max_sol_ = max_sol_;
   else {
@@ -731,7 +732,7 @@ void Count::run() {
     readInAFile(solver, symmap_file_);
   }
   cout << "read model\n";
-  if (readVictimModel(solver)){
+  if (readVictimModel(solver)) {
     return;
   }
   cout << "end model\n";
@@ -749,15 +750,15 @@ void Count::run() {
     AddVariableDiff(solver,all_secret_vars);*/
   if (inter_mode_ == 1) {
     AddVariableDiff(solver, all_observe_vars);
-    string diff_file = out_dir_ + "//" + out_file_ + ".diff";
-    std::ofstream finalout(diff_file);
+    target_file = out_dir_ + "//" + out_file_ + ".diff";
+    std::ofstream finalout(target_file);
     solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
   }
   if (inter_mode_ == 2) {
     AddVariableSame(solver, all_observe_vars);
-    string diff_file = out_dir_ + "//" + out_file_ + ".same";
-    std::ofstream finalout(diff_file);
+    target_file = out_dir_ + "//" + out_file_ + ".same";
+    std::ofstream finalout(target_file);
     solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();
   }
@@ -765,9 +766,14 @@ void Count::run() {
   cout << "count size=" << count_vars.size();
   if (mode_ == "simulate") {
     simulate_count(solver, secret_vars);
-  } else
-    count(solver, secret_vars);
-
+  } else {
+    for (int t = 0; t < nsample; ++t) {
+      SATSolver s((void *)&conf);
+      solver = &s;
+      readInAFile(solver, target_file);
+      count(solver, secret_vars);
+    }
+  }
   /*solver = new SATSolver((void *)&conf);
   parseInAllFiles(solver, filesToRead[0]);*/
 }

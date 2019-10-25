@@ -134,6 +134,7 @@ private:
   string hash_file;
   std::ofstream *hashf;
   int inter_mode_;
+  int nsample;
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H
