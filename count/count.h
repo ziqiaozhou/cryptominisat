@@ -46,7 +46,7 @@ private:
                             const vector<Lit> &assumps, bool only_ind = true);
   map<int, uint64_t> count_once(SATSolver *solver, vector<uint32_t> &count_vars,
                                 const vector<Lit> &secret_watch, int &left,
-                                int &right, int &hash_count);
+                                int &right, int &hash_count ,bool reserve_xor=false);
   void count(SATSolver *solver, vector<uint32_t> &secret_vars);
 
   void simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars);
@@ -154,6 +154,9 @@ private:
   std::ofstream *hashf;
   int inter_mode_;
   int nsample;
+  vector<vector<uint32_t>> added_count_lits;
+  vector<bool> count_rhs;
+  vector<Lit> count_watch;
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H
