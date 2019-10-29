@@ -148,6 +148,7 @@ private:
   int max_count_times_;
   bool record_solution_;
   int max_log_size_;
+  int min_log_size_;
   vector<vector<Lit>> solution_lits;
   int max_xor_per_var_;
   string hash_file;

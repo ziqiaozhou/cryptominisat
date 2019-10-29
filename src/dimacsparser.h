@@ -250,9 +250,7 @@ template <class C> bool DimacsParser<C>::printHeader(C &in) {
     }
 
     if (solver->nVars() < (size_t)num_header_vars) {
-      std::cerr << "new_vars\n";
       solver->new_vars(num_header_vars - solver->nVars());
-      std::cerr << "after new_vars\n";
     }
   } else {
     std::cerr << "PARSE ERROR! Unexpected char (hex: " << std::hex

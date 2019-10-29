@@ -806,8 +806,15 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
   if (conf.sampling_vars)
     for (auto i : *conf.sampling_vars) {
       // fill sampling_vars first;
-      i = varReplacer->get_var_replaced_with_outer(i);
+      auto ri = varReplacer->get_var_replaced_with_outer(i);
+      ri = map_outer_to_inter(ri);
+      if(i>=nVars()){
+        std::cerr<<"map outer to inter"<< ri<<"\n";
+        std::cerr<<i<<"var is repalced by "<< i <<"which is larger than "<<nVars()<<"\n";
+      }
+      i=ri;
       is_sampling_var[i] = true;
+      assert(i< nVars());
       if(outerToInter[i]!=-1) continue;
       outerToInter[i] = at;
       interToOuter[at] = i;
@@ -815,15 +822,15 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
       numEffectiveVars++;
     }
     for(size_t i = 0; i < nVars(); i++) {
-        if ((value(i) != l_Undef && !is_sampling_var[i])
+        if(outerToInter[i]!=-1) continue;
+        if (value(i) != l_Undef
             || varData[i].removed == Removed::elimed
             || varData[i].removed == Removed::replaced
             || varData[i].removed == Removed::decomposed
-        ) {
+        ){
             useless.push_back(i);
             continue;
         }
-        if(outerToInter[i]!=-1) continue;
         outerToInter[i] = at;
         interToOuter[at] = i;
         at++;
@@ -839,6 +846,9 @@ size_t Solver::calculate_interToOuter_and_outerToInter(
         outerToInter[*it] = at;
         interToOuter[at] = *it;
         at++;
+    }
+    if(at != nVars()){
+      std::cerr<<at<< "\t "<<nVars()<<"\t"<< (conf.sampling_vars?conf.sampling_vars->size():0)<<"\n";
     }
     assert(at == nVars());
 

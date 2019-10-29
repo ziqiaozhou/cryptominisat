@@ -220,6 +220,8 @@ void Count::add_count_options() {
   countOptions_.add_options()("max_count_times",
                               po::value(&max_count_times_)->default_value(10));
   countOptions_.add_options()("nsample", po::value(&nsample)->default_value(5));
+  countOptions_.add_options()("min_log_size",
+                              po::value(&min_log_size_)->default_value(-1));
   countOptions_.add_options()("max_log_size",
                               po::value(&max_log_size_)->default_value(-1));
   countOptions_.add_options()("count_mode",
@@ -524,11 +526,12 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
     if (nsol < max_sol_) {
       left = right = hash_count = 0;
       solution_counts[0] = nsol;
+      cout<< "found solution"<< nsol<<"no need xor\n";
     }
   }
   while (left < right) {
     hash_count = left + (right - left) / 2;
-    cout << "starting... hash_count=" << hash_count << "\n";
+    cout << "starting... hash_count=" << hash_count << std::endl<<std::flush;
     std::ofstream hash_f(hash_file, std::ofstream::out);
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
            count_rhs, false);
@@ -585,9 +588,9 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   string secret_rnd = "";
   trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
-  cout << "Sample\n";
+  cout << "Sample\n"<<std::flush;
   if (secret_vars.size() < num_xor_cls_) {
-    cout << "add more xor " << num_xor_cls_ << " than secret var size\n";
+    cout << "add more xor " << num_xor_cls_ << " than secret var size\n"<<std::flush;
     num_xor_cls_ = secret_vars.size();
   }
   if (inter_mode_) {
@@ -627,7 +630,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       Sample(backup_solvers[id], current_secret_vars, num_xor_cls_,
              backup_secret_watch[id], backup_added_secret_vars[id], secret_rhs,
              true);
-      cout << "secret_" << id_lits.first << " add secret xor:\n";
+      cout << "secret_" << id_lits.first << " add secret xor:\n"<<std::flush;
       for (auto &vars : added_secret_vars) {
         for (auto var : vars)
           cout << var << "\t";
@@ -639,14 +642,14 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     secret_rnd = Sample(solver, secret_vars, num_xor_cls_, secret_watch,
                         added_secret_vars, secret_rhs, true);
 
-  cout << "Sample end\n";
+  cout << "Sample end\n"<<std::flush;
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
   solver->simplify();
   int hash_count = 0;
   int left, right;
   map<string, int> backup_left, backup_right, backup_hash_count;
-  left = (max_log_size_ == -1) ? 1 : max_log_size_ / 2;
+  left = (min_log_size_ == -1) ? 0 : min_log_size_ ;
   right = (max_log_size_ == -1) ? count_vars.size() - log2(max_sol_)
                                 : max_log_size_;
   for (auto id_solver : backup_solvers) {
@@ -795,7 +798,6 @@ void Count::run() {
 
   // this will set keep_symbol=0, which means it will keep sampling_var but
   // eliminate symbol
-  solver->set_up_for_jaccard_count();
   setSecretVars();
   /*vector<uint32_t> secret_vars;
   for (auto lit : symbol_vars[SECRET_]) {
@@ -832,9 +834,11 @@ void Count::run() {
       sampling_vars.clear();
       delete solver;
       solver = new SATSolver((void *)&conf);
+      solver->set_up_for_jaccard_count();
       readInAFile(solver, target_file);
       solver->set_up_for_jaccard_count();
       setBackupSolvers();
+      std::cout<<"sample once"<<std::endl<<std::flush;
       count(solver, secret_vars);
     }
   }
