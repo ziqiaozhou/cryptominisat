@@ -80,10 +80,14 @@ void Count::AddVariableSame(SATSolver *solver,
         xor_bool = ~xor_bool;
     }
     solver->add_xor_clause(clause, xor_bool);
-    finalout << "x" << xor_bool ? "" : "-";
-    for (auto v : clause)
+    finalout << "x" << (xor_bool ? "" : "-");
+    cout << "x" << (xor_bool ? "" : "-");
+    for (auto v : clause) {
+      cout << v << "\t";
       finalout << (v + 1) << " ";
-    finalout << "\n";
+    }
+    cout << "0\n";
+    finalout << "0\n";
   }
   finalout.close();
 }
@@ -172,12 +176,16 @@ void Count::RecordCountInter(map<int, uint64_t> &sols, int hash_count,
                         std::ofstream::out | std::ofstream::app);
 
   count_f << sols[hash_count] << "\t" << hash_count << "\t";
+  int norm_sum_sols = 0;
   for (auto id_sols : b_sols) {
     auto id = id_sols.first;
     int hash = b_hash_counts[id];
     count_f << id_sols.second[hash] << "\t" << hash << "\t";
+    norm_sum_sols += id_sols.second[hash] * pow(2, hash - hash_count);
   }
-  count_f << "%" << rnd << "\n";
+  double j =
+      1 - 1.0 * sols[hash_count] / double(norm_sum_sols - sols[hash_count]);
+  count_f << std::setprecision(4) << j << "%" << rnd << "\n";
   count_f.close();
 }
 
@@ -325,7 +333,7 @@ bool Count::readVictimModel(SATSolver *&solver) {
                     victim_model_[OTHER_].end());*/
 }
 
-string Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
+string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
                      int num_xor_cls, vector<Lit> &watch,
                      vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
                      bool addInner, bool is_restarted) {
@@ -350,7 +358,7 @@ string Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
     for (int i = 0; i < diff; ++i) {
       watch[base + i] = Lit(solver->nVars() + i, false);
     }
-    solver->new_vars(diff);
+    solver2->new_vars(diff);
   }
   for (int i = 0; i < num_xor_cls; ++i) {
     lits.clear();
@@ -358,15 +366,18 @@ string Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
       // reuse generated xor lits;
       // lits = alllits[i];
       if (is_restarted) {
-        auto lit = alllits[i];
+         lits = alllits[i];
         if (!addInner) {
           if (watch[i].var() >= solver->nVars()) {
-            cout << "new var for watch";
-            solver->new_vars(watch[i].var() - solver->nVars() + 1);
+            solver2->new_vars(watch[i].var() - solver->nVars() + 1);
           }
           lits.push_back(watch[i].var());
         }
-        solver->add_xor_clause(lits, rhs[i]);
+        for(auto l : lits){
+          cout<<l<<"\t";
+        }
+        cout<<solver2<<"\n";
+        solver2->add_xor_clause(lits, rhs[i]);
       }
       continue;
     } else {
@@ -382,12 +393,16 @@ string Count::Sample(SATSolver *solver, std::vector<uint32_t> vars,
       if (!addInner) {
         if (watch[i].var() >= solver->nVars()) {
           cout << "new var for watch";
-          solver->new_vars(watch[i].var() - solver->nVars() + 1);
+          solver2->new_vars(watch[i].var() - solver->nVars() + 1);
         }
         lits.push_back(watch[i].var());
       }
+      for(auto l : lits){
+        cout<<l<<"\t";
+      }
+      cout<<solver2<<"\n";
       // e.g., xor watch 1 2 4 ..
-      solver->add_xor_clause(lits, randomBits_rhs[i] == '1');
+      solver2->add_xor_clause(lits, randomBits_rhs[i] == '1');
     }
   }
   return randomBits + randomBits_rhs;
@@ -521,17 +536,18 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   int prev_hash_count = 0;
   vector<Lit> assump;
   solution_lits.clear();
+  cout << "target count size" << target_count_vars.size() << std::endl;
   if (left <= 0) {
     nsol = bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
     if (nsol < max_sol_) {
       left = right = hash_count = 0;
       solution_counts[0] = nsol;
-      cout<< "found solution"<< nsol<<"no need xor\n";
+      cout << "found solution" << nsol << "no need xor\n";
     }
   }
   while (left < right) {
     hash_count = left + (right - left) / 2;
-    cout << "starting... hash_count=" << hash_count << std::endl<<std::flush;
+    cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
     std::ofstream hash_f(hash_file, std::ofstream::out);
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
            count_rhs, false);
@@ -567,7 +583,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   }
   while ((!solution_counts.count(hash_count) ||
           solution_counts[hash_count] == 0) &&
-         hash_count >= 0) {
+         hash_count > 0) {
     hash_count--;
   }
   left = std::max(0, hash_count - (hash_count + 1) / 2);
@@ -588,9 +604,10 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   string secret_rnd = "";
   trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
-  cout << "Sample\n"<<std::flush;
+  cout << "Sample\n" << std::flush;
   if (secret_vars.size() < num_xor_cls_) {
-    cout << "add more xor " << num_xor_cls_ << " than secret var size\n"<<std::flush;
+    cout << "add more xor " << num_xor_cls_ << " than secret var size\n"
+         << std::flush;
     num_xor_cls_ = secret_vars.size();
   }
   if (inter_mode_) {
@@ -625,12 +642,16 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
           break;
         }
       }
-      secret_rnd += Sample(solver, current_secret_vars, num_xor_cls_,
-                           secret_watch, added_secret_vars, secret_rhs, true);
+      secret_rnd +=
+          Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
+                 added_secret_vars, secret_rhs, true, true);
+      backup_added_secret_vars[id] = added_secret_vars;
+      backup_secret_watch[id]=secret_watch;
+      cout<<"sample for id"<<id<<"\n";
       Sample(backup_solvers[id], current_secret_vars, num_xor_cls_,
-             backup_secret_watch[id], backup_added_secret_vars[id], secret_rhs,
+             backup_secret_watch[id], added_secret_vars, secret_rhs, true,
              true);
-      cout << "secret_" << id_lits.first << " add secret xor:\n"<<std::flush;
+      cout << "secret_" << id_lits.first << " add secret xor:\n" << std::flush;
       for (auto &vars : added_secret_vars) {
         for (auto var : vars)
           cout << var << "\t";
@@ -642,14 +663,15 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     secret_rnd = Sample(solver, secret_vars, num_xor_cls_, secret_watch,
                         added_secret_vars, secret_rhs, true);
 
-  cout << "Sample end\n"<<std::flush;
+  cout << "Sample end\n" << std::flush;
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
   solver->simplify();
+  ff.close();
   int hash_count = 0;
   int left, right;
   map<string, int> backup_left, backup_right, backup_hash_count;
-  left = (min_log_size_ == -1) ? 0 : min_log_size_ ;
+  left = (min_log_size_ == -1) ? 0 : min_log_size_;
   right = (max_log_size_ == -1) ? count_vars.size() - log2(max_sol_)
                                 : max_log_size_;
   for (auto id_solver : backup_solvers) {
@@ -763,11 +785,12 @@ void Count::setBackupSolvers() {
     for (int i = 0; i < 2; ++i) {
       symbol_vars.clear();
       sampling_vars.clear();
-      if(backup_solvers[ids[i]]!=nullptr){
+      if (backup_solvers[ids[i]] != nullptr) {
         delete backup_solvers[ids[i]];
       }
       backup_solvers[ids[i]] = (new SATSolver((void *)&conf));
       readInAFile(backup_solvers[ids[i]], filesToRead[0]);
+      backup_solvers[ids[i]]->set_up_for_jaccard_count();
     }
   }
 }
@@ -834,11 +857,10 @@ void Count::run() {
       sampling_vars.clear();
       delete solver;
       solver = new SATSolver((void *)&conf);
-      solver->set_up_for_jaccard_count();
       readInAFile(solver, target_file);
       solver->set_up_for_jaccard_count();
       setBackupSolvers();
-      std::cout<<"sample once"<<std::endl<<std::flush;
+      std::cout << "sample once" << std::endl << std::flush;
       count(solver, secret_vars);
     }
   }

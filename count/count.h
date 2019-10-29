@@ -94,7 +94,6 @@ private:
         for (auto lit : name_lits.second) {
           count_vars.push_back(lit.var());
           all_observe_lits[id].push_back(lit);
-          other_control_vars.push_back(lit.var());
         }
       } else if (!name_lits.first.compare(0, OTHER_.length(), OTHER_)) {
         for (auto lit : name_lits.second) {
