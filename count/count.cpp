@@ -667,7 +667,6 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
   solver->simplify();
-  ff.close();
   int hash_count = 0;
   int left, right;
   map<string, int> backup_left, backup_right, backup_hash_count;
