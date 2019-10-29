@@ -356,7 +356,7 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
     int base = watch.size();
     watch.resize(num_xor_cls);
     for (int i = 0; i < diff; ++i) {
-      watch[base + i] = Lit(solver->nVars() + i, false);
+      watch[base + i] = Lit(solver2->nVars() + i, false);
     }
     solver2->new_vars(diff);
   }
@@ -368,8 +368,8 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
       if (is_restarted) {
          lits = alllits[i];
         if (!addInner) {
-          if (watch[i].var() >= solver->nVars()) {
-            solver2->new_vars(watch[i].var() - solver->nVars() + 1);
+          if (watch[i].var() >= solver2->nVars()) {
+            solver2->new_vars(watch[i].var() - solver2->nVars() + 1);
           }
           lits.push_back(watch[i].var());
         }
@@ -391,9 +391,9 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
       rhs.push_back(randomBits_rhs[i] == '1');
       // 0 xor 1 = 1, 0 xor 0= 0, thus,we add watch=0 => xor(1,2,4) = r
       if (!addInner) {
-        if (watch[i].var() >= solver->nVars()) {
+        if (watch[i].var() >= solver2->nVars()) {
           cout << "new var for watch";
-          solver2->new_vars(watch[i].var() - solver->nVars() + 1);
+          solver2->new_vars(watch[i].var() - solver2->nVars() + 1);
         }
         lits.push_back(watch[i].var());
       }
