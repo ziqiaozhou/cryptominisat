@@ -10,7 +10,9 @@
 #include <fstream>
 #include <map>
 #include <random>
+#include <unordered_map>
 #include <unordered_set>
+
 class Count : public Main {
 public:
   void add_count_options();
@@ -33,16 +35,20 @@ private:
   const std::string CONTROLLED_ = "control";
   const std::string OBSERVABLE_ = "observe";
   const std::string OTHER_ = "other";
-  void AddVariableDiff(SATSolver * solver,map<string,vector<Lit>> all_vars);
-  void AddVariableSame(SATSolver * solver,map<string,vector<Lit>> all_vars);
+  void AddVariableDiff(SATSolver *solver, map<string, vector<Lit>> all_vars);
+  void AddVariableSame(SATSolver *solver, map<string, vector<Lit>> all_vars);
 
   string Sample(SATSolver *solver, std::vector<uint32_t> vars, int num_xor_cls,
-              vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
-              vector<bool> &rhs, bool addInner = false,
-              bool is_restarted = false);
-  int64_t bounded_sol_count(SATSolver *solver, uint32_t maxSolutions,
+                vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
+                vector<bool> &rhs, bool addInner = false,
+                bool is_restarted = false);
+  int64_t bounded_sol_count(SATSolver *solver, vector<uint32_t> &count_vars, uint32_t maxSolutions,
                             const vector<Lit> &assumps, bool only_ind = true);
+  map<int, uint64_t> count_once(SATSolver *solver, vector<uint32_t> &count_vars,
+                                const vector<Lit> &secret_watch, int &left,
+                                int &right, int &hash_count);
   void count(SATSolver *solver, vector<uint32_t> &secret_vars);
+
   void simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars);
 
   bool IsValidVictimLabel(std::string label) {
@@ -52,9 +58,17 @@ private:
       return false;
     return true;
   }
+  void setBackupSolvers();
+  vector<string> getIDs() {
+    vector<string> ids;
+    for (auto id_var : all_secret_vars) {
+      ids.push_back(id_var.first);
+    }
+    return ids;
+  }
   void setSecretVars() {
     for (auto name_lits : symbol_vars) {
-      int name_len =  SECRET_.length();
+      int name_len = SECRET_.length();
       if (!name_lits.first.compare(0, SECRET_.length(), SECRET_)) {
         auto id = name_lits.first.substr(name_len);
         for (auto lit : name_lits.second) {
@@ -65,37 +79,42 @@ private:
     }
   }
   void setCountVars() {
+    vector<uint32_t> other_control_vars;
     count_vars.clear();
     for (auto name_lits : symbol_vars) {
       if (!name_lits.first.compare(0, CONTROLLED_.length(), CONTROLLED_)) {
-        for (auto lit : name_lits.second)
+        for (auto lit : name_lits.second) {
           count_vars.push_back(lit.var());
-      } else if (!name_lits.first.compare(0, OBSERVABLE_.length(), OBSERVABLE_)){
-        int name_len =  OBSERVABLE_.length();
+          other_control_vars.push_back(lit.var());
+        }
+      } else if (!name_lits.first.compare(0, OBSERVABLE_.length(),
+                                          OBSERVABLE_)) {
+        int name_len = OBSERVABLE_.length();
         auto id = name_lits.first.substr(name_len);
         for (auto lit : name_lits.second) {
           count_vars.push_back(lit.var());
-          all_observe_vars[id].push_back(lit);
+          all_observe_lits[id].push_back(lit);
+          other_control_vars.push_back(lit.var());
         }
       } else if (!name_lits.first.compare(0, OTHER_.length(), OTHER_)) {
-        for (auto lit : name_lits.second)
+        for (auto lit : name_lits.second) {
           count_vars.push_back(lit.var());
+          other_control_vars.push_back(lit.var());
+        }
       }
     }
-    /*
-    for (auto lit : symbol_vars[CONTROLLED_]) {
-      count_vars.push_back(lit.var());
+    for (auto id_lits : all_observe_lits) {
+      all_count_vars[id_lits.first] = other_control_vars;
+      for (auto lit : id_lits.second)
+        all_count_vars[id_lits.first].push_back(lit.var());
     }
-    for (auto lit : symbol_vars[OBSERVABLE_]) {
-      count_vars.push_back(lit.var());
-    }
-    for (auto lit : symbol_vars[OTHER_]) {
-      count_vars.push_back(lit.var());
-    }*/
   }
   void RecordSolution(string rnd);
-  void RecordCount(int sol, int hash_count,
-                  string rnd);
+  void RecordCount(map<int, uint64_t> &sols, int hash_count, string rnd);
+  void RecordCountInter(map<int, uint64_t> &sols, int hash_count,
+                        map<string, map<int, uint64_t>> b_sols,
+                        map<string, int> b_hash_counts, string rnd);
+
   // Return true if reading victim model;
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
@@ -106,6 +125,7 @@ private:
   std::string out_file_;
   std::string init_file_;
   SolverConf init_conf_;
+  map<string, SATSolver *> backup_solvers;
   std::string out_dir_;
   std::string victim_model_config_;
   std::map<std::string, std::vector<uint32_t>> victim_model_;
@@ -115,12 +135,11 @@ private:
   string mode_;
   // model counting setting
   vector<uint32_t> count_vars;
-  vector<uint32_t> full_count_vars;
   vector<uint32_t> secret_vars;
-  vector<uint32_t> full_secret_vars;
-
-  std::map<string, vector<Lit>> all_observe_vars;
+  std::map<string, vector<Lit>> all_observe_lits;
+  std::map<string, vector<uint32_t>> all_count_vars;
   std::map<string, vector<Lit>> all_secret_vars;
+
   double xor_ratio_;
   int num_xor_cls_;
   int max_sol_;
