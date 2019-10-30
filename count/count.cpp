@@ -588,7 +588,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
       nsol = solution_counts[hash_count];
     if (nsol >= max_sol_) {
       left = hash_count + 1;
-    } else if (nsol < max_sol_ * 0.8) {
+    } else if (nsol < max_sol_ * 0.6) {
       right = hash_count;
       if (nsol > 0)
         left = std::max(left, hash_count - int(2 + log2(max_sol_ / nsol)));
@@ -612,9 +612,9 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
          hash_count > 0) {
     hash_count--;
   }
-  left = std::max(0, hash_count - std::min(5, (hash_count + 1) / 2));
+  left = std::max(0, hash_count - std::min(4, (hash_count + 1) / 2));
   right = std::min(int(target_count_vars.size()),
-                   hash_count + std::min(5, (hash_count + 1) / 2));
+                   hash_count + std::min(4, (hash_count + 1) / 2));
   cout << "found solution" << solution_counts[hash_count] << "* 2^"
        << hash_count << "\n";
   return solution_counts;
@@ -682,6 +682,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         for (auto var : vars)
           cout << var << "\t";
         cout << "\n";
+      backup_solvers[id].simplify();
       }
       secret_rhs_set.insert(secret_rhs);
     }
@@ -714,6 +715,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     RecordSolution(secret_rnd);
     auto prev_count_vars = &count_vars;
     map<string, map<int, uint64_t>> backup_solution_counts;
+    int idx=0;
     for (auto id_solver : backup_solvers) {
       auto id = id_solver.first;
       cout << "======count for id=" << id << "left=" << backup_left[id]
@@ -724,7 +726,6 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
           backup_left[id], backup_right[id], backup_hash_count[id], true);
       prev_count_vars = &all_count_vars[id];
     }
-
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
@@ -850,14 +851,7 @@ void Count::run() {
   // this will set keep_symbol=0, which means it will keep sampling_var but
   // eliminate symbol
   setSecretVars();
-  /*vector<uint32_t> secret_vars;
-  for (auto lit : symbol_vars[SECRET_]) {
-    secret_vars.push_back(lit.var());
-  }*/
   setCountVars();
-
-  /*if(inter_mode_>0)
-    AddVariableDiff(solver,all_secret_vars);*/
   if (inter_mode_ == 1) {
     AddVariableDiff(solver, all_observe_lits);
     target_file = out_dir_ + "//" + out_file_ + ".diff";
