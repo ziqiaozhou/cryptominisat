@@ -682,7 +682,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         for (auto var : vars)
           cout << var << "\t";
         cout << "\n";
-      backup_solvers[id].simplify();
+      backup_solvers[id]->simplify();
       }
       secret_rhs_set.insert(secret_rhs);
     }
