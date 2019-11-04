@@ -200,7 +200,7 @@ void Count::RecordCountInter(map<int, uint64_t> &sols, int hash_count,
   }
   double j =
       1 - 1.0 * sols[hash_count] / double(norm_sum_sols - sols[hash_count]);
-  count_f << std::setprecision(4) << j << "%" << rnd << "\n";
+  count_f << std::setprecision(4) << j << "\t%" << rnd << "\n";
   count_f.close();
 }
 
