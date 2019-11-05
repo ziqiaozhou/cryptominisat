@@ -343,16 +343,16 @@ void Compose::incremental_compose() {
       readInAFile(init_solver, state_path);
       init_symbol_vars = symbol_vars;
     }
-    std::ofstream finalout("composed.cnf");
-    init_solver->dump_irred_clauses_ind_only(&finalout);
-    // restore to the old var map after dumping
-    finalout.close();
     // init_solver->renumber_variables(true);
     if (conf.verbosity >= 0) {
       cout << "after renumber: init_symbol_vars\n";
       print_map(init_symbol_vars);
     }
   }
+  std::ofstream finalout("composed.cnf");
+  init_solver->dump_irred_clauses_ind_only(&finalout);
+  // restore to the old var map after dumping
+  finalout.close();
 }
 void Compose::run() {
   if (mode_ == "inc")
