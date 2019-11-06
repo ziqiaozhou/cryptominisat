@@ -692,7 +692,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     solver->dump_irred_clauses_ind_only(&ff);
     ff.close();
     // exit(1);
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < backup_solvers.size(); ++i) {
       cout << "sample for id" << i << "\n";
       vector<Lit> rhs_watchs;
       rhs_watchs.clear();
@@ -877,6 +877,9 @@ void Count::setBackupSolvers() {
       backup_solvers[i]->set_up_for_jaccard_count();
       if (i == 1 && all_declass_lits.size())
         AddVariableSame(backup_solvers[i], all_declass_lits);
+      if(all_declass_lits.size()==0){
+        backup_solvers.resize(1);
+      }
     }
   }
 }
@@ -956,6 +959,8 @@ void Count::run() {
       if (inter_mode_ == 2) {
         cout << "AddVariableSame for solver";
         AddVariableSame(solver, all_observe_lits);
+        if(all_declass_lits.size())
+          AddVariableSame(solver, all_declass_lits);
         auto ids = getIDs();
         count_vars = all_count_vars[ids[0]];
       }
