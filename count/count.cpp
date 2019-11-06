@@ -404,7 +404,6 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
     if (addInner != lit_Undef) {
       solver2->add_clause({addInner, watch[i]});
     } else {
-      solver2->add_clause({watch[i]});
     }
     for (auto l : lits) {
       cout << l << "\t";
@@ -696,6 +695,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     for (int i = 0; i < 2; ++i) {
       cout << "sample for id" << i << "\n";
       vector<Lit> rhs_watchs;
+      rhs_watchs.clear();
       for (auto id_added_secret_vars : backup_added_secret_vars) {
         auto id = id_added_secret_vars.first;
         auto added_secret_vars = id_added_secret_vars.second;
@@ -719,11 +719,15 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       backup_solvers[i]->add_clause({~rhs_watchs[1], choice2});
       backup_solvers[i]->add_clause({~rhs_watchs[2], choice2});
       backup_solvers[i]->add_xor_clause({choice2.var(), choice1.var()}, true);
+      cout<<~rhs_watchs[0]<<","<<choice1;
+      cout<<~rhs_watchs[3]<<","<<choice1;
+      cout<<~rhs_watchs[1]<<","<<choice2;
+      cout<<~rhs_watchs[2]<<","<<choice2;
       // backup_solvers[i]->simplify();
-      std::ofstream f("backup" + std::to_string(i) + ".cnf",
+      /*std::ofstream f("backup" + std::to_string(i) + ".cnf",
                       std::ofstream::out);
       backup_solvers[i]->dump_irred_clauses_ind_only(&f);
-      f.close();
+      f.close();*/
 
       // assert h(S1)!= h(S2)
     }
@@ -756,9 +760,6 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     solution_lits.clear();
     cout << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
-    std::ofstream ff("inter_tmp.cnf", std::ofstream::out);
-    solver->simplify();
-    solver->dump_irred_clauses_ind_only(&ff);
     map<int, uint64_t> solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count);
     RecordSolution(secret_rnd);
@@ -849,11 +850,9 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     added_count_lits.clear();
     count_watch.clear();
     count_rhs.clear();
-    auto rhs_watch = Lit(solver->nVars(), false);
-    solver->new_var();
-    solver->add_clause({~rhs_watch});
+
     Sample(solver, count_vars, hash_count, count_watch, added_count_lits,
-           count_rhs, rhs_watch);
+           count_rhs, lit_Undef);
     RecordHash("count_hash" + std::to_string(count_times) + ".cnf",
                added_count_lits, count_rhs);
     solver->GetSolver(0)->conf.simplified_cnf =
