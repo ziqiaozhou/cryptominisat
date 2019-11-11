@@ -75,11 +75,65 @@ void Count::AddVariableDiff(SATSolver *solver,
   finalout << watches << " 0\n";
   finalout.close();
 }
-
+void Count::setSecretVars() {
+  if (secret_vars.size())
+    return;
+  for (auto name_lits : symbol_vars) {
+    int name_len = SECRET_.length();
+    if (!name_lits.first.compare(0, SECRET_.length(), SECRET_)) {
+      auto id = name_lits.first.substr(name_len);
+      for (auto lit : name_lits.second) {
+        secret_vars.push_back(lit.var());
+        all_secret_lits[id].push_back(lit);
+      }
+    }
+    if (!name_lits.first.compare(0, DECLASS_.length(), DECLASS_)) {
+      auto id = name_lits.first.substr(name_len);
+      for (auto lit : name_lits.second) {
+        all_declass_lits[id].push_back(lit);
+      }
+    }
+  }
+}
+void Count::setCountVars() {
+  if (count_vars.size())
+    return;
+    cout<<"setCountVars\n";
+  vector<uint32_t> other_control_vars;
+  for (auto name_lits : symbol_vars) {
+    if (!name_lits.first.compare(0, CONTROLLED_.length(), CONTROLLED_)) {
+      for (auto lit : name_lits.second) {
+        count_vars.push_back(lit.var());
+        other_control_vars.push_back(lit.var());
+      }
+    } else if (!name_lits.first.compare(0, OBSERVABLE_.length(),
+                                        OBSERVABLE_)) {
+      int name_len = OBSERVABLE_.length();
+      auto id = name_lits.first.substr(name_len);
+      for (auto lit : name_lits.second) {
+        count_vars.push_back(lit.var());
+        all_observe_lits[id].push_back(lit);
+      }
+    } else if (!name_lits.first.compare(0, OTHER_.length(), OTHER_)) {
+      for (auto lit : name_lits.second) {
+        count_vars.push_back(lit.var());
+        other_control_vars.push_back(lit.var());
+      }
+    }
+  }
+  for (auto id_lits : all_observe_lits) {
+    all_count_vars[id_lits.first] = other_control_vars;
+    for (auto lit : id_lits.second)
+      all_count_vars[id_lits.first].push_back(lit.var());
+  }
+}
 void Count::AddVariableSame(SATSolver *solver,
                             map<string, vector<Lit>> all_vars) {
   int len = -1;
   vector<Lit> watches;
+  if(all_vars.size()==0){
+    return;
+  }
   assert(all_vars.size() > 0);
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
@@ -723,6 +777,7 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       cout<<~rhs_watchs[3]<<","<<choice1;
       cout<<~rhs_watchs[1]<<","<<choice2;
       cout<<~rhs_watchs[2]<<","<<choice2;
+
       // backup_solvers[i]->simplify();
       /*std::ofstream f("backup" + std::to_string(i) + ".cnf",
                       std::ofstream::out);
@@ -975,17 +1030,4 @@ void Count::run() {
   }
   /*solver = new SATSolver((void *)&conf);
   parseInAllFiles(solver, filesToRead[0]);*/
-}
-
-int main(int argc, char **argv) {
-  srand(time(NULL));
-  Count Count(argc, argv);
-  Count.conf.verbStats = 0;
-  Count.conf.preprocess = 0;
-  Count.conf.restart_first = 1000000;
-  Count.conf.keep_symbol = 1;
-  Count.conf.simplified_cnf = ".simpfile.cnf";
-  // Count.conf.doRenumberVars = true;
-  Count.parseCommandLine();
-  Count.run();
 }

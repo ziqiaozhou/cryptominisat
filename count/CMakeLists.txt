@@ -26,8 +26,17 @@ add_executable(count
       ${PROJECT_SOURCE_DIR}/src/main_common.cpp
 			${PROJECT_SOURCE_DIR}/src/signalcode.cpp
 			 count.cpp
+       count_main.cpp
        component.cpp
 			)
+add_executable(sampler
+      ${PROJECT_SOURCE_DIR}/src/main.cpp
+      ${PROJECT_SOURCE_DIR}/src/main_common.cpp
+      ${PROJECT_SOURCE_DIR}/src/signalcode.cpp
+      sampler.cpp
+      count.cpp
+      component.cpp
+      )
 set(cryptoms_lib_link_libs "")
 	target_link_libraries(count
 		${cryptoms_exec_link_libs}
@@ -36,3 +45,11 @@ set(cryptoms_lib_link_libs "")
 		RUNTIME DESTINATION bin
 		)
 	SET(CPACK_PACKAGE_EXECUTABLES "count")
+  set(cryptoms_lib_link_libs "")
+  	target_link_libraries(sampler
+  		${cryptoms_exec_link_libs}
+  		)
+  	install(TARGETS sampler
+  		RUNTIME DESTINATION bin
+  		)
+  	SET(CPACK_PACKAGE_EXECUTABLES "sampler")

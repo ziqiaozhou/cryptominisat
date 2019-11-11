@@ -26,7 +26,7 @@ public:
   void add_supported_options() override;
   void run();
 
-private:
+protected:
   // solver2: Working solver to add clauses
   // trans_symbol_vars: mapping from symbol to var in base transition
   // constraint symbol_vars2: mapping from symbol to var for the existing
@@ -77,63 +77,14 @@ private:
     count_vars.resize(0);
     secret_vars.resize(0);
   }
-  void setSecretVars() {
-    if (secret_vars.size())
-      return;
-    for (auto name_lits : symbol_vars) {
-      int name_len = SECRET_.length();
-      if (!name_lits.first.compare(0, SECRET_.length(), SECRET_)) {
-        auto id = name_lits.first.substr(name_len);
-        for (auto lit : name_lits.second) {
-          secret_vars.push_back(lit.var());
-          all_secret_lits[id].push_back(lit);
-        }
-      }
-      if (!name_lits.first.compare(0, DECLASS_.length(), DECLASS_)) {
-        auto id = name_lits.first.substr(name_len);
-        for (auto lit : name_lits.second) {
-          all_declass_lits[id].push_back(lit);
-        }
-      }
-    }
-  }
-  void setCountVars() {
-    if (count_vars.size())
-      return;
-      cout<<"setCountVars\n";
-    vector<uint32_t> other_control_vars;
-    for (auto name_lits : symbol_vars) {
-      if (!name_lits.first.compare(0, CONTROLLED_.length(), CONTROLLED_)) {
-        for (auto lit : name_lits.second) {
-          count_vars.push_back(lit.var());
-          other_control_vars.push_back(lit.var());
-        }
-      } else if (!name_lits.first.compare(0, OBSERVABLE_.length(),
-                                          OBSERVABLE_)) {
-        int name_len = OBSERVABLE_.length();
-        auto id = name_lits.first.substr(name_len);
-        for (auto lit : name_lits.second) {
-          count_vars.push_back(lit.var());
-          all_observe_lits[id].push_back(lit);
-        }
-      } else if (!name_lits.first.compare(0, OTHER_.length(), OTHER_)) {
-        for (auto lit : name_lits.second) {
-          count_vars.push_back(lit.var());
-          other_control_vars.push_back(lit.var());
-        }
-      }
-    }
-    for (auto id_lits : all_observe_lits) {
-      all_count_vars[id_lits.first] = other_control_vars;
-      for (auto lit : id_lits.second)
-        all_count_vars[id_lits.first].push_back(lit.var());
-    }
-  }
+  void setSecretVars();
+  void setCountVars();
   void RecordSolution(string rnd);
   void RecordCount(map<int, uint64_t> &sols, int hash_count, string rnd);
+
   void RecordCountInter(map<int, uint64_t> &sols, int hash_count,
-                   vector<map<int, uint64_t>> b_sols, vector<int> b_hash_counts,
-                   string rnd);
+                        vector<map<int, uint64_t>> b_sols,
+                        vector<int> b_hash_counts, string rnd);
       // Return true if reading victim model;
       // Return false if no model to read;
       bool readVictimModel(SATSolver *&solver);
