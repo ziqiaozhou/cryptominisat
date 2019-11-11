@@ -39,9 +39,9 @@ string Sampler::getCISSModel(SATSolver *solver) {
       if (model[l.var()] == l_Undef)
         ret += "x";
       if (model[l.var()] == l_True)
-        ret += "1";
+        ret += l.sign()?"0":"1";
       if (model[l.var()] == l_False)
-        ret += "0";
+        ret += l.sign()?"1":"0";
     }
     ret += ", ";
   }
