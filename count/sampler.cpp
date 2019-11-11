@@ -19,7 +19,7 @@ void Sampler::add_sample_options() {
 }
 vector<uint32_t> Sampler::GetCISS() {
   vector<uint32_t> sample_vars;
-  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_1", SECRET_ + "_2"};
+  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_0", SECRET_ + "_1"};
   for (auto label : labels)
     for (auto l : symbol_vars[label]) {
       sample_vars.push_back(l.var());
@@ -29,7 +29,7 @@ vector<uint32_t> Sampler::GetCISS() {
 
 string Sampler::getCISSModel(SATSolver *solver) {
   string ret = "";
-  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_1", SECRET_ + "_2"};
+  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_0", SECRET_ + "_1"};
   auto &model = solver->get_model();
   for (auto label : labels) {
     if (symbol_vars.count(label) == 0)
