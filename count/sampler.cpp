@@ -29,7 +29,7 @@ vector<uint32_t> Sampler::GetCISS() {
 
 string Sampler::getCISSModel(SATSolver *solver) {
   string ret = "";
-  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_0", SECRET_ + "_1"};
+  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_0", SECRET_ + "_1",OBSERVABLE_+"_0",OBSERVABLE_+"_1"};
   auto &model = solver->get_model();
   for (auto label : labels) {
     if (symbol_vars.count(label) == 0)
