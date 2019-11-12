@@ -27,7 +27,7 @@ vector<uint32_t> Sampler::GetCISS() {
   return sample_vars;
 }
 
-string Sampler::getCISSModel(SATSolver *solver) {
+vector<string> Sampler::getCISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
   vector<string> labels = {CONTROLLED_,        OTHER_,
@@ -37,7 +37,7 @@ string Sampler::getCISSModel(SATSolver *solver) {
   for (auto label : labels) {
     if (symbol_vars.count(label) == 0)
       continue;
-    ret += "0b";
+    ret += "";
     for (auto l : symbol_vars[label]) {
       if (model[l.var()] == l_Undef)
         ret += "x";
@@ -46,18 +46,19 @@ string Sampler::getCISSModel(SATSolver *solver) {
       if (model[l.var()] == l_False)
         ret += l.sign() ? "1" : "0";
       ret += ", ";
-      ret2<<Lit(l.var(),model[l.var()] == l_False)<<", ";
+      ret2 << Lit(l.var(), model[l.var()] == l_False) << ", ";
     }
     ret += ", ";
-    ret2<<", ";
+    ret2 << ", ";
   }
-  return ret2.str()+"\n"+ret;
+  return {ret2.str(), ret};
 }
-void Sampler::RecordSampleSol(string sol) {
+void Sampler::RecordSampleSol(vector<string>& sol) {
 
   if (!record_solution_)
     return;
-  *sample_sol_f << sol << endl;
+  *sample_sol_complete_f << sol[0] << endl;
+  *sample_sol_f << sol[1] << endl;
 }
 
 int64_t Sampler::bounded_sol_generation(SATSolver *solver,
@@ -103,8 +104,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
           assert(false);
         }
       }
-      string cissmodel = getCISSModel(solver);
-      std::cout << cissmodel << std::endl;
+      auto cissmodel = getCISSModel(solver);
       RecordSampleSol(cissmodel);
       solver->add_clause(lits);
     }
@@ -124,10 +124,16 @@ void Sampler::run() {
     AddVariableSame(solver, all_observe_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
                                      std::ofstream::out | std::ofstream::app);
+    sample_sol_complete_f =
+        new std::ofstream(out_dir_ + "//" + out_file_ + ".same_complete.csv",
+                          std::ofstream::out | std::ofstream::app);
   } else {
     AddVariableDiff(solver, all_observe_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".diff.csv",
                                      std::ofstream::out | std::ofstream::app);
+    sample_sol_complete_f =
+        new std::ofstream(out_dir_ + "//" + out_file_ + ".diff_complete.csv",
+                          std::ofstream::out | std::ofstream::app);
   }
   AddVariableSame(solver, all_declass_lits);
   AddVariableDiff(solver, all_secret_lits);
