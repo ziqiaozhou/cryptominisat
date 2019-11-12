@@ -30,10 +30,19 @@ vector<uint32_t> Sampler::GetCISS() {
 vector<string> Sampler::getCISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
-  vector<string> labels = {CONTROLLED_,        OTHER_,
-                           SECRET_ + "_0",     SECRET_ + "_1",
-                           OBSERVABLE_ + "_0", OBSERVABLE_ + "_1"};
+  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_0", SECRET_ + "_1"};
+  vector<string> complete_labels = {CONTROLLED_,        OTHER_,
+                                    SECRET_ + "_0",     SECRET_ + "_1",
+                                    OBSERVABLE_ + "_0", OBSERVABLE_ + "_1"};
   auto &model = solver->get_model();
+  for (auto label : complete_labels) {
+    if (symbol_vars.count(label) == 0)
+      continue;
+    for (auto l : symbol_vars[label]) {
+      ret2 << Lit(l.var(), model[l.var()] == l_False) << ", ";
+    }
+    ret2 << ", ";
+  }
   for (auto label : labels) {
     if (symbol_vars.count(label) == 0)
       continue;
@@ -46,14 +55,12 @@ vector<string> Sampler::getCISSModel(SATSolver *solver) {
       if (model[l.var()] == l_False)
         ret += l.sign() ? "1" : "0";
       ret += ", ";
-      ret2 << Lit(l.var(), model[l.var()] == l_False) << ", ";
     }
     ret += ", ";
-    ret2 << ", ";
   }
   return {ret2.str(), ret};
 }
-void Sampler::RecordSampleSol(vector<string>& sol) {
+void Sampler::RecordSampleSol(vector<string> &sol) {
 
   if (!record_solution_)
     return;
