@@ -116,10 +116,13 @@ protected:
   // model counting setting
   vector<uint32_t> count_vars;
   vector<uint32_t> secret_vars;
-  std::map<string, vector<Lit>> all_observe_lits;
-  std::map<string, vector<uint32_t>> all_count_vars;
   std::map<string, vector<Lit>> all_secret_lits;
   std::map<string, vector<Lit>> all_declass_lits;
+  std::map<string, vector<Lit>> all_observe_lits;
+  std::vector<Lit> control_lits;
+  std::map<string, vector<Lit>> all_other_lits;
+  std::map<string, vector<uint32_t>> all_count_vars;
+
   double xor_ratio_;
   int num_xor_cls_;
   int max_sol_;

@@ -103,27 +103,33 @@ void Count::setCountVars() {
   for (auto name_lits : symbol_vars) {
     if (!name_lits.first.compare(0, CONTROLLED_.length(), CONTROLLED_)) {
       for (auto lit : name_lits.second) {
-        count_vars.push_back(lit.var());
-        other_control_vars.push_back(lit.var());
+        //count_vars.push_back(lit.var());
+        control_lits.push_back(lit);
       }
     } else if (!name_lits.first.compare(0, OBSERVABLE_.length(), OBSERVABLE_)) {
-      int name_len = OBSERVABLE_.length();
-      auto id = name_lits.first.substr(name_len);
+      auto id = name_lits.first.substr(OBSERVABLE_.length());
       for (auto lit : name_lits.second) {
-        count_vars.push_back(lit.var());
+        //count_vars.push_back(lit.var());
         all_observe_lits[id].push_back(lit);
       }
     } else if (!name_lits.first.compare(0, OTHER_.length(), OTHER_)) {
+      auto id = name_lits.first.substr(OTHER_.length());
       for (auto lit : name_lits.second) {
-        count_vars.push_back(lit.var());
-        other_control_vars.push_back(lit.var());
+        all_other_lits[id].push_back(lit);
       }
     }
   }
   for (auto id_lits : all_observe_lits) {
-    all_count_vars[id_lits.first] = other_control_vars;
-    for (auto lit : id_lits.second)
+    auto id=id_lits.first;
+    for(auto lit: control_lits){
       all_count_vars[id_lits.first].push_back(lit.var());
+    }
+    for (auto lit : all_observe_lits[id]){
+      all_count_vars[id_lits.first].push_back(lit.var());
+    }
+    for (auto lit : all_other_lits[id]){
+      all_count_vars[id_lits.first].push_back(lit.var());
+    }
   }
 }
 void Count::AddVariableSame(SATSolver *solver,
@@ -988,13 +994,6 @@ void Count::run() {
   cout << "count size=" << count_vars.size();
 
   if (mode_ == "simulate") {
-    if (inter_mode_ == 1) {
-      AddVariableDiff(solver, all_observe_lits);
-      /*target_file = out_dir_ + "//" + out_file_ + ".diff";
-      std::ofstream finalout(target_file);
-      solver->dump_irred_clauses_ind_only(&finalout);
-      finalout.close();*/
-    }
     if (inter_mode_ == 2) {
       AddVariableSame(solver, all_observe_lits);
       auto ids = getIDs();
@@ -1016,10 +1015,12 @@ void Count::run() {
       std::cerr << "I am here";
       setSecretVars();
       setCountVars();
-
+/*
       if (inter_mode_ == 1) {
+        auto ids = getIDs();
+        count_vars = all_count_vars[ids[0]];
         AddVariableDiff(solver, all_observe_lits);
-      }
+      }*/
       if (inter_mode_ == 2) {
         cout << "AddVariableSame for solver";
         AddVariableSame(solver, all_observe_lits);
