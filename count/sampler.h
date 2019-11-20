@@ -17,11 +17,17 @@ public:
   vector<uint32_t> GetCISS();
   vector<string> getCISSModel(SATSolver *solver);
 
-  void RecordSampleSol(vector<string>& sol);
+  void RecordSampleSol(vector<string> &sol);
   int64_t bounded_sol_generation(SATSolver *solver,
                                  vector<uint32_t> &target_count_vars,
                                  uint32_t maxSolutions,
                                  const vector<Lit> &assumps);
+  Lit AddVariableSameHelper(SATSolver *solver,
+                            map<string, vector<Lit>> &all_vars);
+  vector<Lit> AddVariableDiffHelper(SATSolver *solver,
+                                    map<string, vector<Lit>> &all_vars);
+  void AddVariableSameOrDiff(SATSolver *solver, map<string, vector<Lit>> &all_vars,
+                        map<string, vector<Lit>> diff_vars);
 
 private:
   po::options_description sampleOptions_;

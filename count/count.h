@@ -85,9 +85,10 @@ protected:
   void RecordCountInter(map<int, uint64_t> &sols, int hash_count,
                         vector<map<int, uint64_t>> b_sols,
                         vector<int> b_hash_counts, string rnd);
-      // Return true if reading victim model;
-      // Return false if no model to read;
-      bool readVictimModel(SATSolver *&solver);
+  // Return true if reading victim model;
+  // Return false if no model to read;
+  bool readVictimModel(SATSolver *&solver);
+  void ProbToDiffFromSecretSet();
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;

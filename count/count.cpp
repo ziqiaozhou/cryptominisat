@@ -98,7 +98,7 @@ void Count::setSecretVars() {
 void Count::setCountVars() {
   if (count_vars.size())
     return;
-    cout<<"setCountVars\n";
+  cout << "setCountVars\n";
   vector<uint32_t> other_control_vars;
   for (auto name_lits : symbol_vars) {
     if (!name_lits.first.compare(0, CONTROLLED_.length(), CONTROLLED_)) {
@@ -106,8 +106,7 @@ void Count::setCountVars() {
         count_vars.push_back(lit.var());
         other_control_vars.push_back(lit.var());
       }
-    } else if (!name_lits.first.compare(0, OBSERVABLE_.length(),
-                                        OBSERVABLE_)) {
+    } else if (!name_lits.first.compare(0, OBSERVABLE_.length(), OBSERVABLE_)) {
       int name_len = OBSERVABLE_.length();
       auto id = name_lits.first.substr(name_len);
       for (auto lit : name_lits.second) {
@@ -131,7 +130,7 @@ void Count::AddVariableSame(SATSolver *solver,
                             map<string, vector<Lit>> all_vars) {
   int len = -1;
   vector<Lit> watches;
-  if(all_vars.size()==0){
+  if (all_vars.size() == 0) {
     return;
   }
   assert(all_vars.size() > 0);
@@ -773,10 +772,10 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       backup_solvers[i]->add_clause({~rhs_watchs[1], choice2});
       backup_solvers[i]->add_clause({~rhs_watchs[2], choice2});
       backup_solvers[i]->add_xor_clause({choice2.var(), choice1.var()}, true);
-      cout<<~rhs_watchs[0]<<","<<choice1;
-      cout<<~rhs_watchs[3]<<","<<choice1;
-      cout<<~rhs_watchs[1]<<","<<choice2;
-      cout<<~rhs_watchs[2]<<","<<choice2;
+      cout << ~rhs_watchs[0] << "," << choice1;
+      cout << ~rhs_watchs[3] << "," << choice1;
+      cout << ~rhs_watchs[1] << "," << choice2;
+      cout << ~rhs_watchs[2] << "," << choice2;
 
       // backup_solvers[i]->simplify();
       /*std::ofstream f("backup" + std::to_string(i) + ".cnf",
@@ -932,13 +931,23 @@ void Count::setBackupSolvers() {
       backup_solvers[i]->set_up_for_jaccard_count();
       if (i == 1 && all_declass_lits.size())
         AddVariableSame(backup_solvers[i], all_declass_lits);
-      if(all_declass_lits.size()==0){
+      if (all_declass_lits.size() == 0) {
         backup_solvers.resize(1);
       }
     }
   }
 }
-
+void Count::ProbToDiffFromSecretSet() {
+  solver = new SATSolver((void *)&conf);
+  inputfile = filesToRead[0];
+  readInAFile(solver, inputfile);
+  setSecretVars();
+  setCountVars();
+  AddVariableSame(solver, all_observe_lits);
+  if (all_declass_lits.size())
+    AddVariableSame(solver, all_declass_lits);
+  count(solver, secret_vars);
+}
 void Count::run() {
   string target_file = filesToRead[0];
   if (mode_ == "nonblock")
@@ -1014,7 +1023,7 @@ void Count::run() {
       if (inter_mode_ == 2) {
         cout << "AddVariableSame for solver";
         AddVariableSame(solver, all_observe_lits);
-        if(all_declass_lits.size())
+        if (all_declass_lits.size())
           AddVariableSame(solver, all_declass_lits);
         auto ids = getIDs();
         count_vars = all_count_vars[ids[0]];

@@ -6,6 +6,88 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <unordered_map>
+vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver,
+                                           map<string, vector<Lit>> &all_vars) {
+  size_t len = -1;
+  vector<Lit> watches;
+  assert(all_vars.size() > 0);
+  for (auto id_lits : all_vars) {
+    auto id = id_lits.first;
+    auto lits = id_lits.second;
+    len = lits.size();
+  }
+  string diff_file = out_dir_ + "//" + out_file_ + ".testhash";
+  std::ofstream finalout(diff_file);
+  for (int i = 0; i < len; ++i) {
+    vector<uint32_t> clause;
+    auto new_watch = solver->nVars();
+    solver->new_var();
+    clause.push_back(new_watch);
+    watches.push_back(Lit(new_watch, true));
+    bool xor_bool = true;
+    for (auto id_vars : all_vars) {
+      auto id = id_vars.first;
+      auto &lits = id_vars.second;
+      clause.push_back(lits[i].var());
+      if (lits[i].sign())
+        xor_bool = ~xor_bool;
+    }
+    solver->add_xor_clause(clause, xor_bool);
+    finalout << "x" << xor_bool ? "" : "-";
+    for (auto v : clause)
+      finalout << v + 1;
+    finalout << "\n";
+  }
+  return watches;
+}
+Lit Sampler::AddVariableSameHelper(SATSolver *solver,
+                                   map<string, vector<Lit>> &all_vars) {
+  size_t len=0;
+  vector<Lit> clause;
+  for (auto id_lits : all_vars) {
+    auto id = id_lits.first;
+    auto lits = id_lits.second;
+    len = lits.size();
+  }
+  auto same_watch = solver->nVars();
+  solver->new_var();
+  clause.push_back(Lit(same_watch,false));
+  for (int i = 0; i < len; ++i) {
+    vector<uint32_t> clause;
+    auto new_watch = solver->nVars();
+    solver->new_var();
+    clause.push_back(new_watch);
+    solver->add_clause({Lit(new_watch, true), Lit(same_watch, true)});
+    bool xor_bool = false;
+    for (auto id_vars : all_vars) {
+      auto id = id_vars.first;
+      auto &lits = id_vars.second;
+      clause.push_back(lits[i].var());
+      if (lits[i].sign())
+        xor_bool = ~xor_bool;
+    }
+    solver->add_xor_clause(clause, xor_bool);
+  }
+  solver->add_clause(clause);
+  return Lit(same_watch, false);
+}
+void Sampler::AddVariableSameOrDiff(SATSolver *solver,
+                                    map<string, vector<Lit>> &all_vars,
+                                    map<string, vector<Lit>> diff_vars) {
+  int len = -1;
+  vector<Lit> watches;
+  if (all_vars.size() != 0) {
+    watches.push_back(AddVariableSameHelper(solver,all_vars));
+  }
+  if (diff_vars.size()) {
+    auto ws = AddVariableDiffHelper(solver,diff_vars);
+    for (auto w : ws) {
+      watches.push_back(w);
+    }
+  }
+  solver->add_clause(watches);
+}
+
 void Sampler::add_supported_options() {
   Count::add_supported_options();
   add_sample_options();
@@ -128,12 +210,13 @@ void Sampler::run() {
   setSecretVars();
   setCountVars();
   if (sample_noninterference_) {
-    AddVariableSame(solver, all_observe_lits);
+    AddVariableSameOrDiff(solver, all_observe_lits, all_declass_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
                                      std::ofstream::out | std::ofstream::app);
     sample_sol_complete_f =
         new std::ofstream(out_dir_ + "//" + out_file_ + ".same_complete.csv",
                           std::ofstream::out | std::ofstream::app);
+    // AddVariableSame(solver, all_declass_lits);
   } else {
     AddVariableDiff(solver, all_observe_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".diff.csv",
@@ -141,8 +224,9 @@ void Sampler::run() {
     sample_sol_complete_f =
         new std::ofstream(out_dir_ + "//" + out_file_ + ".diff_complete.csv",
                           std::ofstream::out | std::ofstream::app);
+    AddVariableSame(solver, all_declass_lits);
   }
-  AddVariableSame(solver, all_declass_lits);
+
   AddVariableDiff(solver, all_secret_lits);
   vector<uint32_t> CISS = GetCISS();
   vector<Lit> ciss_assump;

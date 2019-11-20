@@ -378,26 +378,6 @@ bool DimacsParser<C>::parseComments(C &in, const std::string &str) {
     if (!parseIndependentSet(in)) {
       return false;
     }
-  } else if (str == "dep") { // ziqiao
-    if (!parseDependentSet(in)) {
-      return false;
-    }
-  } else if (str == "jac") {
-    if (!parseJaccardSet(in)) {
-      return false;
-    }
-  } else if (str == "jac2") {
-    if (!parseJaccard2Set(in)) {
-      return false;
-    }
-  } else if (str == "attack") {
-    if (!parseAttackSet(in)) {
-      return false;
-    }
-  } else if (str == "ob") {
-    if (!parseObSet(in)) {
-      return false;
-    }
   } else {
     if (!parseSymbol(str, in)) {
       if (verbosity >= 6) {
