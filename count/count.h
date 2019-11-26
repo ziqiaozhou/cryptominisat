@@ -51,6 +51,7 @@ protected:
                                 int &right, int &hash_count,
                                 bool reserve_xor = false);
   void count(SATSolver *solver, vector<uint32_t> &secret_vars);
+  void countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars);
 
   void simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars);
 
@@ -85,6 +86,7 @@ protected:
   void RecordCountInter(map<int, uint64_t> &sols, int hash_count,
                         vector<map<int, uint64_t>> b_sols,
                         vector<int> b_hash_counts, string rnd);
+  vector<uint32_t> getCISAlt();
   // Return true if reading victim model;
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
@@ -96,6 +98,7 @@ protected:
   std::string out_file_;
   std::string init_file_;
   SolverConf init_conf_;
+  // backup_solvers[0] count original denominator, backup_solver1 count declass denominator
   // solver-> declass_1=delcass_2  && h(secret_1)=r1 && h(secret_2) =r1
   // backup_solvers[0]-> declass_1=delcass_2  &&
   // (h(secret_1)=r1 || h(secret_1) =r2) &&
