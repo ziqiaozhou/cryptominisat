@@ -98,11 +98,10 @@ protected:
   std::string out_file_;
   std::string init_file_;
   SolverConf init_conf_;
-  // backup_solvers[0] count original denominator, backup_solver1 count declass denominator
-  // solver-> declass_1=delcass_2  && h(secret_1)=r1 && h(secret_2) =r1
-  // backup_solvers[0]-> declass_1=delcass_2  &&
-  // (h(secret_1)=r1 || h(secret_1) =r2) &&
-  // (h(secret_2)=r1 || h(secret_2) =r2) &&
+  // backup_solvers[0] count original denominator, backup_solver1 count declass
+  // denominator solver-> declass_1=delcass_2  && h(secret_1)=r1 && h(secret_2)
+  // =r1 backup_solvers[0]-> declass_1=delcass_2  && (h(secret_1)=r1 ||
+  // h(secret_1) =r2) && (h(secret_2)=r1 || h(secret_2) =r2) &&
   // h(secret_1)!=h(secret_2);
   // backup_solvers[1]->
   // (h(secret_1)=r1 || h(secret_1) =r2) &&
@@ -145,6 +144,10 @@ protected:
   vector<vector<uint32_t>> added_count_lits;
   vector<bool> count_rhs;
   vector<Lit> count_watch;
+  vector<int> backup_left_;
+  vector<int> backup_right_;
+  int left_;
+  int right_;
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H
