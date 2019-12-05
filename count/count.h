@@ -21,6 +21,8 @@ public:
       : Main(argc, argv), countOptions_("Count options"), max_xor_per_var_(32) {
     hash_file = ".hash.cnf";
     hashf = nullptr;
+    left_ = 0;
+    right_ = 0;
   }
   ~Count() {}
   void add_supported_options() override;
@@ -50,8 +52,8 @@ protected:
                                 const vector<Lit> &secret_watch, int &left,
                                 int &right, int &hash_count,
                                 bool reserve_xor = false);
-  void count(SATSolver *solver, vector<uint32_t> &secret_vars);
-  void countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars);
+  bool count(SATSolver *solver, vector<uint32_t> &secret_vars);
+  bool countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars);
 
   void simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars);
 
@@ -90,7 +92,7 @@ protected:
   // Return true if reading victim model;
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
-  void ProbToDiffFromSecretSet();
+  bool ProbToDiffFromSecretSet();
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;

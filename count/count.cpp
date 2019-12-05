@@ -690,7 +690,7 @@ vector<uint32_t> Count::getCISAlt() {
   }
   return ret;
 }
-void Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
+bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
   count_vars = getCISAlt();
   // when in declassification mode, backup_solvers.size()=2; when in normal
   // mode, backup_solvers.size()=1
@@ -750,6 +750,9 @@ void Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
 
   trimVar(solver, count_vars);
   solver->simplify();
+  if (solver->solve() == l_False) {
+    return false;
+  }
   assert(backup_solvers.size());
   for (int i = 0; i < backup_solvers.size(); ++i) {
     // assert h(Si)=ri;
@@ -810,11 +813,14 @@ void Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
   }
   left_ = left;
   right_ = right_;
-  backup_right_ = backup_right;
-  backup_left_ = backup_left;
+  for (size_t i = 0; i < backup_right_.size(); ++i) {
+    backup_right_[i] = backup_right[i]-2;
+    backup_left_[i] = backup_left[i]+2;
+  }
+  return true;
 }
 
-void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
+bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   solver->set_sampling_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_vars;
   map<string, vector<vector<uint32_t>>> backup_added_secret_vars;
@@ -944,13 +950,17 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<int> backup_left(backup_solvers.size()),
       backup_right(backup_solvers.size()),
       backup_hash_count(backup_solvers.size());
-  left = (min_log_size_ == -1) ? 0 : min_log_size_;
-  right = (max_log_size_ == -1) ? count_vars.size() - log2(max_sol_)
-                                : max_log_size_;
+  left = left_ ? left_ : ((min_log_size_ == -1) ? 0 : min_log_size_);
+  right = right_ ? right_
+                 : ((max_log_size_ == -1) ? count_vars.size() : max_log_size_);
   for (int i = 0; i < backup_solvers.size(); ++i) {
-    backup_left[i] = left;
-    backup_right[i] = right;
+    backup_left[i] = backup_left_[i] ? backup_left_[i] : left;
+    backup_right[i] =
+        backup_right_[i] ? backup_right_[i] : count_vars.size();
     backup_hash_count[i] = 0;
+  }
+  if (solver->solve() == l_False) {
+    return false;
   }
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     solution_lits.clear();
@@ -979,6 +989,13 @@ void Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                        backup_hash_count, secret_rnd);
     }
   }
+  left_ = left;
+  right_ = right_;
+  for (size_t i = 0; i < backup_right_.size(); ++i) {
+    backup_right_[i] = backup_right[i]-2;
+    backup_left_[i] = backup_left[i]+2;
+  }
+  return true;
 }
 
 static void RecordHash(string filename,
@@ -1082,7 +1099,7 @@ void Count::setBackupSolvers() {
   backup_left_.resize(backup_solvers.size());
   backup_right_.resize(backup_solvers.size());
 }
-void Count::ProbToDiffFromSecretSet() {
+bool Count::ProbToDiffFromSecretSet() {
   solver = new SATSolver((void *)&conf);
   inputfile = filesToRead[0];
   symbol_vars.clear();
@@ -1094,7 +1111,7 @@ void Count::ProbToDiffFromSecretSet() {
   if (all_declass_lits.size())
     AddVariableSame(solver, all_declass_lits);
   setBackupSolvers();
-  countCISAlt(solver, secret_vars);
+  return countCISAlt(solver, secret_vars);
 }
 void Count::run() {
   string target_file = filesToRead[0];
@@ -1105,7 +1122,9 @@ void Count::run() {
   }
   if (inter_mode_ == 3) {
     for (int t = 0; t < nsample; ++t) {
-      ProbToDiffFromSecretSet();
+      if (ProbToDiffFromSecretSet() == false) {
+        t--;
+      }
       backup_solvers.resize(0);
     }
 
@@ -1185,7 +1204,9 @@ void Count::run() {
       solver->dump_irred_clauses_ind_only(&finalout);
       finalout.close();
       std::cout << "sample once" << std::endl << std::flush;
-      count(solver, secret_vars);
+      if (count(solver, secret_vars) == false) {
+        t--;
+      }
     }
   }
   /*solver = new SATSolver((void *)&conf);
