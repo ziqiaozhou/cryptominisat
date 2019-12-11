@@ -101,7 +101,7 @@ void Sampler::add_sample_options() {
 }
 vector<uint32_t> Sampler::GetCISS() {
   vector<uint32_t> sample_vars;
-  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_0", SECRET_ + "_1"};
+  vector<string> labels = {CONTROLLED_, OTHER_+"_0",OTHER_+"_1", SECRET_ + "_0", SECRET_ + "_1"};
   for (auto label : labels)
     for (auto l : symbol_vars[label]) {
       sample_vars.push_back(l.var());
