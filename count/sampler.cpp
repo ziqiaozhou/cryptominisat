@@ -112,8 +112,8 @@ vector<uint32_t> Sampler::GetCISS() {
 vector<string> Sampler::getCISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
-  vector<string> labels = {CONTROLLED_, OTHER_, SECRET_ + "_0", SECRET_ + "_1"};
-  vector<string> complete_labels = {CONTROLLED_,        OTHER_,
+  vector<string> labels = {CONTROLLED_, OTHER_+"_0", OTHER_+"_1", SECRET_ + "_0", SECRET_ + "_1"};
+  vector<string> complete_labels = {CONTROLLED_,        OTHER_+"_0", OTHER_+"_1",
                                     SECRET_ + "_0",     SECRET_ + "_1",
                                     OBSERVABLE_ + "_0", OBSERVABLE_ + "_1"};
   auto &model = solver->get_model();
@@ -226,7 +226,6 @@ void Sampler::run() {
                           std::ofstream::out | std::ofstream::app);
     AddVariableSame(solver, all_declass_lits);
   }
-
   AddVariableDiff(solver, all_secret_lits);
   vector<uint32_t> CISS = GetCISS();
   vector<Lit> ciss_assump;
