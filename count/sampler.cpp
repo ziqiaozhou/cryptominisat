@@ -174,7 +174,6 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
                                         uint32_t maxSolutions,
                                         const vector<Lit> &assumps) {
 
-  solver->set_sampling_vars(&target_count_vars);
   vector<lbool> model;
   lbool ret;
   int solutions = 0;
@@ -247,7 +246,13 @@ void Sampler::run() {
     AddVariableSame(solver, all_declass_lits);
   }
   AddVariableDiff(solver, all_secret_lits);
+
   vector<uint32_t> CISS = GetCISS();
+  solver->set_sampling_vars(&CISS);
+  solver->simplify();
+  string victim_cnf_file = out_dir_ + "//" + out_file_ + ".sol.simp";
+  std::ofstream finalout(victim_cnf_file);
+  solver->dump_irred_clauses_ind_only(&finalout);
   vector<Lit> ciss_assump, c_assump, s_assump, salt_assump, i_assump,
       ialt_assump;
   vector<vector<uint32_t>> ciss_added_vars, c_added_vars, s_added_vars,
