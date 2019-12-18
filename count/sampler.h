@@ -15,6 +15,7 @@ public:
   void add_supported_options() override;
   void run();
   vector<uint32_t> GetCISS();
+  vector<uint32_t> GetVars(string label);
   vector<string> getCISSModel(SATSolver *solver);
 
   void RecordSampleSol(vector<string> &sol);
@@ -34,5 +35,8 @@ private:
   std::ofstream *sample_sol_f;
   std::ofstream *sample_sol_complete_f;
   bool sample_noninterference_;
+  uint32_t num_cxor_cls_;
+  uint32_t num_sxor_cls_;
+  uint32_t num_ixor_cls_;
 };
 #endif

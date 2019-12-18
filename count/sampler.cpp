@@ -42,7 +42,7 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver,
 }
 Lit Sampler::AddVariableSameHelper(SATSolver *solver,
                                    map<string, vector<Lit>> &all_vars) {
-  size_t len=0;
+  size_t len = 0;
   vector<Lit> clause;
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
@@ -51,7 +51,7 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
   }
   auto same_watch = solver->nVars();
   solver->new_var();
-  clause.push_back(Lit(same_watch,false));
+  clause.push_back(Lit(same_watch, false));
   for (int i = 0; i < len; ++i) {
     vector<uint32_t> clause;
     auto new_watch = solver->nVars();
@@ -77,10 +77,10 @@ void Sampler::AddVariableSameOrDiff(SATSolver *solver,
   int len = -1;
   vector<Lit> watches;
   if (all_vars.size() != 0) {
-    watches.push_back(AddVariableSameHelper(solver,all_vars));
+    watches.push_back(AddVariableSameHelper(solver, all_vars));
   }
   if (diff_vars.size()) {
-    auto ws = AddVariableDiffHelper(solver,diff_vars);
+    auto ws = AddVariableDiffHelper(solver, diff_vars);
     for (auto w : ws) {
       watches.push_back(w);
     }
@@ -96,26 +96,45 @@ void Sampler::add_sample_options() {
   sampleOptions_.add_options()(
       "noninter", po::value(&sample_noninterference_)->default_value(false),
       "Number of samples");
+  sampleOptions_.add_options()("num_cxor_cls",
+                               po::value(&num_cxor_cls_)->default_value(10),
+                               "num_cxor_cls");
+  sampleOptions_.add_options()("num_sxor_cls",
+                               po::value(&num_sxor_cls_)->default_value(10),
+                               "num_sxor_cls");
+  sampleOptions_.add_options()("num_ixor_cls",
+                               po::value(&num_ixor_cls_)->default_value(10),
+                               "num_ixor_cls");
   help_options_simple.add(sampleOptions_);
   help_options_complicated.add(sampleOptions_);
 }
 vector<uint32_t> Sampler::GetCISS() {
   vector<uint32_t> sample_vars;
-  vector<string> labels = {CONTROLLED_, OTHER_+"_0",OTHER_+"_1", SECRET_ + "_0", SECRET_ + "_1"};
+  vector<string> labels = {CONTROLLED_, OTHER_ + "_0", OTHER_ + "_1",
+                           SECRET_ + "_0", SECRET_ + "_1"};
   for (auto label : labels)
     for (auto l : symbol_vars[label]) {
       sample_vars.push_back(l.var());
     }
+
+  return sample_vars;
+}
+vector<uint32_t> Sampler::GetVars(string label) {
+  vector<uint32_t> sample_vars;
+  for (auto l : symbol_vars[label]) {
+    sample_vars.push_back(l.var());
+  }
   return sample_vars;
 }
 
 vector<string> Sampler::getCISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
-  vector<string> labels = {CONTROLLED_, OTHER_+"_0", OTHER_+"_1", SECRET_ + "_0", SECRET_ + "_1"};
-  vector<string> complete_labels = {CONTROLLED_,        OTHER_+"_0", OTHER_+"_1",
-                                    SECRET_ + "_0",     SECRET_ + "_1",
-                                    OBSERVABLE_ + "_0", OBSERVABLE_ + "_1"};
+  vector<string> labels = {CONTROLLED_, OTHER_ + "_0", OTHER_ + "_1",
+                           SECRET_ + "_0", SECRET_ + "_1"};
+  vector<string> complete_labels = {
+      CONTROLLED_,    OTHER_ + "_0",      OTHER_ + "_1",     SECRET_ + "_0",
+      SECRET_ + "_1", OBSERVABLE_ + "_0", OBSERVABLE_ + "_1"};
   auto &model = solver->get_model();
   for (auto label : complete_labels) {
     if (symbol_vars.count(label) == 0)
@@ -154,6 +173,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
                                         vector<uint32_t> &target_count_vars,
                                         uint32_t maxSolutions,
                                         const vector<Lit> &assumps) {
+
   solver->set_sampling_vars(&target_count_vars);
   vector<lbool> model;
   lbool ret;
@@ -228,15 +248,35 @@ void Sampler::run() {
   }
   AddVariableDiff(solver, all_secret_lits);
   vector<uint32_t> CISS = GetCISS();
-  vector<Lit> ciss_assump;
-  vector<vector<uint32_t>> ciss_added_vars;
-  vector<bool> ciss_rhs;
+  vector<Lit> ciss_assump, c_assump, s_assump, salt_assump, i_assump,
+      ialt_assump;
+  vector<vector<uint32_t>> ciss_added_vars, c_added_vars, s_added_vars,
+      salt_added_vars, i_added_vars, ialt_added_vars;
+  vector<bool> ciss_rhs, c_rhs, s_rhs, salt_rhs, i_rhs, ialt_rhs;
   for (int t = 0; t < nsample; ++t) {
     ciss_assump.clear();
     ciss_added_vars.clear();
     ciss_rhs.clear();
     Count::Sample(solver, CISS, num_xor_cls_, ciss_assump, ciss_added_vars,
                   ciss_rhs, lit_Undef);
+    Count::Sample(solver, GetVars(CONTROLLED_), num_cxor_cls_, c_assump,
+                  c_added_vars, c_rhs, lit_Undef);
+    Count::Sample(solver, GetVars(SECRET_ + "_0"), num_sxor_cls_, s_assump,
+                  s_added_vars, s_rhs, lit_Undef);
+    Count::Sample(solver, GetVars(SECRET_ + "_1"), num_sxor_cls_, salt_assump,
+                  salt_added_vars, salt_rhs, lit_Undef);
+    Count::Sample(solver, GetVars(OTHER_ + "_0"), num_ixor_cls_, i_assump,
+                  i_added_vars, i_rhs, lit_Undef);
+    Count::Sample(solver, GetVars(OTHER_ + "_1"), num_ixor_cls_, ialt_assump,
+                  ialt_added_vars, ialt_rhs, lit_Undef);
+
+    ciss_assump.insert(ciss_assump.end(), c_assump.begin(), c_assump.end());
+    ciss_assump.insert(ciss_assump.end(), s_assump.begin(), s_assump.end());
+    ciss_assump.insert(ciss_assump.end(), salt_assump.begin(), salt_assump.end());
+    ciss_assump.insert(ciss_assump.end(), i_assump.begin(), i_assump.end());
+    ciss_assump.insert(ciss_assump.end(), ialt_assump.begin(), ialt_assump.end());
+
+    // trimVar(solver,sample_vars);
     bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
   }
 }
