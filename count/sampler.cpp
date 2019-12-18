@@ -100,10 +100,10 @@ void Sampler::add_sample_options() {
                                po::value(&num_cxor_cls_)->default_value(10),
                                "num_cxor_cls");
   sampleOptions_.add_options()("num_sxor_cls",
-                               po::value(&num_sxor_cls_)->default_value(10),
+                               po::value(&num_sxor_cls_)->default_value(2),
                                "num_sxor_cls");
   sampleOptions_.add_options()("num_ixor_cls",
-                               po::value(&num_ixor_cls_)->default_value(10),
+                               po::value(&num_ixor_cls_)->default_value(2),
                                "num_ixor_cls");
   help_options_simple.add(sampleOptions_);
   help_options_complicated.add(sampleOptions_);
@@ -220,6 +220,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   }
   // Remove clauses added
   solver->add_clause({Lit(act_var, false)});
+  return solutions;
 }
 void Sampler::run() {
 
@@ -282,7 +283,8 @@ void Sampler::run() {
     ciss_assump.insert(ciss_assump.end(), ialt_assump.begin(), ialt_assump.end());
 
     // trimVar(solver,sample_vars);
-    bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
+    auto nsol=bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
+    cout<<"nsol="<<nsol<<"\n";
   }
 }
 
