@@ -284,7 +284,7 @@ void Sampler::run() {
 
     // trimVar(solver,sample_vars);
     auto nsol=bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
-    cout<<"nsol="<<nsol<<"\n";
+    cout<<"nsol="<<nsol<<std::endl;
   }
 }
 
