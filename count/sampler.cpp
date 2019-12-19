@@ -263,6 +263,22 @@ void Sampler::run() {
     ciss_assump.clear();
     ciss_added_vars.clear();
     ciss_rhs.clear();
+    c_added_vars.clear();
+    s_added_vars.clear();
+    salt_added_vars.clear();
+    salt_added_vars.clear();
+    i_added_vars.clear();
+    ialt_added_vars.clear();
+    c_rhs.clear();
+    s_rhs.clear();
+    salt_rhs.clear();
+    i_rhs.clear();
+    ialt_rhs.clear();
+    c_assump.clear();
+    s_assump.clear();
+    salt_assump.clear();
+    i_assump.clear();
+    ialt_assump.clear();
     Count::Sample(solver, CISS, num_xor_cls_, ciss_assump, ciss_added_vars,
                   ciss_rhs, lit_Undef);
     Count::Sample(solver, GetVars(CONTROLLED_), num_cxor_cls_, c_assump,

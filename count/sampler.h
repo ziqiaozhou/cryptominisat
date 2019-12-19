@@ -38,5 +38,6 @@ private:
   uint32_t num_cxor_cls_;
   uint32_t num_sxor_cls_;
   uint32_t num_ixor_cls_;
+  SATSolver * another_solver;
 };
 #endif
