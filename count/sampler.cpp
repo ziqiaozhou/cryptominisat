@@ -252,6 +252,8 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
       }
 
       auto cissmodel = getCIISSModel(solver);
+      lits.push_back(Lit(act_var, false));
+      solver->add_clause(lits);
       if (!sample_noninterference_) {
         if (!useOtherAlt) {
           vector<Lit> sol_lits = getCISSModelLit(solver);
@@ -265,8 +267,6 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
         }
       }
       RecordSampleSol(cissmodel);
-      lits.push_back(Lit(act_var, false));
-      solver->add_clause(lits);
     }
     solutions += solver->n_seareched_solutions();
   }
