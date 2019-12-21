@@ -117,7 +117,7 @@ vector<uint32_t> Sampler::GetCIISS() {
                            SECRET_ + "_0", SECRET_ + "_1"};
   for (auto label : labels)
     for (auto l : symbol_vars[label]) {
-      if(!useOtherAlt && label==(OTHER_ + "_1")){
+      if (!useOtherAlt && label == (OTHER_ + "_1")) {
         continue;
       }
       sample_vars.push_back(l.var());
@@ -159,14 +159,23 @@ vector<string> Sampler::getCIISSModel(SATSolver *solver) {
   for (auto label : complete_labels) {
     if (symbol_vars.count(label) == 0)
       continue;
+    if (!useOtherAlt && label == (OTHER_ + "_1")) {
+      continue;
+    }
     for (auto l : symbol_vars[label]) {
       ret2 << Lit(l.var(), model[l.var()] == l_False) << ", ";
     }
     ret2 << ", ";
   }
   for (auto label : labels) {
-    if (symbol_vars.count(label) == 0)
+    if (symbol_vars.count(label) == 0){
+      ret += ", ";
       continue;
+    }
+    if (!useOtherAlt && label == (OTHER_ + "_1")) {
+      ret += ", ";
+      continue;
+    }
     ret += "";
     for (auto l : symbol_vars[label]) {
       if (model[l.var()] == l_Undef)
@@ -236,14 +245,13 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 
       auto cissmodel = getCIISSModel(solver);
       if (!sample_noninterference_) {
-        if(!useOtherAlt){
-          vector<Lit> sol_lits= getCISSModelLit(solver);
+        if (!useOtherAlt) {
+          vector<Lit> sol_lits = getCISSModelLit(solver);
           if (complementary_solver->solve(&sol_lits) == l_True) {
             // not actual leakage
             continue;
           }
         }
-
       }
       RecordSampleSol(cissmodel);
       lits.push_back(Lit(act_var, false));
@@ -330,8 +338,9 @@ void Sampler::run() {
                   salt_added_vars, salt_rhs, lit_Undef);
     Count::Sample(solver, GetVars(OTHER_ + "_0"), num_ixor_cls_, i_assump,
                   i_added_vars, i_rhs, lit_Undef);
-    Count::Sample(solver, GetVars(OTHER_ + "_1"), num_ixor_cls_, ialt_assump,
-                  ialt_added_vars, ialt_rhs, lit_Undef);
+    if (useOtherAlt)
+      Count::Sample(solver, GetVars(OTHER_ + "_1"), num_ixor_cls_, ialt_assump,
+                    ialt_added_vars, ialt_rhs, lit_Undef);
 
     ciss_assump.insert(ciss_assump.end(), c_assump.begin(), c_assump.end());
     ciss_assump.insert(ciss_assump.end(), s_assump.begin(), s_assump.end());
