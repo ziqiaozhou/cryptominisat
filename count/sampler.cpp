@@ -105,15 +105,21 @@ void Sampler::add_sample_options() {
   sampleOptions_.add_options()("num_ixor_cls",
                                po::value(&num_ixor_cls_)->default_value(2),
                                "num_ixor_cls");
+  sampleOptions_.add_options()("useOtherAlt",
+                               po::value(&useOtherAlt)->default_value(true),
+                               "useOtherAlt");
   help_options_simple.add(sampleOptions_);
   help_options_complicated.add(sampleOptions_);
 }
-vector<uint32_t> Sampler::GetCISS() {
+vector<uint32_t> Sampler::GetCIISS() {
   vector<uint32_t> sample_vars;
   vector<string> labels = {CONTROLLED_, OTHER_ + "_0", OTHER_ + "_1",
                            SECRET_ + "_0", SECRET_ + "_1"};
   for (auto label : labels)
     for (auto l : symbol_vars[label]) {
+      if(!useOtherAlt && label==(OTHER_ + "_1")){
+        continue;
+      }
       sample_vars.push_back(l.var());
     }
 
@@ -126,8 +132,22 @@ vector<uint32_t> Sampler::GetVars(string label) {
   }
   return sample_vars;
 }
+vector<Lit> Sampler::getCISSModelLit(SATSolver *solver) {
+  vector<Lit> ret;
+  vector<string> labels = {CONTROLLED_, OTHER_ + "_0", SECRET_ + "_0",
+                           SECRET_ + "_1"};
+  auto &model = solver->get_model();
+  for (auto label : labels) {
+    if (symbol_vars.count(label) == 0)
+      continue;
+    for (auto l : symbol_vars[label]) {
+      ret.push_back(Lit(l.var(), model[l.var()] == l_False));
+    }
+  }
+  return ret;
+}
 
-vector<string> Sampler::getCISSModel(SATSolver *solver) {
+vector<string> Sampler::getCIISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
   vector<string> labels = {CONTROLLED_, OTHER_ + "_0", OTHER_ + "_1",
@@ -187,6 +207,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 
   while (solutions < maxSolutions) {
     ret = solver->solve(&new_assumps, only_ind);
+
     assert(ret == l_False || ret == l_True);
 
     if (conf.verbosity >= 2) {
@@ -204,7 +225,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
     solutions += std::max(1, solver->n_seareched_solutions());
     if (solutions < maxSolutions) {
       vector<Lit> lits, solution;
-      lits.push_back(Lit(act_var, false));
+
       for (const uint32_t var : target_count_vars) {
         if (solver->get_model()[var] != l_Undef) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
@@ -212,8 +233,20 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
           assert(false);
         }
       }
-      auto cissmodel = getCISSModel(solver);
+
+      auto cissmodel = getCIISSModel(solver);
+      if (!sample_noninterference_) {
+        if(!useOtherAlt){
+          vector<Lit> sol_lits= getCISSModelLit(solver);
+          if (complementary_solver->solve(&sol_lits) == l_True) {
+            // not actual leakage
+            continue;
+          }
+        }
+
+      }
       RecordSampleSol(cissmodel);
+      lits.push_back(Lit(act_var, false));
       solver->add_clause(lits);
     }
     solutions += solver->n_seareched_solutions();
@@ -222,23 +255,31 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   solver->add_clause({Lit(act_var, false)});
   return solutions;
 }
+
 void Sampler::run() {
 
   solver = new SATSolver((void *)&conf);
+
   inputfile = filesToRead[0];
   readInAFile(solver, inputfile);
+
   setSecretVars();
   setCountVars();
   if (sample_noninterference_) {
     AddVariableSameOrDiff(solver, all_observe_lits, all_declass_lits);
+
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
                                      std::ofstream::out | std::ofstream::app);
     sample_sol_complete_f =
         new std::ofstream(out_dir_ + "//" + out_file_ + ".same_complete.csv",
                           std::ofstream::out | std::ofstream::app);
-    // AddVariableSame(solver, all_declass_lits);
   } else {
+    complementary_solver = new SATSolver((void *)&conf);
+    readInAFile(complementary_solver, inputfile);
+    AddVariableSameOrDiff(complementary_solver, all_observe_lits,
+                          all_declass_lits);
     AddVariableDiff(solver, all_observe_lits);
+
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".diff.csv",
                                      std::ofstream::out | std::ofstream::app);
     sample_sol_complete_f =
@@ -248,7 +289,7 @@ void Sampler::run() {
   }
   AddVariableDiff(solver, all_secret_lits);
 
-  vector<uint32_t> CISS = GetCISS();
+  vector<uint32_t> CISS = GetCIISS();
   solver->set_sampling_vars(&CISS);
   solver->simplify();
   string victim_cnf_file = out_dir_ + "//" + out_file_ + ".sol.simp";
@@ -294,13 +335,15 @@ void Sampler::run() {
 
     ciss_assump.insert(ciss_assump.end(), c_assump.begin(), c_assump.end());
     ciss_assump.insert(ciss_assump.end(), s_assump.begin(), s_assump.end());
-    ciss_assump.insert(ciss_assump.end(), salt_assump.begin(), salt_assump.end());
+    ciss_assump.insert(ciss_assump.end(), salt_assump.begin(),
+                       salt_assump.end());
     ciss_assump.insert(ciss_assump.end(), i_assump.begin(), i_assump.end());
-    ciss_assump.insert(ciss_assump.end(), ialt_assump.begin(), ialt_assump.end());
+    ciss_assump.insert(ciss_assump.end(), ialt_assump.begin(),
+                       ialt_assump.end());
 
     // trimVar(solver,sample_vars);
-    auto nsol=bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
-    cout<<"nsol="<<nsol<<std::endl;
+    auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
+    cout << "nsol=" << nsol << std::endl;
   }
 }
 

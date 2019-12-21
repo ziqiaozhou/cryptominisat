@@ -10,13 +10,15 @@ public:
     delete sample_sol_f;
     sample_sol_complete_f->close();
     delete sample_sol_complete_f;
+    complementary_solver=NULL;
   }
   void add_sample_options();
   void add_supported_options() override;
   void run();
-  vector<uint32_t> GetCISS();
+  vector<uint32_t> GetCIISS();
   vector<uint32_t> GetVars(string label);
-  vector<string> getCISSModel(SATSolver *solver);
+  vector<string> getCIISSModel(SATSolver *solver);
+  vector<Lit> getCISSModelLit(SATSolver *solver);
 
   void RecordSampleSol(vector<string> &sol);
   int64_t bounded_sol_generation(SATSolver *solver,
@@ -38,6 +40,7 @@ private:
   uint32_t num_cxor_cls_;
   uint32_t num_sxor_cls_;
   uint32_t num_ixor_cls_;
-  SATSolver * another_solver;
+  SATSolver * complementary_solver;
+  bool useOtherAlt;
 };
 #endif
