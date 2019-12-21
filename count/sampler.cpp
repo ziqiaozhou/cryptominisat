@@ -249,7 +249,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
           vector<Lit> sol_lits = getCISSModelLit(solver);
           if (complementary_solver->solve(&sol_lits) == l_True) {
             // not actual leakage
-            std::cout<<"complementary_solver->solve(&sol_lits) == l_True"<<sol_lits;
+            std::cout<<"complementary_solver->solve(&sol_lits) == l_True\n";
             solutions--;
             continue;
           }
