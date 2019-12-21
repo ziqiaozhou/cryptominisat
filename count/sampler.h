@@ -7,7 +7,11 @@ public:
       : Count(argc, argv), sampleOptions_("Sample options") {}
   ~Sampler() {
     sample_sol_f->close();
+    sample_sol_f_same->close();
+    delete sample_sol_f_same;
     delete sample_sol_f;
+    sample_sol_complete_f_same->close();
+    delete sample_sol_complete_f_same;
     sample_sol_complete_f->close();
     delete sample_sol_complete_f;
     complementary_solver=NULL;
@@ -19,6 +23,7 @@ public:
   vector<uint32_t> GetVars(string label);
   vector<string> getCIISSModel(SATSolver *solver);
   vector<Lit> getCISSModelLit(SATSolver *solver);
+  void RecordSampleSolSame(vector<string> &sol);
 
   void RecordSampleSol(vector<string> &sol);
   int64_t bounded_sol_generation(SATSolver *solver,
@@ -36,6 +41,8 @@ private:
   po::options_description sampleOptions_;
   std::ofstream *sample_sol_f;
   std::ofstream *sample_sol_complete_f;
+  std::ofstream *sample_sol_f_same;
+  std::ofstream *sample_sol_complete_f_same;
   bool sample_noninterference_;
   uint32_t num_cxor_cls_;
   uint32_t num_sxor_cls_;

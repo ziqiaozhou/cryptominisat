@@ -198,6 +198,14 @@ void Sampler::RecordSampleSol(vector<string> &sol) {
   *sample_sol_f << sol[1] << endl;
 }
 
+void Sampler::RecordSampleSolSame(vector<string> &sol) {
+
+  if (!record_solution_)
+    return;
+  *sample_sol_complete_f_same << sol[0] << endl;
+  *sample_sol_f_same << sol[1] << endl;
+}
+
 int64_t Sampler::bounded_sol_generation(SATSolver *solver,
                                         vector<uint32_t> &target_count_vars,
                                         uint32_t maxSolutions,
@@ -249,7 +257,8 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
           vector<Lit> sol_lits = getCISSModelLit(solver);
           if (complementary_solver->solve(&sol_lits) == l_True) {
             // not actual leakage
-            std::cout<<"complementary_solver->solve(&sol_lits) == l_True\n";
+            RecordSampleSolSame(cissmodel);
+            // std::cout<<"complementary_solver->solve(&sol_lits) == l_True\n";
             solutions--;
             continue;
           }
@@ -283,6 +292,7 @@ void Sampler::run() {
     sample_sol_complete_f =
         new std::ofstream(out_dir_ + "//" + out_file_ + ".same_complete.csv",
                           std::ofstream::out | std::ofstream::app);
+
   } else {
     complementary_solver = new SATSolver((void *)&conf);
     readInAFile(complementary_solver, inputfile);
@@ -294,6 +304,11 @@ void Sampler::run() {
                                      std::ofstream::out | std::ofstream::app);
     sample_sol_complete_f =
         new std::ofstream(out_dir_ + "//" + out_file_ + ".diff_complete.csv",
+                          std::ofstream::out | std::ofstream::app);
+    sample_sol_f_same = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
+                                     std::ofstream::out | std::ofstream::app);
+    sample_sol_complete_f_same =
+        new std::ofstream(out_dir_ + "//" + out_file_ + ".same_complete.csv",
                           std::ofstream::out | std::ofstream::app);
     AddVariableSame(solver, all_declass_lits);
   }
