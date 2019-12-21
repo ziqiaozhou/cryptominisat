@@ -168,7 +168,7 @@ vector<string> Sampler::getCIISSModel(SATSolver *solver) {
     ret2 << ", ";
   }
   for (auto label : labels) {
-    if (symbol_vars.count(label) == 0){
+    if (symbol_vars.count(label) == 0) {
       ret += ", ";
       continue;
     }
@@ -231,7 +231,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
     if (ret != l_True) {
       break;
     }
-    solutions += std::max(1, solver->n_seareched_solutions());
+    solutions += 1;
     if (solutions < maxSolutions) {
       vector<Lit> lits, solution;
 
@@ -249,6 +249,8 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
           vector<Lit> sol_lits = getCISSModelLit(solver);
           if (complementary_solver->solve(&sol_lits) == l_True) {
             // not actual leakage
+            std::cout<<"complementary_solver->solve(&sol_lits) == l_True"<<sol_lits;
+            solutions--;
             continue;
           }
         }
