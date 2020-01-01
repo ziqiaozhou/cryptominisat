@@ -627,6 +627,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
       cout << "found solution" << nsol << "no need xor\n";
     }
   }
+  hash_count=left;
   while (left < right) {
     hash_count = left + (right - left) / 2;
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
@@ -668,9 +669,9 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
          hash_count > 0) {
     hash_count--;
   }
-  left = std::max(0, hash_count - std::min(4, (hash_count + 1) / 2));
+  left = std::max(0, hash_count - std::min(5, (hash_count + 1) / 2));
   right = std::min(int(target_count_vars.size()),
-                   hash_count + std::min(4, (hash_count + 1) / 2));
+                   hash_count + std::min(5, (hash_count + 1) / 2));
   cout << "found solution" << solution_counts[hash_count] << "* 2^"
        << hash_count << "\n";
   return solution_counts;
@@ -814,8 +815,8 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
   left_ = left;
   right_ = right_;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_right_[i] = backup_right[i]-2;
-    backup_left_[i] = backup_left[i]+2;
+    backup_left_[i] = backup_left[i]-3;
+    backup_right_[i] = backup_right[i]+3;
   }
   return true;
 }
