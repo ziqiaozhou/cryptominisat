@@ -627,7 +627,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
       cout << "found solution" << nsol << "no need xor\n";
     }
   }
-  hash_count=left;
+  hash_count = left;
   while (left < right) {
     hash_count = left + (right - left) / 2;
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
@@ -784,8 +784,10 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
                  : ((max_log_size_ == -1) ? count_vars.size() : max_log_size_);
   for (int i = 0; i < backup_solvers.size(); ++i) {
     backup_left[i] = backup_left_[i] ? backup_left_[i] : left;
-    backup_right[i] =
-        backup_right_[i] ? backup_right_[i] : backup_count_vars[i].size();
+    backup_right[i] = backup_right_[i]
+                          ? backup_right_[i]
+                          : ((max_log_size_ == -1) ? backup_count_vars[i].size()
+                                                   : max_log_size_);
     backup_hash_count[i] = 0;
   }
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
@@ -815,8 +817,8 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
   left_ = left;
   right_ = right_;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_left_[i] = backup_left[i]-3;
-    backup_right_[i] = backup_right[i]+3;
+    backup_left_[i] = backup_left[i] - 3;
+    backup_right_[i] = backup_right[i] + 3;
   }
   return true;
 }
@@ -956,8 +958,7 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                  : ((max_log_size_ == -1) ? count_vars.size() : max_log_size_);
   for (int i = 0; i < backup_solvers.size(); ++i) {
     backup_left[i] = backup_left_[i] ? backup_left_[i] : left;
-    backup_right[i] =
-        backup_right_[i] ? backup_right_[i] : count_vars.size();
+    backup_right[i] = backup_right_[i] ? backup_right_[i] : count_vars.size();
     backup_hash_count[i] = 0;
   }
   if (solver->solve() == l_False) {
@@ -993,8 +994,8 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   left_ = left;
   right_ = right_;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_right_[i] = backup_right[i]-2;
-    backup_left_[i] = backup_left[i]+2;
+    backup_right_[i] = backup_right[i] - 2;
+    backup_left_[i] = backup_left[i] + 2;
   }
   return true;
 }
