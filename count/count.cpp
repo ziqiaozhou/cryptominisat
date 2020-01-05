@@ -776,9 +776,9 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
 
   int hash_count = 0;
   int left, right;
-  vector<int> backup_left(backup_solvers.size()),
-      backup_right(backup_solvers.size()),
-      backup_hash_count(backup_solvers.size());
+  vector<int> backup_left(backup_solvers.size(),0),
+      backup_right(backup_solvers.size(),0),
+      backup_hash_count(backup_solvers.size(),0);
   left = left_ ? left_ : ((min_log_size_ == -1) ? 0 : min_log_size_);
   right = right_ ? right_
                  : ((max_log_size_ == -1) ? count_vars.size() : max_log_size_);
