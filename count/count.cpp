@@ -317,7 +317,7 @@ void Count::add_count_options() {
                               "mode: nonblock-> backtrack, block -> block");
   countOptions_.add_options()(
       "inter_mode", po::value(&inter_mode_)->default_value(0),
-      "true-> secret_1 and secret_2, observe_1 and observe_2, false: single");
+      "1-> secret_1 and secret_2, observe_1 and observe_2, 0: single,  2: JaccardHat, 3: JaccardHat with Same Other");
   countOptions_.add_options()(
       "pick_sample_first",
       po::value(&conf.pickSampleFirst)->default_value(false),
@@ -1129,7 +1129,6 @@ void Count::run() {
       }
       backup_solvers.resize(0);
     }
-
     return;
   }
   solver = new SATSolver((void *)&conf);
