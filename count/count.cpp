@@ -1191,7 +1191,6 @@ void Count::run() {
               count_vars = all_count_vars[ids[0]];
               AddVariableDiff(solver, all_observe_lits);
             }*/
-      AddVariableSame(solver, all_control_lits);
       if (inter_mode_ == 2) {
         cout << "AddVariableSame for solver";
         AddVariableSame(solver, all_observe_lits);
