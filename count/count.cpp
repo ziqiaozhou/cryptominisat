@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <unordered_map>
-
+#include <ctime>
 using boost::lexical_cast;
 using std::cout;
 using std::exit;
@@ -511,9 +511,10 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   solver->new_var();
   uint32_t act_var = solver->nVars() - 1;
   new_assumps.push_back(Lit(act_var, true));
+  long begin=cpuTimeTotal();
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
-
+  std::cout<<"after simp, time="<<cpuTimeTotal()-begin ;
   while (solutions < maxSolutions) {
     ret = solver->solve(&new_assumps, only_ind);
     assert(ret == l_False || ret == l_True);
