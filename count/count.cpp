@@ -16,10 +16,13 @@ using std::unordered_set;
 vector<string> Count::getCIISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
-  vector<string> labels = {CONTROLLED_, OTHER_ + "_0",
-                           SECRET_ + "_0", };
-  vector<string> complete_labels = {
-      CONTROLLED_,    OTHER_ + "_0",      SECRET_ + "_0", OBSERVABLE_ + "_0"};
+  vector<string> labels = {
+      CONTROLLED_,
+      OTHER_ + "_0",
+      SECRET_ + "_0",
+  };
+  vector<string> complete_labels = {CONTROLLED_, OTHER_ + "_0", SECRET_ + "_0",
+                                    OBSERVABLE_ + "_0"};
   auto &model = solver->get_model();
   for (auto label : complete_labels) {
     if (symbol_vars.count(label) == 0)
@@ -309,21 +312,21 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
                                   vector<string> &sol_str2, string rnd) {
   set<string> str1;
   //(sol_str1.begin(), sol_str1.end()),
-        set<string>str2;
-      //(sol_str2.begin(), sol_str2.end());
+  set<string> str2;
+  //(sol_str2.begin(), sol_str2.end());
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol.diff",
                            std::ofstream::out | std::ofstream::app);
 
-    for (auto lit : sol1) {
-      std::stringstream ss("");
-      ss << lit;
-      cout << ss.str() << "\n";
-      str1.insert(ss.str());
-    }
-    for (auto lit : sol2) {
-      std::stringstream ss("");
-      str2.insert(ss.str());
-    }
+  for (auto lit : sol1) {
+    std::stringstream ss("");
+    ss << lit;
+    cout << ss.str() << "\n";
+    str1.insert(ss.str());
+  }
+  for (auto lit : sol2) {
+    std::stringstream ss("");
+    str2.insert(ss.str());
+  }
   for (auto s : str1) {
     cout << s << "\n";
   }
@@ -386,6 +389,8 @@ void Count::add_count_options() {
                               po::value(&min_log_size_)->default_value(-1));
   countOptions_.add_options()("max_log_size",
                               po::value(&max_log_size_)->default_value(-1));
+  countOptions_.add_options()("max_xor_per_var",
+                              po::value(&max_xor_per_var_)->default_value(32));
   countOptions_.add_options()("count_mode",
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
@@ -1091,10 +1096,10 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                        backup_hash_count, secret_rnd);
     }
   }
-  left_ = left-2;
-  right_ = right+2;
+  left_ = left - 2;
+  right_ = right + 2;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_right_[i] = backup_right[i] -2  ;
+    backup_right_[i] = backup_right[i] - 2;
     backup_left_[i] = backup_left[i] + 2;
   }
   return true;
