@@ -93,6 +93,7 @@ protected:
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
   bool ProbToDiffFromSecretSet();
+  void calculateDiffSolution(vector<vector<Lit>> sol1, vector<vector<Lit>>sol2, string rnd);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;
