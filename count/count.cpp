@@ -325,6 +325,7 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
   }
   for (auto lit : sol2) {
     std::stringstream ss("");
+    ss << lit;
     str2.insert(ss.str());
   }
   for (auto s : str1) {
@@ -532,7 +533,7 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
         if (hashf)
           *hashf << vars[j] + 1 << " ";
       }
-      cout << "new hash constraint\n";
+      cout << "new hash ";
       alllits.push_back(lits);
       rhs.push_back(randomBits_rhs[i] == '1');
     }
@@ -1034,7 +1035,6 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                       std::ofstream::out);
       backup_solvers[i]->dump_irred_clauses_ind_only(&f);
       f.close();*/
-
       // assert h(S1)!= h(S2)
     }
   } else {
