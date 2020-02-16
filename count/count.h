@@ -92,8 +92,9 @@ protected:
   // Return true if reading victim model;
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
+  vector<string> getCIISSModel(SATSolver *solver);
   bool ProbToDiffFromSecretSet();
-  void calculateDiffSolution(vector<vector<Lit>> sol1, vector<vector<Lit>>sol2, string rnd);
+  void calculateDiffSolution(vector<vector<Lit>>& sol1, vector<vector<Lit>>&sol2,vector<string>& s1, vector<string>& s2, string rnd);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;
@@ -138,6 +139,7 @@ protected:
   int max_log_size_;
   int min_log_size_;
   vector<vector<Lit>> solution_lits;
+  vector<string> solution_strs;
   int max_xor_per_var_;
   string hash_file;
   string inputfile;

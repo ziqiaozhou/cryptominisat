@@ -13,6 +13,41 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
+vector<string> Count::getCIISSModel(SATSolver *solver) {
+  string ret = "";
+  std::stringstream ret2;
+  vector<string> labels = {CONTROLLED_, OTHER_ + "_0",
+                           SECRET_ + "_0", };
+  vector<string> complete_labels = {
+      CONTROLLED_,    OTHER_ + "_0",      SECRET_ + "_0", OBSERVABLE_ + "_0"};
+  auto &model = solver->get_model();
+  for (auto label : complete_labels) {
+    if (symbol_vars.count(label) == 0)
+      continue;
+    for (auto l : symbol_vars[label]) {
+      ret2 << Lit(l.var(), model[l.var()] == l_False) << ", ";
+    }
+    ret2 << ", ";
+  }
+  for (auto label : labels) {
+    if (symbol_vars.count(label) == 0) {
+      ret += ", ";
+      continue;
+    }
+    ret += "";
+    for (auto l : symbol_vars[label]) {
+      if (model[l.var()] == l_Undef)
+        ret += "x";
+      if (model[l.var()] == l_True)
+        ret += l.sign() ? "0" : "1";
+      if (model[l.var()] == l_False)
+        ret += l.sign() ? "1" : "0";
+      ret += ", ";
+    }
+    ret += ", ";
+  }
+  return {ret2.str(), ret};
+}
 vector<uint32_t> Lits2Vars(vector<Lit> &lits) {
   vector<uint32_t> vars;
   for (auto l : lits) {
@@ -268,28 +303,42 @@ void Count::RecordCountInter(map<int, uint64_t> &sols, int hash_count,
   count_f << std::setprecision(4) << j << "\t%" << rnd << "\n";
   count_f.close();
 }
-void Count::calculateDiffSolution(vector<vector<Lit>> sol1,
-                                  vector<vector<Lit>> sol2, string rnd) {
-  set<string> str1, str2;
+void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
+                                  vector<vector<Lit>> &sol2,
+                                  vector<string> &sol_str1,
+                                  vector<string> &sol_str2, string rnd) {
+  set<string> str1;
+  //(sol_str1.begin(), sol_str1.end()),
+        set<string>str2;
+      //(sol_str2.begin(), sol_str2.end());
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol.diff",
                            std::ofstream::out | std::ofstream::app);
-  for (auto lit : sol1) {
-    std::stringstream ss("");
-    ss << lit;
-    cout << ss.str() << "\n";
-    str1.insert(ss.str());
-  }
-  for (auto lit : sol2) {
-    std::stringstream ss("");
-    ss << lit;
-    cout << ss.str() << "\n";
-    str2.insert(ss.str());
+
+    for (auto lit : sol1) {
+      std::stringstream ss("");
+      ss << lit;
+      cout << ss.str() << "\n";
+      str1.insert(ss.str());
+    }
+    for (auto lit : sol2) {
+      std::stringstream ss("");
+      str2.insert(ss.str());
+    }
+  for (auto s : str1) {
+    cout << s << "\n";
   }
   cout << "====calculateDiffSolution\n";
+  cout << str1.size() << "\t" << str2.size() << "\n";
   for (auto s : str2) {
     if (!str1.count(s)) {
       cout << s << "\n";
       solution_f << s << " %" << rnd << "\n";
+    }
+  }
+  cout << "====calculateSameSolution\n";
+  for (auto s : str2) {
+    if (str1.count(s)) {
+      cout << s << "\n";
     }
   }
   solution_f.close();
@@ -478,6 +527,7 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
         if (hashf)
           *hashf << vars[j] + 1 << " ";
       }
+      cout << "new hash constraint\n";
       alllits.push_back(lits);
       rhs.push_back(randomBits_rhs[i] == '1');
     }
@@ -509,6 +559,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
                                  vector<uint32_t> &target_count_vars,
                                  uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
+  solution_strs.clear();
   uint64_t solutions = 0;
   lbool ret;
   // solver->load_state(conf.saved_state_file);
@@ -526,6 +577,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
         uint32_t var = abs(int_lit) - 1;
         solution.push_back(Lit(var, int_lit < 0));
       }
+      solution_strs.push_back(getCIISSModel(solver)[0]);
       solution_lits.push_back(solution);
     }
     // delete solver;
@@ -609,8 +661,10 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
         cout << "[appmc] Adding banning clause: " << lits << endl;
       }
       solver->add_clause(lits);
-      if (record_solution_)
+      if (record_solution_) {
         solution_lits.push_back(solution);
+        solution_strs.push_back(getCIISSModel(solver)[0]);
+      }
     }
     solutions += solver->n_seareched_solutions();
   }
@@ -639,6 +693,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   }
   map<int, uint64_t> solution_counts;
   map<int, vector<vector<Lit>>> hash_solutions;
+  map<int, vector<string>> hash_solution_strs;
   int prev_hash_count = 0;
   vector<Lit> assump;
   solution_lits.clear();
@@ -646,6 +701,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   if (left <= 0) {
     nsol = bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
     hash_solutions[0] = solution_lits;
+    hash_solution_strs[0] = solution_strs;
     if (nsol < max_sol_) {
       left = right = hash_count = 0;
       solution_counts[0] = nsol;
@@ -658,7 +714,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
     hash_count = left + (right - left) / 2;
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
-           count_rhs, lit_Undef);
+           count_rhs, lit_Undef, true);
     assump.clear();
     // assump = secret_watch;
     assump.insert(assump.end(), count_watch.begin(),
@@ -667,6 +723,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
       solution_counts[hash_count] =
           bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
       hash_solutions[hash_count] = solution_lits;
+      hash_solution_strs[hash_count] = solution_strs;
     }
     nsol = solution_counts[hash_count];
     if (nsol >= max_sol_) {
@@ -685,11 +742,12 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   }
   hash_count = right;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
-    //std::cerr<<"error !solution_counts.count(hash_count) && hash_count >= 0";
-    //assert(false);
+    // std::cerr<<"error !solution_counts.count(hash_count) && hash_count >= 0";
+    // assert(false);
     solution_counts[hash_count] =
         bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
     hash_solutions[hash_count] = solution_lits;
+    hash_solution_strs[hash_count] = solution_strs;
   }
   while ((!solution_counts.count(hash_count) ||
           solution_counts[hash_count] == 0) &&
@@ -701,7 +759,8 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
                    hash_count + std::min(5, (hash_count + 1) / 2));
   cout << "found solution" << solution_counts[hash_count] << "* 2^"
        << hash_count << "\n";
-  solution_lits=hash_solutions[hash_count];
+  solution_lits = hash_solutions[hash_count];
+  solution_strs = hash_solution_strs[hash_count];
   return solution_counts;
 }
 
@@ -826,6 +885,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
         count_once(solver, count_vars, {}, left, right, hash_count);
     RecordSolution(secret_rnd);
     auto inter_solution_lits = solution_lits;
+    auto inter_solution_strs = solution_strs;
     auto prev_count_vars = &count_vars;
     vector<map<int, uint64_t>> backup_solution_counts(backup_solvers.size());
     int idx = 0;
@@ -836,9 +896,11 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
           backup_solvers[i], backup_count_vars[i], {}, backup_left[i],
           backup_right[i], backup_hash_count[i], true);
     }
-    calculateDiffSolution(inter_solution_lits, solution_lits, secret_rnd);
-    if(hash_count!=backup_hash_count[0] || solution_counts[hash_count]!=backup_solution_counts[0][hash_count]){
-      std::cerr<<"find non zero J";
+    calculateDiffSolution(inter_solution_lits, solution_lits,
+                          inter_solution_strs, solution_strs, secret_rnd);
+    if (hash_count != backup_hash_count[0] ||
+        solution_counts[hash_count] != backup_solution_counts[0][hash_count]) {
+      std::cerr << "find non zero J";
       exit(-1);
     }
     if (inter_mode_ == 0)
@@ -1006,6 +1068,7 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
         count_once(solver, count_vars, {}, left, right, hash_count);
     RecordSolution(secret_rnd);
     auto inter_solution_lits = solution_lits;
+    auto inter_solution_strs = solution_strs;
     auto prev_count_vars = &count_vars;
     vector<map<int, uint64_t>> backup_solution_counts(backup_solvers.size());
     int idx = 0;
@@ -1019,7 +1082,8 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                      backup_right[i], backup_hash_count[i], true);
       // prev_count_vars = &current_count_vars;
     }
-    calculateDiffSolution(inter_solution_lits, solution_lits, secret_rnd);
+    calculateDiffSolution(inter_solution_lits, solution_lits,
+                          inter_solution_strs, solution_strs, secret_rnd);
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
@@ -1027,10 +1091,10 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                        backup_hash_count, secret_rnd);
     }
   }
-  left_ = left;
-  right_ = right_;
+  left_ = left-2;
+  right_ = right+2;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_right_[i] = backup_right[i] - 2;
+    backup_right_[i] = backup_right[i] -2  ;
     backup_left_[i] = backup_left[i] + 2;
   }
   return true;
