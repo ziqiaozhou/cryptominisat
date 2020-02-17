@@ -153,6 +153,7 @@ protected:
   vector<int> backup_right_;
   int left_;
   int right_;
+  bool use_overlap_coefficient_;
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H
