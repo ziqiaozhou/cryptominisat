@@ -348,7 +348,6 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
     if (!str1.count(s)) {
       cout << s << "\n" << strmap[s] << "\n";
       solution_f << s << " %" << rnd << "\n";
-      exit(0);
     }
   }
 
