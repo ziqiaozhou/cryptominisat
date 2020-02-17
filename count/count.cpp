@@ -137,11 +137,14 @@ void Count::setCountVars() {
   if (count_vars.size())
     return;
   cout << "setCountVars\n";
+  all_observe_lits.clear();
+  control_lits.clear();
+  all_other_lits.clear();
+  all_count_vars.clear();
   vector<uint32_t> other_control_vars;
   for (auto name_lits : symbol_vars) {
     if (!name_lits.first.compare(0, CONTROLLED_.length(), CONTROLLED_)) {
       for (auto lit : name_lits.second) {
-        // count_vars.push_back(lit.var());
         control_lits.push_back(lit);
       }
     } else if (!name_lits.first.compare(0, OBSERVABLE_.length(), OBSERVABLE_)) {
@@ -157,6 +160,7 @@ void Count::setCountVars() {
       }
     }
   }
+  cout<<"control_lits size="<<control_lits.size()<<"\n";
   for (auto id_lits : all_observe_lits) {
     auto id = id_lits.first;
     for (auto lit : control_lits) {
@@ -562,17 +566,18 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
 }
 
 int64_t Count::bounded_sol_count(SATSolver *solver,
-                                 vector<uint32_t> &target_count_vars,
+                                 const vector<uint32_t> &target_count_vars,
                                  uint32_t maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
   solution_strs.clear();
   uint64_t solutions = 0;
+  vector<Lit> solution;
   lbool ret;
   // solver->load_state(conf.saved_state_file);
   // setCountVars();
-  solver->set_sampling_vars(&target_count_vars);
+  auto s_vars=target_count_vars;
+  solver->set_sampling_vars(&s_vars);
   if (mode_ == "nonblock") {
-    vector<Lit> solution;
     ret = solver->solve(&assumps, only_ind);
     for (auto sol_str : solver->get_solutions()) {
       std::stringstream ss(sol_str);
@@ -615,33 +620,24 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     if (ret != l_True) {
       break;
     }
-    solutions += std::max(1, solver->n_seareched_solutions());
+    solutions += 1;//std::max(1, solver->n_seareched_solutions());
     model = solver->get_model();
-
     if (solutions < maxSolutions) {
-      vector<Lit> lits, solution;
+      vector<Lit> lits;
       lits.push_back(Lit(act_var, false));
+      solution.clear();
+      cout<<"count target var";
       for (const uint32_t var : target_count_vars) {
+        cout<<var<<"\t";
+        solution.push_back(Lit(var, solver->get_model()[var] == l_False));
         if (solver->get_model()[var] != l_Undef) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
         } else {
           assert(false);
         }
       }
-      for (const uint32_t var : target_count_vars) {
-        if (solver->get_model()[var] != l_Undef) {
-          solution.push_back(Lit(var, solver->get_model()[var] == l_False));
-        } else {
-          assert(false);
-        }
-      }
-      /*for (const uint32_t var : full_secret_vars) {
-        if (solver->get_model()[var] != l_Undef) {
-          solution.push_back(Lit(var, solver->get_model()[var] == l_False));
-        }else{
-          assert(false);
-        }
-      }*/
+      cout<<"\n";
+      assert(solution.size()==target_count_vars.size());
       if (conf.verbosity > 1) {
         cout << "====result==="
              << "\n";
@@ -793,7 +789,8 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
     backup_count_vars[i] = getCISAlt();
     backup_solvers[i]->set_sampling_vars(&backup_count_vars[i]);
   }
-  solver->set_sampling_vars(&count_vars);
+  auto cvar=count_vars;
+  solver->set_sampling_vars(&cvar);
 
   vector<vector<uint32_t>> added_secret_vars;
   map<string, vector<vector<uint32_t>>> backup_added_secret_vars;
@@ -926,7 +923,6 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
 }
 
 bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
-  solver->set_sampling_vars(&count_vars);
   vector<vector<uint32_t>> added_secret_vars;
   map<string, vector<vector<uint32_t>>> backup_added_secret_vars;
   map<string, vector<bool>> backup_added_secret_rhs;
@@ -1273,6 +1269,7 @@ void Count::run() {
       AddVariableSame(solver, all_observe_lits);
       auto ids = getIDs();
       count_vars = all_count_vars[ids[0]];
+
       /*target_file = out_dir_ + "//" + out_file_ + ".same";
       std::ofstream finalout(target_file);
       solver->dump_irred_clauses_ind_only(&finalout);
@@ -1303,6 +1300,11 @@ void Count::run() {
           AddVariableSame(solver, all_declass_lits);
         auto ids = getIDs();
         count_vars = all_count_vars[ids[0]];
+        cout<<"count vars:";
+        for(auto v:count_vars){
+          cout<<v<<"\t";
+        }
+        cout<<"\n";
       }
       solver->set_up_for_jaccard_count();
       setBackupSolvers();

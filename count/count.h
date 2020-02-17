@@ -18,7 +18,7 @@ public:
   void add_count_options();
 
   explicit Count(int argc, char **argv)
-      : Main(argc, argv), countOptions_("Count options"), max_xor_per_var_(32) {
+      : Main(argc, argv), countOptions_("Count options") {
     hash_file = ".hash.cnf";
     hashf = nullptr;
     left_ = 0;
@@ -45,7 +45,7 @@ protected:
                 vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
                 vector<bool> &rhs, Lit addInner = lit_Undef,
                 bool is_restarted = false);
-  int64_t bounded_sol_count(SATSolver *solver, vector<uint32_t> &count_vars,
+  int64_t bounded_sol_count(SATSolver *solver, const vector<uint32_t> &count_vars,
                             uint32_t maxSolutions, const vector<Lit> &assumps,
                             bool only_ind = true);
   map<int, uint64_t> count_once(SATSolver *solver, vector<uint32_t> &count_vars,
