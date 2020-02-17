@@ -160,7 +160,7 @@ void Count::setCountVars() {
       }
     }
   }
-  cout<<"control_lits size="<<control_lits.size()<<"\n";
+  cout << "control_lits size=" << control_lits.size() << "\n";
   for (auto id_lits : all_observe_lits) {
     auto id = id_lits.first;
     for (auto lit : control_lits) {
@@ -333,6 +333,9 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
     str2.insert(ss.str());
   }
   for (auto s : str1) {
+    cout << s << "\n";
+  }
+  for (auto s : str2) {
     cout << s << "\n";
   }
   cout << "====calculateDiffSolution\n";
@@ -552,7 +555,7 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
       for (auto l : lits) {
         cout << l << "\t";
       }
-      cout << "\n";
+      cout << rhs[i]<<"\n";
     }
 
     // e.g., xor watch 1 2 4 ..
@@ -575,7 +578,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   lbool ret;
   // solver->load_state(conf.saved_state_file);
   // setCountVars();
-  auto s_vars=target_count_vars;
+  auto s_vars = target_count_vars;
   solver->set_sampling_vars(&s_vars);
   if (mode_ == "nonblock") {
     ret = solver->solve(&assumps, only_ind);
@@ -605,9 +608,9 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     solver->simplify(&new_assumps);
   std::cout << "after simp, time=" << cpuTimeTotal() - begin;
   while (solutions < maxSolutions) {
-    begin=cpuTimeTotal();
+    begin = cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);
-    std::cout << "solve once" << cpuTimeTotal() - begin<<std::endl;
+    std::cout << "solve once" << cpuTimeTotal() - begin << std::endl;
     assert(ret == l_False || ret == l_True);
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
@@ -621,7 +624,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     if (ret != l_True) {
       break;
     }
-    solutions += 1;//std::max(1, solver->n_seareched_solutions());
+    solutions ++;
     model = solver->get_model();
     if (solutions < maxSolutions) {
       vector<Lit> lits;
@@ -635,7 +638,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
           assert(false);
         }
       }
-      assert(solution.size()==target_count_vars.size());
+      assert(solution.size() == target_count_vars.size());
       if (conf.verbosity > 1) {
         cout << "====result==="
              << "\n";
@@ -666,7 +669,6 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
         solution_strs.push_back(getCIISSModel(solver)[0]);
       }
     }
-    solutions += solver->n_seareched_solutions();
   }
   // Remove clauses added
   vector<Lit> cl_that_removes;
@@ -787,7 +789,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
     backup_count_vars[i] = getCISAlt();
     backup_solvers[i]->set_sampling_vars(&backup_count_vars[i]);
   }
-  auto cvar=count_vars;
+  auto cvar = count_vars;
   solver->set_sampling_vars(&cvar);
 
   vector<vector<uint32_t>> added_secret_vars;
@@ -836,8 +838,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
     l = ~l;
   }
   solver->add_clause(secret_watch);
-
-  trimVar(solver, count_vars);
+  //trimVar(solver, count_vars);
   solver->simplify();
   if (solver->solve() == l_False) {
     return false;
@@ -858,7 +859,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
     }
     backup_solvers[i]->add_clause(secret_watch);
     backup_solvers[i]->simplify();
-    trimVar(backup_solvers[i], backup_count_vars[i]);
+    //trimVar(backup_solvers[i], backup_count_vars[i]);
   }
   cout << "count size=" << count_vars.size() << std::endl;
 
@@ -970,11 +971,13 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       auto rhs_watch = Lit(solver->nVars(), false);
       solver->new_var();
       // assert h(Si)=ri;
-
       secret_watch.clear();
       secret_rnd +=
           Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
                  added_secret_vars, secret_rhs, rhs_watch, true);
+      std::ofstream ff("inter.cnf", std::ofstream::out);
+      solver->dump_irred_clauses_ind_only(&ff);
+      ff.close();
       solver->add_clause({~rhs_watch});
       backup_added_secret_vars[id] = added_secret_vars;
       backup_added_secret_rhs[id] = secret_rhs;
@@ -982,15 +985,13 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       for (auto &vars : added_secret_vars) {
         for (auto var : vars)
           cout << var << "\t";
-        cout << secret_rhs[0] << "\n";
+        cout << secret_rhs[0] << std::endl;
       }
+      cout << "rhs_watch" << rhs_watch << std::endl;
 
       secret_rhs_set.insert(secret_rhs);
     }
-    std::ofstream ff("inter.cnf", std::ofstream::out);
 
-    solver->dump_irred_clauses_ind_only(&ff);
-    ff.close();
     // exit(1);
     for (int i = 0; i < backup_solvers.size(); ++i) {
       cout << "sample for id" << i << "\n";
@@ -1019,11 +1020,12 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       backup_solvers[i]->add_clause({~rhs_watchs[1], choice2});
       backup_solvers[i]->add_clause({~rhs_watchs[2], choice2});
       backup_solvers[i]->add_xor_clause({choice2.var(), choice1.var()}, true);
-      cout << ~rhs_watchs[0] << "," << choice1;
-      cout << ~rhs_watchs[3] << "," << choice1;
-      cout << ~rhs_watchs[1] << "," << choice2;
-      cout << ~rhs_watchs[2] << "," << choice2;
-
+      cout << ~rhs_watchs[0] << "," << choice1<<"\n";
+      cout << ~rhs_watchs[3] << "," << choice1<<"\n";
+      cout << ~rhs_watchs[1] << "," << choice2<<"\n";
+      cout << ~rhs_watchs[2] << "," << choice2<<"\n";
+      std::ofstream fff("back.cnf", std::ofstream::out);
+      backup_solvers[i]->dump_irred_clauses_ind_only(&fff);
       // backup_solvers[i]->simplify();
       /*std::ofstream f("backup" + std::to_string(i) + ".cnf",
                       std::ofstream::out);
@@ -1041,8 +1043,12 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   // exit(0);
   cout << "Sample end\n" << std::flush;
   //  solver->add_clause(secret_watch);
-  trimVar(solver, count_vars);
+  //trimVar(solver, count_vars);
   solver->simplify();
+  /*if (solver->solve() == l_False) {
+    std::cout << "solve is false" << std::endl;
+    return false;
+  }*/
   int hash_count = 0;
   int left, right;
   vector<int> backup_left(backup_solvers.size()),
@@ -1056,9 +1062,7 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     backup_right[i] = backup_right_[i] ? backup_right_[i] : right;
     backup_hash_count[i] = 0;
   }
-  if (solver->solve() == l_False) {
-    return false;
-  }
+
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     solution_lits.clear();
     cout << "=========count for target "
@@ -1093,8 +1097,8 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   left_ = left - 2;
   right_ = right + 2;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_right_[i] = backup_right[i] - 2;
-    backup_left_[i] = backup_left[i] + 2;
+    backup_right_[i] = backup_right[i] + 2;
+    backup_left_[i] = backup_left[i] - 2;
   }
   return true;
 }
@@ -1136,7 +1140,7 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   RecordHash("secret_hash.cnf", added_secret_vars, secret_rhs);
   cout << "Sample end\n";
   //  solver->add_clause(secret_watch);
-  trimVar(solver, count_vars);
+  //trimVar(solver, count_vars);
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
   int prev_hash_count = 0, hash_count = 0;
@@ -1298,11 +1302,11 @@ void Count::run() {
           AddVariableSame(solver, all_declass_lits);
         auto ids = getIDs();
         count_vars = all_count_vars[ids[0]];
-        cout<<"count vars:";
-        for(auto v:count_vars){
-          cout<<v<<"\t";
+        cout << "count vars:";
+        for (auto v : count_vars) {
+          cout << v << "\t";
         }
-        cout<<"\n";
+        cout << "\n";
       }
       solver->set_up_for_jaccard_count();
       setBackupSolvers();
