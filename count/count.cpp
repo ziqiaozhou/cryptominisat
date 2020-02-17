@@ -754,8 +754,8 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   }
   hash_count = right;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
-    std::cerr << "error !solution_counts.count(hash_count) && hash_count >= 0";
-    assert(false);
+    //std::cerr << "error !solution_counts.count(hash_count) && hash_count >= 0";
+    //assert(false);
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
            count_rhs, lit_Undef, true);
     assump.clear();
