@@ -605,9 +605,10 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     solver->simplify(&new_assumps);
   std::cout << "after simp, time=" << cpuTimeTotal() - begin;
   while (solutions < maxSolutions) {
+    begin=cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);
+    std::cout << "solve once" << cpuTimeTotal() - begin<<std::endl;
     assert(ret == l_False || ret == l_True);
-
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
       if (ret == l_True) {
@@ -626,17 +627,14 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
       vector<Lit> lits;
       lits.push_back(Lit(act_var, false));
       solution.clear();
-      cout<<"count target var";
       for (const uint32_t var : target_count_vars) {
-        cout<<var<<"\t";
-        solution.push_back(Lit(var, solver->get_model()[var] == l_False));
-        if (solver->get_model()[var] != l_Undef) {
-          lits.push_back(Lit(var, solver->get_model()[var] == l_True));
+        solution.push_back(Lit(var, model[var] == l_False));
+        if (model[var] != l_Undef) {
+          lits.push_back(Lit(var, model[var] == l_True));
         } else {
           assert(false);
         }
       }
-      cout<<"\n";
       assert(solution.size()==target_count_vars.size());
       if (conf.verbosity > 1) {
         cout << "====result==="
