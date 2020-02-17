@@ -346,8 +346,10 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
   cout << str1.size() << "\t" << str2.size() << "\n";
   for (auto s : str2) {
     if (!str1.count(s)) {
-      cout << s << "\n";
-      assert(solver->solve(&sol2[strmap[s]],true)==l_False);
+      cout << s << "\n"<<strmap[s]<<"\n";
+      if(solver->solve(&sol2[strmap[s]])==l_False){
+        std::cerr<<"error";
+      }
       solution_f << s << " %" << rnd << "\n";
     }
   }
@@ -716,7 +718,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
     }
   }
   hash_count = left;
-  while (left < right) {
+  while (left <= right) {
     solution_lits.clear();
     hash_count = left + (right - left) / 2;
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
@@ -741,16 +743,23 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
         left = std::max(left, hash_count - int(2 + log2(max_sol_ / nsol)));
     } else {
       right = hash_count;
-      left = hash_count;
+      left = hash_count+1;
+      break;
     }
     cout << "hash_count=" << hash_count << ", nsol=" << nsol << "left=" << left
-         << "right=" << right << "sol=" << nsol << "\n";
+         << "right=" << right << "\n";
     prev_hash_count = hash_count;
   }
   hash_count = right;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
-    // std::cerr<<"error !solution_counts.count(hash_count) && hash_count >= 0";
-    // assert(false);
+     std::cerr<<"error !solution_counts.count(hash_count) && hash_count >= 0";
+     assert(false);
+    Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
+           count_rhs, lit_Undef, true);
+    assump.clear();
+    // assump = secret_watch;
+    assump.insert(assump.end(), count_watch.begin(),
+                  count_watch.begin() + hash_count);
     solution_counts[hash_count] =
         bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
     hash_solutions[hash_count] = solution_lits;
