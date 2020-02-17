@@ -505,8 +505,8 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
   double ratio = xor_ratio_;
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
-    cout << "to many xor... we hope to use at most" << max_xor_per_var_
-         << " xor per var, thus change ratio to" << ratio << "\n";
+    cout << "too many xor... we hope to use at most" << max_xor_per_var_
+         << " xor per var, thus change ratio to" << ratio << std::endl;
   }
   string randomBits =
       GenerateRandomBits_prob((vars.size()) * num_xor_cls, ratio);
