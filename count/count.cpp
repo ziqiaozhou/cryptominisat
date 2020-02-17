@@ -317,6 +317,7 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
   set<string> str1;
   //(sol_str1.begin(), sol_str1.end()),
   set<string> str2;
+  map<string, int> strmap;
   //(sol_str2.begin(), sol_str2.end());
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol.diff",
                            std::ofstream::out | std::ofstream::app);
@@ -327,9 +328,12 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
     cout << ss.str() << "\n";
     str1.insert(ss.str());
   }
+  int i=0;
   for (auto lit : sol2) {
     std::stringstream ss("");
     ss << lit;
+    strmap[ss.str()]=i;
+    ++i;
     str2.insert(ss.str());
   }
   for (auto s : str1) {
@@ -343,6 +347,7 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
   for (auto s : str2) {
     if (!str1.count(s)) {
       cout << s << "\n";
+      assert(solver->solve(&sol2[strmap[s]],true)==l_False);
       solution_f << s << " %" << rnd << "\n";
     }
   }
