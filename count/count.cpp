@@ -1067,10 +1067,10 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   //  solver->add_clause(secret_watch);
   // trimVar(solver, count_vars);
   solver->simplify();
-  /*if (solver->solve() == l_False) {
+  if (solver->solve() == l_False) {
     std::cout << "solve is false" << std::endl;
     return false;
-  }*/
+  }
   int hash_count = 0;
   int left, right;
   vector<int> backup_left(backup_solvers.size()),
