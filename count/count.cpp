@@ -617,7 +617,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   long begin = cpuTimeTotal();
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
-  std::cout << "after simp, time=" << cpuTimeTotal() - begin;
+  std::cout << "after simp, time=" << cpuTimeTotal() - begin<<std::endl;
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);
