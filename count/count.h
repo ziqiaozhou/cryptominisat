@@ -21,8 +21,8 @@ public:
       : Main(argc, argv), countOptions_("Count options") {
     hash_file = ".hash.cnf";
     hashf = nullptr;
-    left_ = 0;
-    right_ = 0;
+    left_ = -1;
+    right_ = -1;
   }
   ~Count() {}
   void add_supported_options() override;

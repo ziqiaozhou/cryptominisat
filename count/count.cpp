@@ -315,6 +315,9 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
                                   vector<vector<Lit>> &sol2,
                                   vector<string> &sol_str1,
                                   vector<string> &sol_str2, string rnd) {
+  if (conf.verbosity == 0) {
+    return;
+  }
   set<string> str1;
   //(sol_str1.begin(), sol_str1.end()),
   set<string> str2;
@@ -337,6 +340,7 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
     ++i;
     str2.insert(ss.str());
   }
+
   for (auto s : str1) {
     cout << s << std::endl;
   }
@@ -351,7 +355,6 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
       solution_f << s << " %" << rnd << std::endl;
     }
   }
-
   cout << "====calculateSameSolution\n";
   for (auto s : str2) {
     if (str1.count(s)) {
@@ -617,7 +620,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   long begin = cpuTimeTotal();
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
-  std::cout << "after simp, time=" << cpuTimeTotal() - begin<<std::endl;
+  std::cout << "after simp, time=" << cpuTimeTotal() - begin << std::endl;
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);
@@ -694,7 +697,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
                                      int &right, int &hash_count,
                                      bool reserve_xor) {
   long total_start = cpuTimeTotal();
-  int nsol = 0;
+  int nsol = 0, nice_hash_count = 0;
   if (!reserve_xor) {
     added_count_lits.clear();
     count_rhs.clear();
@@ -707,11 +710,10 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   map<int, uint64_t> solution_counts;
   map<int, vector<vector<Lit>>> hash_solutions;
   map<int, vector<string>> hash_solution_strs;
-  int prev_hash_count = 0;
   vector<Lit> assump;
   solution_lits.clear();
   cout << "target count size" << target_count_vars.size() << std::endl;
-  if (left <= 0) {
+  /*if (hash_count == 0) {
     nsol = bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
     hash_solutions[0] = solution_lits;
     hash_solution_strs[0] = solution_strs;
@@ -720,11 +722,10 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
       solution_counts[0] = nsol;
       cout << "found solution" << nsol << "no need xor\n";
     }
-  }
-  hash_count = left;
-  while (left < right) {
+  }*/
+  hash_count = hash_count > 0 ? hash_count : (right + left) / 2;
+  while (left < right && (nsol < max_sol_ * 0.4 || nsol >= max_sol_)) {
     solution_lits.clear();
-    hash_count = left + (right - left) / 2;
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
     long start = cpuTimeTotal();
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
@@ -741,22 +742,25 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
       hash_solution_strs[hash_count] = solution_strs;
     }
     nsol = solution_counts[hash_count];
+    cout << "hash_count=" << hash_count << ", nsol=" << nsol << "left=" << left
+         << "right=" << right << std::endl;
     if (nsol >= max_sol_) {
       left = hash_count + 1;
-    } else if (nsol < max_sol_*0.4) {
+    } else if (nsol < max_sol_ * 0.4) {
       right = hash_count;
-      if (nsol > 0)
-        left = std::max(left, hash_count - int(1+log2(max_sol_ / nsol)));
+      nice_hash_count = hash_count;
+      if (nsol > 0) {
+        left = std::max(left, hash_count - int(log2(max_sol_ / nsol)) * 2);
+      }
     } else {
+      nice_hash_count = hash_count;
       right = hash_count;
       left = hash_count;
       break;
     }
-    cout << "hash_count=" << hash_count << ", nsol=" << nsol << "left=" << left
-         << "right=" << right << std::endl;
-    prev_hash_count = hash_count;
+    hash_count = left + (right - left) / 2;
   }
-  hash_count = right;
+  hash_count = nice_hash_count;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
     // std::cerr << "error !solution_counts.count(hash_count) && hash_count >=
     // 0"; assert(false);
@@ -774,11 +778,6 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
     hash_solutions[hash_count] = solution_lits;
     hash_solution_strs[hash_count] = solution_strs;
   }
-  while ((!solution_counts.count(hash_count) ||
-          solution_counts[hash_count] == 0) &&
-         hash_count > 0) {
-    hash_count--;
-  }
   left = std::max(0, hash_count - std::min(5, (hash_count + 1) / 2));
   right = std::min(int(target_count_vars.size()),
                    hash_count + std::min(5, (hash_count + 1) / 2));
@@ -786,7 +785,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
        << hash_count << std::endl;
   solution_lits = hash_solutions[hash_count];
   solution_strs = hash_solution_strs[hash_count];
-  cout<<"Total time="<<cpuTimeTotal()-total_start<<std::endl;
+  cout << "Total time=" << cpuTimeTotal() - total_start << std::endl;
   return solution_counts;
 }
 
@@ -936,11 +935,10 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
                        backup_hash_count, secret_rnd);
     }
   }
-  left_ = left;
-  right_ = right_;
+  left_ = 0;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_left_[i] = backup_left[i] - 3;
-    backup_right_[i] = backup_right[i] + 3;
+    backup_left_[i] = 0;
+    // backup_right_[i] = backup_right[i] + 3;
   }
   return true;
 }
@@ -1084,9 +1082,10 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   vector<int> backup_left(backup_solvers.size()),
       backup_right(backup_solvers.size()),
       backup_hash_count(backup_solvers.size());
-  left = left_ ? left_ : ((min_log_size_ == -1) ? 0 : min_log_size_);
-  right = right_ ? right_
-                 : ((max_log_size_ == -1) ? count_vars.size() : max_log_size_);
+  left = (left_ > -1) ? left_ : ((min_log_size_ == -1) ? 0 : min_log_size_);
+  right = (right_ > -1)
+              ? right_
+              : ((max_log_size_ == -1) ? count_vars.size() : max_log_size_);
   for (int i = 0; i < backup_solvers.size(); ++i) {
     backup_left[i] = backup_left_[i] ? backup_left_[i] : left;
     backup_right[i] = backup_right_[i] ? backup_right_[i] : right;
@@ -1124,11 +1123,11 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                        backup_hash_count, secret_rnd);
     }
   }
-  left_ = left - 1;
-  right_ = right + 1;
+  left_ = 0;
+  right_ = hash_count * 2;
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_right_[i] = backup_right[i] + 1;
-    backup_left_[i] = backup_left[i] - 1;
+    backup_left_[i] = 0;
+    backup_right_[i] = backup_hash_count[i] * 2;
   }
   return true;
 }
@@ -1173,7 +1172,7 @@ void Count::simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars) {
   // trimVar(solver, count_vars);
   vector<Lit> count_watch;
   // solver->add_clause(secret_watch);
-  int prev_hash_count = 0, hash_count = 0;
+  int hash_count = 0;
   hash_count = max_log_size_;
 
   vector<vector<uint32_t>> added_count_lits;
