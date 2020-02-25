@@ -299,7 +299,6 @@ void Sampler::run() {
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
     AddVariableDiff(solver, all_observe_lits);
-
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".diff.csv",
                                      std::ofstream::out | std::ofstream::app);
     sample_sol_complete_f =

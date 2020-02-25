@@ -724,7 +724,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
     }
   }*/
   hash_count = hash_count > 0 ? hash_count : (right + left) / 2;
-  while (left < right && (nsol < max_sol_ * 0.4 || nsol >= max_sol_)) {
+  while (left < right && (nsol < max_sol_ *0.6 || nsol >= max_sol_)) {
     solution_lits.clear();
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
     long start = cpuTimeTotal();
@@ -746,7 +746,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
          << "right=" << right << std::endl;
     if (nsol >= max_sol_) {
       left = hash_count + 1;
-    } else if (nsol < max_sol_ * 0.4) {
+    } else if (nsol < max_sol_ * 0.6) {
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
