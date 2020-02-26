@@ -500,7 +500,7 @@ bool Count::readVictimModel(SATSolver *&solver) {
   finalout.close();
   delete solver;
   auto newconf = conf;
-  solver = new SATSolver((void *)&newconf);
+  solver = newCounterSolver((void *)&newconf);
   symbol_vars.clear();
   sampling_vars.clear();
   readInAFile(solver, victim_cnf_file);
@@ -1220,7 +1220,7 @@ void Count::setBackupSolvers() {
       if (backup_solvers[i] != nullptr) {
         delete backup_solvers[i];
       }
-      backup_solvers[i] = (new SATSolver((void *)&conf));
+      backup_solvers[i] = (newCounterSolver((void *)&conf));
       readInAFile(backup_solvers[i], filesToRead[0]);
       backup_solvers[i]->set_up_for_jaccard_count();
       if (i == 1 && all_declass_lits.size())
@@ -1234,7 +1234,7 @@ void Count::setBackupSolvers() {
   backup_right_.resize(backup_solvers.size());
 }
 bool Count::ProbToDiffFromSecretSet() {
-  solver = new SATSolver((void *)&conf);
+  solver = newCounterSolver((void *)&conf);
   inputfile = filesToRead[0];
   symbol_vars.clear();
   sampling_vars.clear();
@@ -1263,7 +1263,7 @@ void Count::run() {
     }
     return;
   }
-  solver = new SATSolver((void *)&conf);
+  solver = newCounterSolver((void *)&conf);
   inputfile = filesToRead[0];
   readInAFile(solver, inputfile);
 
@@ -1313,7 +1313,7 @@ void Count::run() {
       symbol_vars.clear();
       sampling_vars.clear();
       delete solver;
-      solver = new SATSolver((void *)&conf);
+      solver = newCounterSolver((void *)&conf);
       readInAFile(solver, target_file);
       std::cerr << "I am here";
       setSecretVars();

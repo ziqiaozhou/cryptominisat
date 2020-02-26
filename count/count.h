@@ -16,7 +16,11 @@
 class Count : public Main {
 public:
   void add_count_options();
-
+  SATSolver *newCounterSolver(void *conf) {
+    SATSolver *s = new SATSolver(conf);
+    s->set_up_for_scalmc();
+    s->set_allow_otf_gauss();
+  }
   explicit Count(int argc, char **argv)
       : Main(argc, argv), countOptions_("Count options") {
     hash_file = ".hash.cnf";
@@ -45,7 +49,8 @@ protected:
                 vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
                 vector<bool> &rhs, Lit addInner = lit_Undef,
                 bool is_restarted = false);
-  int64_t bounded_sol_count(SATSolver *solver, const vector<uint32_t> &count_vars,
+  int64_t bounded_sol_count(SATSolver *solver,
+                            const vector<uint32_t> &count_vars,
                             uint32_t maxSolutions, const vector<Lit> &assumps,
                             bool only_ind = true);
   map<int, uint64_t> count_once(SATSolver *solver, vector<uint32_t> &count_vars,
@@ -94,7 +99,9 @@ protected:
   bool readVictimModel(SATSolver *&solver);
   vector<string> getCIISSModel(SATSolver *solver);
   bool ProbToDiffFromSecretSet();
-  void calculateDiffSolution(vector<vector<Lit>>& sol1, vector<vector<Lit>>&sol2,vector<string>& s1, vector<string>& s2, string rnd);
+  void calculateDiffSolution(vector<vector<Lit>> &sol1,
+                             vector<vector<Lit>> &sol2, vector<string> &s1,
+                             vector<string> &s2, string rnd);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;
