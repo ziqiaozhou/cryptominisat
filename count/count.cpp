@@ -382,6 +382,9 @@ void Count::add_count_options() {
       "victim", po::value(&victim_model_config_)->default_value(""),
       "Victim model config: secret  sym_name offset size\n observe: "
       "(sym_name,offset,size)\n control: (sym_name,offset,size) ");
+  countOptions_.add_options()("debug",
+                              po::value(&debug)->default_value(false),
+                              "Debug");
   countOptions_.add_options()("symmap",
                               po::value(&symmap_file_)->default_value(""),
                               "Initilization constraint file.");
@@ -620,6 +623,16 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   long begin = cpuTimeTotal();
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
+  if (debug) {
+    std::ofstream finalout("debug.cnf");
+    for (auto l : new_assumps) {
+      solver->add_clause({l});
+    }
+    solver->dump_irred_clauses_ind_only(&finalout);
+    finalout.close();
+    exit(0);
+  }
+
   std::cout << "after simp, time=" << cpuTimeTotal() - begin << std::endl;
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
@@ -724,7 +737,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
     }
   }*/
   hash_count = hash_count > 0 ? hash_count : (right + left) / 2;
-  while (left < right && (nsol < max_sol_ *0.6 || nsol >= max_sol_)) {
+  while (left < right && (nsol < max_sol_ * 0.6 || nsol >= max_sol_)) {
     solution_lits.clear();
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
     long start = cpuTimeTotal();

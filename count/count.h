@@ -34,6 +34,7 @@ public:
   void run();
 
 protected:
+  bool debug;
   // solver2: Working solver to add clauses
   // trans_symbol_vars: mapping from symbol to var in base transition
   // constraint symbol_vars2: mapping from symbol to var for the existing

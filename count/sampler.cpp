@@ -213,7 +213,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 
   vector<lbool> model;
   lbool ret;
-  int solutions = 0;
+  int solutions = 0,total_sol=0;
   bool only_ind = true;
   vector<Lit> new_assumps(assumps);
   solver->new_var();
@@ -222,7 +222,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
 
-  while (solutions < maxSolutions) {
+  while (total_sol < maxSolutions) {
     ret = solver->solve(&new_assumps, only_ind);
 
     assert(ret == l_False || ret == l_True);
@@ -239,7 +239,8 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
     if (ret != l_True) {
       break;
     }
-    solutions += 1;
+    solutions ++;
+    total_sol++;
     if (solutions < maxSolutions) {
       vector<Lit> lits, solution;
 
