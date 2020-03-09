@@ -628,7 +628,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     std::ofstream finalout("debug.cnf");
     for (auto l : new_assumps) {
       solver->add_clause({l});
-      symbol_vars["assump"].push_back(l.var());
+      symbol_vars["assump"].push_back(l);
     }
     solver->dump_irred_clauses_ind_only(&finalout);
     finalout.close();

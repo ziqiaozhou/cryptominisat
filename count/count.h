@@ -18,6 +18,7 @@ public:
   void add_count_options();
   SATSolver *newCounterSolver(void *conf) {
     SATSolver *s = new SATSolver(conf);
+    solver->set_num_threads(1);
     //s->set_up_for_scalmc();
     //s->set_allow_otf_gauss();
     return s;
