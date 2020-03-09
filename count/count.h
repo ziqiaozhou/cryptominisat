@@ -18,8 +18,8 @@ public:
   void add_count_options();
   SATSolver *newCounterSolver(void *conf) {
     SATSolver *s = new SATSolver(conf);
-    s->set_up_for_scalmc();
-    s->set_allow_otf_gauss();
+    //s->set_up_for_scalmc();
+    //s->set_allow_otf_gauss();
     return s;
   }
   explicit Count(int argc, char **argv)
