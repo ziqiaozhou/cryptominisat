@@ -201,7 +201,9 @@ void Count::AddVariableSame(SATSolver *solver,
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
       if (lits[i].sign()){
+        cout<<"reverse"<<xor_bool<<" to ";
         xor_bool = ~xor_bool;
+        cout<<xor_bool<<" ";
       }
       cout<<lits[i]<<" "<<lits[i].sign()<<" "<<xor_bool<<"\t";
     }
