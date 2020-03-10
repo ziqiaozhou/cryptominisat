@@ -100,7 +100,7 @@ void Count::AddVariableDiff(SATSolver *solver,
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
       if (lits[i].sign())
-        xor_bool = ~xor_bool;
+        xor_bool = !xor_bool;
     }
     solver->add_xor_clause(clause, xor_bool);
     finalout << "x" << xor_bool ? "" : "-";
