@@ -195,13 +195,17 @@ void Count::AddVariableSame(SATSolver *solver,
   for (int i = 0; i < len; ++i) {
     vector<uint32_t> clause;
     bool xor_bool = false;
+    cout<<"add same ";
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
-      if (lits[i].sign())
+      if (lits[i].sign()){
         xor_bool = ~xor_bool;
+      }
+      cout<<lits[i]<<"\t";
     }
+    cout<<"\n";
     solver->add_xor_clause(clause, xor_bool);
     finalout << "x" << (xor_bool ? "" : "-");
     cout << "x" << (xor_bool ? "" : "-");
