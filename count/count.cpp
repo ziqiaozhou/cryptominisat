@@ -973,6 +973,7 @@ bool shuffle(vector<bool> &secret_rhs) {
       }
     }
   }
+  return true;
 }
 
 void compose_distinct_secretset(SATSolver *solver,
