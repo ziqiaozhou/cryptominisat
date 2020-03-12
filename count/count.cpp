@@ -535,7 +535,7 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
          << " xor per var, thus change ratio to" << ratio << std::endl;
   }
   string randomBits =
-      randomBits + GenerateRandomBits_prob((vars.size()) * num_xor_cls, ratio);
+      GenerateRandomBits_prob((vars.size()) * num_xor_cls, ratio);
   string randomBits_rhs = GenerateRandomBits(num_xor_cls);
   vector<uint32_t> lits;
   // assert watch=0;?
@@ -579,7 +579,6 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
       }
       cout << rhs[i] << std::endl;
     }
-
     // e.g., xor watch 1 2 4 ..
     if (lits.size() < 2) {
       continue;
