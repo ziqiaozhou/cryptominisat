@@ -985,7 +985,7 @@ void compose_distinct_secretset(
   auto choice2 = Lit(choice1.var() + 1, true);
   solver->new_vars(2);
   for (auto id_watches_pair : solver_secret_rhs_watches) {
-    auto id_watches=id_watches_pair.second;
+    auto id_watches = id_watches_pair.second;
     assert(id_watches.size() == 2);
     solver->add_clause({~id_watches[0], choice1});
     solver->add_clause({~id_watches[1], choice2});
@@ -1084,13 +1084,17 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       map<string, vector<Lit>> backup_secret_rhs_watches;
       backup_secret_rhs_watches.clear();
       for (auto id_added_secret_vars : all_added_secret_vars) {
+        auto id = id_added_secret_vars.first;
+        backup_secret_rhs_watches[id].resize(2);
         for (auto id_added_secret_rhs : all_added_secret_rhs) {
           auto secret_rhs = id_added_secret_rhs.second;
-          auto id = id_added_secret_vars.first;
           auto added_secret_vars = id_added_secret_vars.second;
           auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
           auto rhs_watch = new_watch(backup_solvers[i]);
-          backup_secret_rhs_watches[id].push_back(rhs_watch);
+          if (id == id_added_secret_rhs.first)
+            backup_secret_rhs_watches[id][0](rhs_watch);
+          else
+            backup_secret_rhs_watches[id][1](rhs_watch);
           secret_watch.clear();
           Sample(backup_solvers[i], current_secret_vars, num_xor_cls_,
                  secret_watch, added_secret_vars, secret_rhs, rhs_watch, true);
