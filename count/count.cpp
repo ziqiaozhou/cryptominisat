@@ -969,7 +969,8 @@ bool shuffle(vector<bool> &secret_rhs) {
     for (int i = 0; i < secret_rhs.size(); ++i) {
       secret_rhs[i] = (rand() % 2) ? true : false;
       if (secret_rhs[i] != old_secret_rhs[i]) {
-        cout<<"secret_rhs[i]="<<secret_rhs[i]<<",old_secret_rhs[i]="<<old_secret_rhs[i]<<std::endl;
+        cout << "secret_rhs[i]=" << secret_rhs[i]
+             << ",old_secret_rhs[i]=" << old_secret_rhs[i] << std::endl;
         success = true;
       }
     }
@@ -1082,8 +1083,8 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       cout << "sample for id" << i << std::endl;
       vector<Lit> backup_secret_rhs_watches;
       backup_secret_rhs_watches.clear();
-      for (auto id_added_secret_rhs : all_added_secret_rhs) {
-        for (auto id_added_secret_vars : all_added_secret_vars) {
+      for (auto id_added_secret_vars : all_added_secret_vars) {
+        for (auto id_added_secret_rhs : all_added_secret_rhs) {
           auto secret_rhs = id_added_secret_rhs.second;
           auto id = id_added_secret_vars.first;
           auto added_secret_vars = id_added_secret_vars.second;
@@ -1095,6 +1096,7 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
                  secret_watch, added_secret_vars, secret_rhs, rhs_watch, true);
         }
       }
+      swap(backup_secret_rhs_watches[1],backup_secret_rhs_watches[3]);
       // ( h(S1)=r1 && h(S2)=r2 ) or (h(S1)=r2 && h(S2)=r1)
       compose_distinct_secretset(backup_solvers[i], backup_secret_rhs_watches,
                                  use_overlap_coefficient_);
@@ -1104,9 +1106,9 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       fff.close();
     }
   }
-  after_secret_sample_count(solver,secret_rnd);
+  after_secret_sample_count(solver, secret_rnd);
 }
-bool Count::after_secret_sample_count(SATSolver *solver,string secret_rnd){
+bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
   cout << "Sample end\n" << std::flush;
   //  solver->add_clause(secret_watch);
