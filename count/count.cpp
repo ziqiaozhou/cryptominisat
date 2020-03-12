@@ -1092,9 +1092,9 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
           auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
           auto rhs_watch = new_watch(backup_solvers[i]);
           if (id == id_added_secret_rhs.first)
-            backup_secret_rhs_watches[id][0](rhs_watch);
+            backup_secret_rhs_watches[id][0]=rhs_watch;
           else
-            backup_secret_rhs_watches[id][1](rhs_watch);
+            backup_secret_rhs_watches[id][1]=rhs_watch;
           secret_watch.clear();
           Sample(backup_solvers[i], current_secret_vars, num_xor_cls_,
                  secret_watch, added_secret_vars, secret_rhs, rhs_watch, true);
