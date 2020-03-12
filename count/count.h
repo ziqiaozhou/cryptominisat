@@ -19,8 +19,8 @@ public:
   SATSolver *newCounterSolver(void *conf) {
     SATSolver *s = new SATSolver(conf);
     solver->set_num_threads(1);
-    //s->set_up_for_scalmc();
-    //s->set_allow_otf_gauss();
+    s->set_up_for_scalmc();
+    s->set_allow_otf_gauss();
     return s;
   }
   explicit Count(int argc, char **argv)
@@ -47,7 +47,12 @@ protected:
   const std::string OTHER_ = "other";
   void AddVariableDiff(SATSolver *solver, map<string, vector<Lit>> all_vars);
   void AddVariableSame(SATSolver *solver, map<string, vector<Lit>> all_vars);
-
+  bool after_secret_sample_count(SATSolver *solver,string secret_rnd);
+  Lit new_watch(SATSolver *s){
+    auto watch = Lit(s->nVars(), false);
+    s->new_var();
+    return watch;
+  }
   string Sample(SATSolver *solver2, std::vector<uint32_t> vars, int num_xor_cls,
                 vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
                 vector<bool> &rhs, Lit addInner = lit_Undef,
