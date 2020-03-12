@@ -1110,7 +1110,7 @@ bool Count::after_secret_sample_count(SATSolver *solver,string secret_rnd){
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
   solver->simplify();
-  if (solver->solve() == l_False) {
+  if (backup_solvers[0]->solve() == l_False) {
     std::cout << "solve is false" << std::endl;
     return false;
   }
