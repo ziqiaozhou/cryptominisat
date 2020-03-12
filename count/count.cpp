@@ -969,6 +969,7 @@ bool shuffle(vector<bool> &secret_rhs) {
     for (int i = 0; i < secret_rhs.size(); ++i) {
       secret_rhs[i] = (rand() % 2) ? true : false;
       if (secret_rhs[i] != old_secret_rhs[i]) {
+        cout<<"secret_rhs[i]="<<secret_rhs[i]<<",old_secret_rhs[i]="<<old_secret_rhs[i]<<std::endl;
         success = true;
       }
     }
@@ -996,9 +997,9 @@ void compose_distinct_secretset(SATSolver *solver,
   }
   cout << "====compose_distinct_secretset===\n";
   cout << ~solver_secret_rhs_watches[0] << "," << choice1 << std::endl;
-  cout << ~solver_secret_rhs_watches[3] << "," << choice1 << std::endl;
-  cout << ~solver_secret_rhs_watches[1] << "," << choice2 << std::endl;
+  cout << ~solver_secret_rhs_watches[1] << "," << choice1 << std::endl;
   cout << ~solver_secret_rhs_watches[2] << "," << choice2 << std::endl;
+  cout << ~solver_secret_rhs_watches[3] << "," << choice2 << std::endl;
 }
 
 bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
