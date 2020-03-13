@@ -47,8 +47,8 @@ protected:
   const std::string OTHER_ = "other";
   void AddVariableDiff(SATSolver *solver, map<string, vector<Lit>> all_vars);
   void AddVariableSame(SATSolver *solver, map<string, vector<Lit>> all_vars);
-  bool after_secret_sample_count(SATSolver *solver,string secret_rnd);
-  Lit new_watch(SATSolver *s){
+  bool after_secret_sample_count(SATSolver *solver, string secret_rnd);
+  Lit new_watch(SATSolver *s) {
     auto watch = Lit(s->nVars(), false);
     s->new_var();
     return watch;
@@ -166,9 +166,14 @@ protected:
   vector<Lit> count_watch;
   vector<int> backup_left_;
   vector<int> backup_right_;
+  const int amplifier_factor_ = 4;
   int left_;
   int right_;
   bool use_overlap_coefficient_;
+  string SampleSmallXor(SATSolver *solver2, std::vector<uint32_t> vars,
+                        int num_xor_cls, vector<Lit> &watch,
+                        vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
+                        Lit addInner, bool is_restarted);
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H

@@ -13,6 +13,23 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
+bool shuffle(vector<bool> &secret_rhs) {
+  if (secret_rhs.size() == 0)
+    return false;
+  vector<bool> old_secret_rhs = secret_rhs;
+  bool success = false;
+  while (!success) {
+    for (int i = 0; i < secret_rhs.size(); ++i) {
+      secret_rhs[i] = (rand() % 2) ? true : false;
+      if (secret_rhs[i] != old_secret_rhs[i]) {
+        cout << "secret_rhs[i]=" << secret_rhs[i]
+             << ",old_secret_rhs[i]=" << old_secret_rhs[i] << std::endl;
+        success = true;
+      }
+    }
+  }
+  return true;
+}
 vector<string> Count::getCIISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
@@ -523,11 +540,38 @@ bool Count::readVictimModel(SATSolver *&solver) {
   count_vars.insert(count_vars.end(), victim_model_[OTHER_].begin(),
                     victim_model_[OTHER_].end());*/
 }
+string Count::SampleSmallXor(SATSolver *solver2, std::vector<uint32_t> vars,
+                             int num_xor_cls, vector<Lit> &watch,
+                             vector<vector<uint32_t>> &alllits,
+                             vector<bool> &rhs, Lit addInner,
+                             bool is_restarted) {
 
+  num_xor_cls = num_xor_cls * amplifier_factor_;
+  vector<Lit> addInners;
+  addInners.push_back(addInner);
+  set<vector<bool>> rhs_sets;
+  string ret = "";
+  for (int i = 0; i < amplifier_factor_; ++i) {
+    auto sub_addInner = new_watch(solver2);
+    ret = Sample(solver2, vars, num_xor_cls, watch, alllits, rhs, sub_addInner,
+                 is_restarted);
+    addInners.push_back(sub_addInner);
+    rhs_sets.insert(rhs);
+    while (rhs_sets.count(rhs)) {
+      shuffle(rhs);
+    }
+  }
+  solver2->add_clause(addInners);
+  return ret;
+}
 string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
                      int num_xor_cls, vector<Lit> &watch,
                      vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
                      Lit addInner, bool is_restarted) {
+  if (num_xor_cls < 2) {
+    return SampleSmallXor(solver2, vars, num_xor_cls, watch, alllits, rhs,
+                          addInner, is_restarted);
+  }
   double ratio = xor_ratio_;
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
@@ -571,6 +615,9 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
       solver2->new_vars(watch[i].var() - solver2->nVars() + 1);
     }
     lits.push_back(watch[i].var());
+    if (lits.size() < 2) {
+      continue;
+    }
     if (addInner != lit_Undef) {
       solver2->add_clause({addInner, watch[i]});
       cout << "secret hash xor:\n";
@@ -580,9 +627,6 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
       cout << rhs[i] << std::endl;
     }
     // e.g., xor watch 1 2 4 ..
-    if (lits.size() < 2) {
-      continue;
-    }
     solver2->add_xor_clause(lits, rhs[i]);
   }
   return randomBits + randomBits_rhs;
@@ -960,24 +1004,6 @@ bool Count::countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars) {
   return true;
 }
 
-bool shuffle(vector<bool> &secret_rhs) {
-  if (secret_rhs.size() == 0)
-    return false;
-  vector<bool> old_secret_rhs = secret_rhs;
-  bool success = false;
-  while (!success) {
-    for (int i = 0; i < secret_rhs.size(); ++i) {
-      secret_rhs[i] = (rand() % 2) ? true : false;
-      if (secret_rhs[i] != old_secret_rhs[i]) {
-        cout << "secret_rhs[i]=" << secret_rhs[i]
-             << ",old_secret_rhs[i]=" << old_secret_rhs[i] << std::endl;
-        success = true;
-      }
-    }
-  }
-  return true;
-}
-
 void compose_distinct_secretset(
     SATSolver *solver,
     const map<string, vector<Lit>> &solver_secret_rhs_watches, bool useCup) {
@@ -1092,9 +1118,9 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
           auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
           auto rhs_watch = new_watch(backup_solvers[i]);
           if (id == id_added_secret_rhs.first)
-            backup_secret_rhs_watches[id][0]=rhs_watch;
+            backup_secret_rhs_watches[id][0] = rhs_watch;
           else
-            backup_secret_rhs_watches[id][1]=rhs_watch;
+            backup_secret_rhs_watches[id][1] = rhs_watch;
           secret_watch.clear();
           Sample(backup_solvers[i], current_secret_vars, num_xor_cls_,
                  secret_watch, added_secret_vars, secret_rhs, rhs_watch, true);
