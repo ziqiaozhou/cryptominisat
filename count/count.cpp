@@ -553,6 +553,7 @@ string Count::SampleSmallXor(SATSolver *solver2, std::vector<uint32_t> vars,
   string ret = "";
   for (int i = 0; i < amplifier_factor_; ++i) {
     auto sub_addInner = new_watch(solver2);
+    watch.clear();
     ret = Sample(solver2, vars, num_xor_cls, watch, alllits, rhs, sub_addInner,
                  is_restarted);
     addInners.push_back(sub_addInner);
