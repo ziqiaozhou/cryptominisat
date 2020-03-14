@@ -569,10 +569,10 @@ string Count::Sample(SATSolver *solver2, std::vector<uint32_t> vars,
                      int num_xor_cls, vector<Lit> &watch,
                      vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
                      Lit addInner, bool is_restarted) {
-  if (num_xor_cls < 2) {
+  /*if (num_xor_cls < 2) {
     return SampleSmallXor(solver2, vars, num_xor_cls, watch, alllits, rhs,
                           addInner, is_restarted);
-  }
+  }*/
   double ratio = xor_ratio_;
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
@@ -776,7 +776,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   vector<Lit> assump;
   solution_lits.clear();
   cout << "target count size" << target_count_vars.size() << std::endl;
-  /*if (hash_count == 0) {
+  if (hash_count == 0) {
     nsol = bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
     hash_solutions[0] = solution_lits;
     hash_solution_strs[0] = solution_strs;
@@ -785,7 +785,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
       solution_counts[0] = nsol;
       cout << "found solution" << nsol << "no need xor\n";
     }
-  }*/
+  }
   hash_count = hash_count > 0 ? hash_count : (right + left) / 2;
   while (left < right && (nsol < max_sol_ * 0.6 || nsol >= max_sol_)) {
     solution_lits.clear();
