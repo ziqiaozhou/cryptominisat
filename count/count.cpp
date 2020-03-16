@@ -775,7 +775,7 @@ map<int, uint64_t> Count::count_once(SATSolver *solver,
   vector<Lit> assump;
   solution_lits.clear();
   cout << "target count size" << target_count_vars.size() << std::endl;
-  if (hash_count == 0) {
+  if (left < 1) {
     nsol = bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
     hash_solutions[0] = solution_lits;
     hash_solution_strs[0] = solution_strs;
