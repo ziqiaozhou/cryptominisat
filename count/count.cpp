@@ -672,7 +672,6 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
   if (debug) {
-
     std::ofstream finalout("debug.cnf");
     for (auto l : new_assumps) {
       solver->add_clause({l});
@@ -1013,7 +1012,9 @@ void compose_distinct_secretset(
   solver->new_vars(2);
   for (auto id_watches_pair : solver_secret_rhs_watches) {
     auto id_watches = id_watches_pair.second;
-    assert(id_watches.size() == 2);
+    if(id_watches.size() != 2){
+      std::cerr<<"id_watches.size()="<<id_watches.size()<<std::endl;
+    }
     solver->add_clause({~id_watches[0], choice1});
     solver->add_clause({~id_watches[1], choice2});
     cout << "====compose_distinct_secretset===\n";
@@ -1054,6 +1055,7 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
 
   } else {
     map<uint32_t, int> prev_secret_var_to_index;
+
     for (auto id_lits : all_secret_lits) {
       string id = id_lits.first;
       auto current_secret_vars = Lits2Vars(id_lits.second);
@@ -1102,7 +1104,7 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
     }
     compose_distinct_secretset(solver, solver_secret_rhs_watches,
                                use_overlap_coefficient_);
-    std::ofstream ff("inter.cnf", std::ofstream::out);
+    std::ofstream ff(out_dir_+"/"+std::to_string(num_xor_cls_)+".inter.cnf", std::ofstream::out);
     solver->dump_irred_clauses_ind_only(&ff);
     ff.close();
     // exit(1);
@@ -1130,8 +1132,7 @@ bool Count::count(SATSolver *solver, vector<uint32_t> &secret_vars) {
       // ( h(S1)=r1 && h(S2)=r2 ) or (h(S1)=r2 && h(S2)=r1)
       compose_distinct_secretset(backup_solvers[i], backup_secret_rhs_watches,
                                  use_overlap_coefficient_);
-
-      std::ofstream fff("back.cnf", std::ofstream::out);
+      std::ofstream fff(out_dir_+"/"+std::to_string(num_xor_cls_)+".back.cnf", std::ofstream::out);
       backup_solvers[i]->dump_irred_clauses_ind_only(&fff);
       fff.close();
     }
