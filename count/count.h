@@ -53,22 +53,22 @@ protected:
     s->new_var();
     return watch;
   }
-  string Sample(SATSolver *solver2, std::vector<uint32_t> vars, int num_xor_cls,
-                vector<Lit> &watch, vector<vector<uint32_t>> &alllits,
+  string Sample(SATSolver *solver2, std::vector<unsigned> vars, int num_xor_cls,
+                vector<Lit> &watch, vector<vector<unsigned>> &alllits,
                 vector<bool> &rhs, Lit addInner = lit_Undef,
                 bool is_restarted = false);
   int64_t bounded_sol_count(SATSolver *solver,
-                            const vector<uint32_t> &count_vars,
-                            uint32_t maxSolutions, const vector<Lit> &assumps,
+                            const vector<unsigned> &count_vars,
+                            unsigned maxSolutions, const vector<Lit> &assumps,
                             bool only_ind = true);
-  map<int, uint64_t> count_once(SATSolver *solver, vector<uint32_t> &count_vars,
+  map<int, unsigned> count_once(SATSolver *solver, vector<unsigned> &count_vars,
                                 const vector<Lit> &secret_watch, int &left,
                                 int &right, int &hash_count,
                                 bool reserve_xor = false);
-  bool count(SATSolver *solver, vector<uint32_t> &secret_vars);
-  bool countCISAlt(SATSolver *solver, vector<uint32_t> &secret_vars);
+  bool count(SATSolver *solver, vector<unsigned> &secret_vars);
+  bool countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars);
 
-  void simulate_count(SATSolver *solver, vector<uint32_t> &secret_vars);
+  void simulate_count(SATSolver *solver, vector<unsigned> &secret_vars);
 
   bool IsValidVictimLabel(std::string label) {
     static std::unordered_set<std::string> labels = {SECRET_, CONTROLLED_,
@@ -96,12 +96,12 @@ protected:
   void setSecretVars();
   void setCountVars();
   void RecordSolution(string rnd);
-  void RecordCount(map<int, uint64_t> &sols, int hash_count, string rnd);
+  void RecordCount(map<int, unsigned> &sols, int hash_count, string rnd);
 
-  void RecordCountInter(map<int, uint64_t> &sols, int hash_count,
-                        vector<map<int, uint64_t>> b_sols,
+  void RecordCountInter(map<int, unsigned> &sols, int hash_count,
+                        vector<map<int, unsigned>> b_sols,
                         vector<int> b_hash_counts, string rnd);
-  vector<uint32_t> getCISAlt();
+  vector<unsigned> getCISAlt();
   // Return true if reading victim model;
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
@@ -129,20 +129,20 @@ protected:
   vector<SATSolver *> backup_solvers;
   std::string out_dir_;
   std::string victim_model_config_;
-  std::map<std::string, std::vector<uint32_t>> victim_model_;
+  std::map<std::string, std::vector<unsigned>> victim_model_;
   vector<vector<Lit>> trans_clauses;
-  vector<std::pair<vector<uint32_t>, bool>> trans_xor_clauses;
+  vector<std::pair<vector<unsigned>, bool>> trans_xor_clauses;
   int n_trans_vars;
   string mode_;
   // model counting setting
-  vector<uint32_t> count_vars;
-  vector<uint32_t> secret_vars;
+  vector<unsigned> count_vars;
+  vector<unsigned> secret_vars;
   std::map<string, vector<Lit>> all_secret_lits;
   std::map<string, vector<Lit>> all_declass_lits;
   std::map<string, vector<Lit>> all_observe_lits;
   std::vector<Lit> control_lits;
   std::map<string, vector<Lit>> all_other_lits;
-  std::map<string, vector<uint32_t>> all_count_vars;
+  std::map<string, vector<unsigned>> all_count_vars;
 
   double xor_ratio_;
   int num_xor_cls_;
@@ -161,7 +161,7 @@ protected:
   std::ofstream *hashf;
   int inter_mode_;
   int nsample;
-  vector<vector<uint32_t>> added_count_lits;
+  vector<vector<unsigned>> added_count_lits;
   vector<bool> count_rhs;
   vector<Lit> count_watch;
   vector<int> backup_left_;
@@ -170,9 +170,9 @@ protected:
   int left_;
   int right_;
   bool use_overlap_coefficient_;
-  string SampleSmallXor(SATSolver *solver2, std::vector<uint32_t> vars,
+  string SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
                         int num_xor_cls, vector<Lit> &watch,
-                        vector<vector<uint32_t>> &alllits, vector<bool> &rhs,
+                        vector<vector<unsigned>> &alllits, vector<bool> &rhs,
                         Lit addInner, bool is_restarted);
 };
 void findComponent(const SATSolver *solver);
