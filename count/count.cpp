@@ -821,17 +821,34 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       break;
     }
     if (right <= left && solution_counts[hash_count] >= max_sol_) {
-      right = int(target_count_vars.size());
-      continue;
+      if (solution_counts.rbegin()->second >= max_sol_) {
+        right = int(target_count_vars.size());
+      }
     }
     if (right <= left && solution_counts[hash_count] == 0) {
-      left = 0;
-      continue;
+      if (solution_counts.begin()->second == 0) {
+        left = 0;
+      }
     }
     hash_count = left + (right - left) / 2;
   }
   hash_count = nice_hash_count;
-  if (!solution_counts.count(hash_count) && hash_count >= 0) {
+  bool retry=false, retry_max_sol=max_sol_;
+  if (!solution_counts.count(hash_count) && hash_count >= 0){
+    retry=true;
+  }
+  if (solution_counts[hash_count] > max_sol_) {
+    retry=true;
+    retry_max_sol=max_sol_*4;
+  }
+  if(solution_counts[hash_count]==0){
+    if(solution_counts.count(hash_count-1) && solution_counts[hash_count-1]>0){
+      retry=true;
+      hash_count=hash_count-1;
+      retry_max_sol=max_sol_*4;
+    }
+  }
+  if(retry) {
     // std::cerr << "error !solution_counts.count(hash_count) && hash_count >=
     // 0"; assert(false);
     long start = cpuTimeTotal();
@@ -844,7 +861,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     assump.insert(assump.end(), count_watch.begin(),
                   count_watch.begin() + hash_count);
     solution_counts[hash_count] =
-        bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
+        bounded_sol_count(solver, target_count_vars, retry_max_sol, assump, true);
     hash_solutions[hash_count] = solution_lits;
     hash_solution_strs[hash_count] = solution_strs;
   }
