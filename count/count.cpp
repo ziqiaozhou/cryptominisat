@@ -27,6 +27,7 @@ void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   DimacsParser<StreamBuffer<gzFile, GZ>> parser(
       solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
 #endif
+cout<<"parse trans_clauses"<<std::endl;
   for (auto cl : trans_clauses) {
     for (auto lit : cl) {
       used_vars.insert(lit.var());
@@ -1248,7 +1249,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
   cout << "Sample end\n" << std::flush;
-  cout<<"used_vars.size="<<used_vars.size()<<std::endl;
+  cout<<"used_vars.size="<<used_vars.size()<<std::end
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
   cout << "secret size=" << secret_vars.size() << std::endl;
@@ -1499,7 +1500,7 @@ void Count::run() {
       sampling_vars.clear();
       delete solver;
       solver = newCounterSolver((void *)&conf);
-      readInAFile(solver, target_file);
+      readInAFileToCache(solver, target_file);
       std::cerr << "I am here";
       setSecretVars();
       setCountVars();
