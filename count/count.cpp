@@ -1259,13 +1259,17 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
   cout << "Sample end\n" << std::flush;
+
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
+  cout << "secret size=" << secret_vars.size()<<std::endl;
+  cout << "count size=" << count_vars.size()<<std::endl;
   solver->simplify();
   if (backup_solvers[0]->solve() == l_False) {
     std::cout << "solve is false" << std::endl;
     return false;
   }
+  std::cout << "solve is ok" << std::endl;
   int hash_count = 0;
   int left, right;
   vector<int> backup_left(backup_solvers.size()),
@@ -1486,8 +1490,7 @@ void Count::run() {
   solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();*/
 
-  cout << "secret size=" << secret_vars.size();
-  cout << "count size=" << count_vars.size();
+
 
   if (mode_ == "simulate") {
     if (inter_mode_ == 2) {
@@ -1525,6 +1528,7 @@ void Count::run() {
           AddVariableSame(solver, all_declass_lits);
         auto ids = getIDs();
         count_vars = all_count_vars[ids[0]];
+
         cout << "count vars:";
         for (auto v : count_vars) {
           cout << v << "\t";
