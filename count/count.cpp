@@ -337,6 +337,7 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
   }
   for (auto var : secret_vars) {
     if (used_vars.count(var) == 0) {
+      ret += "u";
       std::cout<<"unused vars"<<var<<std::endl;
       continue;
     }
@@ -388,7 +389,7 @@ void Count::RecordCount(map<int, unsigned> &sols, int hash_count, string rnd) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
 
-  count_f << sols[hash_count] << "\t" << hash_count << "\t%" << rnd
+  count_f << sols[hash_count] << "\t" << hash_count +unrelated_number_countvars<< "\t%" << rnd
           << std::endl;
   count_f.close();
 }
@@ -399,11 +400,11 @@ void Count::RecordCountInter(map<int, unsigned> &sols, int hash_count,
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".inter.count",
                         std::ofstream::out | std::ofstream::app);
 
-  count_f << sols[hash_count] << "\t" << hash_count << "\t";
+  count_f << sols[hash_count] << "\t" << hash_count + unrelated_number_countvars<< "\t";
   int norm_sum_sols = 0;
   for (int id = 0; id < b_sols.size(); ++id) {
     int hash = b_hash_counts[id];
-    count_f << b_sols[id][hash] << "\t" << hash << "\t";
+    count_f << b_sols[id][hash] << "\t" << hash +unrelated_number_countvars << "\t";
     norm_sum_sols += b_sols[id][hash] * pow(2, hash - hash_count);
   }
   double j =
@@ -881,8 +882,6 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       hash_solution_strs[hash_count] = solution_strs;
     }
     nsol = solution_counts[hash_count];
-    cout << "hash_count=" << hash_count << ", nsol=" << nsol << "left=" << left
-         << "right=" << right << std::endl;
     if (nsol >= max_sol_) {
       left = hash_count + 1;
     } else if (nsol < max_sol_ * 0.6) {
@@ -907,6 +906,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
         left = 0;
       }
     }
+    cout << "hash_count=" << hash_count << ", nsol=" << nsol << "left=" << left
+         << "right=" << right << std::endl;
     hash_count = left + (right - left) / 2;
   }
   hash_count = nice_hash_count;
@@ -1251,7 +1252,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   cout << "Sample end\n" << std::flush;
   cout<<"used_vars.size="<<used_vars.size()<<std::endl;
   //  solver->add_clause(secret_watch);
-  trimVar(solver, count_vars);
+  string trim=trimVar(solver, count_vars);
+  unrelated_number_countvars=std::count(trim.begin(),trim.end(),'u');
   cout << "secret size=" << secret_vars.size() << std::endl;
   cout << "count size=" << count_vars.size() << std::endl;
   solver->simplify();

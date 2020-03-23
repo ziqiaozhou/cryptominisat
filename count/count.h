@@ -29,6 +29,7 @@ public:
     hashf = nullptr;
     left_ = -1;
     right_ = -1;
+    unrelated_number_countvars=0;
   }
   ~Count() {}
   void add_supported_options() override;
@@ -127,6 +128,7 @@ protected:
   // (h(secret_1)=r1 || h(secret_1) =r2) &&
   // (h(secret_2)=r1 || h(secret_2) =r2) &&
   // h(secret_1)!=h(secret_2);
+  int unrelated_number_countvars;
   vector<SATSolver *> backup_solvers;
   std::string out_dir_;
   std::string victim_model_config_;
