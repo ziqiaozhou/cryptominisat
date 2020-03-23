@@ -21,18 +21,22 @@ void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   FILE *in = fopen(filename.c_str(), "rb");
   DimacsParser<StreamBuffer<FILE *, FN>> parser(
       solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
-  for(auto cl: trans_clauses){
-    for(auto lit: cl){
-      used_vars.insert(lit.var());
-    }
-  }
 #else
   gzFile in = gzopen(filename.c_str(), "rb");
 
   DimacsParser<StreamBuffer<gzFile, GZ>> parser(
       solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
 #endif
-
+  for (auto cl : trans_clauses) {
+    for (auto lit : cl) {
+      used_vars.insert(lit.var());
+    }
+  }
+  for (auto cl : trans_xor_clauses) {
+    for (auto var : cl.first) {
+      used_vars.insert(var);
+    }
+  }
   if (in == NULL) {
     std::cerr << "ERROR! Could not open file '" << filename
               << "' for reading: " << strerror(errno) << endl;
@@ -331,7 +335,7 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
     fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
   }
   for (auto var : secret_vars) {
-    if(used_vars.count(var)==0){
+    if (used_vars.count(var) == 0) {
       continue;
     }
     if (fixed_var_set.count(var) > 0) {
@@ -344,24 +348,7 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
   std::swap(new_secret_vars, secret_vars);
   return ret;
 }
-static string trimVar(SATSolver *solver, vector<Lit> &secret_vars) {
-  string ret = "";
-  std::unordered_map<unsigned, string> fixed_var_set;
-  vector<Lit> new_secret_vars;
-  for (auto lit : solver->get_zero_assigned_lits()) {
-    fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
-  }
-  for (auto lit : secret_vars) {
-    if (fixed_var_set.count(lit.var()) > 0) {
-      ret += fixed_var_set[lit.var()];
-      continue;
-    }
-    new_secret_vars.push_back(lit);
-    ret += "x";
-  }
-  std::swap(new_secret_vars, secret_vars);
-  return ret;
-}
+
 static string GenerateRandomBits_prob(unsigned size, double prob) {
   string randomBits = "";
   unsigned base = 100000;
@@ -596,10 +583,10 @@ bool Count::readVictimModel(SATSolver *&solver) {
   string symbol_tmpfile = out_dir_ + "//" + out_file_ + ".symbol";
   std::ofstream symbol_tmpf(symbol_tmpfile);
 
-/*  for (auto &vars : new_symbol_vars) {
-    string values = trimVar(solver, vars.second);
-    symbol_tmpf << vars.first << "\t" << values << std::endl;
-  }*/
+  /*  for (auto &vars : new_symbol_vars) {
+      string values = trimVar(solver, vars.second);
+      symbol_tmpf << vars.first << "\t" << values << std::endl;
+    }*/
   symbol_tmpf.close();
   sampling_vars.clear();
   for (auto lits : new_symbol_vars)
@@ -921,22 +908,23 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     hash_count = left + (right - left) / 2;
   }
   hash_count = nice_hash_count;
-  bool retry=false, retry_max_sol=max_sol_;
-  if (!solution_counts.count(hash_count) && hash_count >= 0){
-    retry=true;
+  bool retry = false, retry_max_sol = max_sol_;
+  if (!solution_counts.count(hash_count) && hash_count >= 0) {
+    retry = true;
   }
   if (solution_counts[hash_count] > max_sol_) {
-    retry=true;
-    retry_max_sol=max_sol_*4;
+    retry = true;
+    retry_max_sol = max_sol_ * 4;
   }
-  if(solution_counts[hash_count]==0){
-    if(solution_counts.count(hash_count-1) && solution_counts[hash_count-1]>0){
-      retry=true;
-      hash_count=hash_count-1;
-      retry_max_sol=max_sol_*4;
+  if (solution_counts[hash_count] == 0) {
+    if (solution_counts.count(hash_count - 1) &&
+        solution_counts[hash_count - 1] > 0) {
+      retry = true;
+      hash_count = hash_count - 1;
+      retry_max_sol = max_sol_ * 4;
     }
   }
-  if(retry) {
+  if (retry) {
     // std::cerr << "error !solution_counts.count(hash_count) && hash_count >=
     // 0"; assert(false);
     long start = cpuTimeTotal();
@@ -948,8 +936,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     // assump = secret_watch;
     assump.insert(assump.end(), count_watch.begin(),
                   count_watch.begin() + hash_count);
-    solution_counts[hash_count] =
-        bounded_sol_count(solver, target_count_vars, retry_max_sol, assump, true);
+    solution_counts[hash_count] = bounded_sol_count(
+        solver, target_count_vars, retry_max_sol, assump, true);
     hash_solutions[hash_count] = solution_lits;
     hash_solution_strs[hash_count] = solution_strs;
   }
@@ -1262,8 +1250,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
 
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
-  cout << "secret size=" << secret_vars.size()<<std::endl;
-  cout << "count size=" << count_vars.size()<<std::endl;
+  cout << "secret size=" << secret_vars.size() << std::endl;
+  cout << "count size=" << count_vars.size() << std::endl;
   solver->simplify();
   if (backup_solvers[0]->solve() == l_False) {
     std::cout << "solve is false" << std::endl;
@@ -1325,8 +1313,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   left_ = std::max(0, max_hash_count - 10);
   right_ = std::min(int(count_vars.size()), max_hash_count + 10);
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_left_[i] = std::max(0,backup_max_hash_count[i] -10);
-    backup_right_[i] = std::min(int(count_vars.size()),backup_max_hash_count[i] + 10);
+    backup_left_[i] = std::max(0, backup_max_hash_count[i] - 10);
+    backup_right_[i] =
+        std::min(int(count_vars.size()), backup_max_hash_count[i] + 10);
   }
   return true;
 }
@@ -1489,8 +1478,6 @@ void Count::run() {
   std::ofstream finalout(target_file);
   solver->dump_irred_clauses_ind_only(&finalout);
   finalout.close();*/
-
-
 
   if (mode_ == "simulate") {
     if (inter_mode_ == 2) {
