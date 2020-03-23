@@ -336,6 +336,7 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
   }
   for (auto var : secret_vars) {
     if (used_vars.count(var) == 0) {
+      std::cout<<"unused vars"<<var<<std::endl;
       continue;
     }
     if (fixed_var_set.count(var) > 0) {
