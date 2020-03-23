@@ -20,7 +20,7 @@ public:
     SATSolver *s = new SATSolver(conf);
     solver->set_num_threads(1);
     s->set_up_for_jaccard_count();
-    //s->set_allow_otf_gauss();
+    // s->set_allow_otf_gauss();
     return s;
   }
   explicit Count(int argc, char **argv)
@@ -110,6 +110,7 @@ protected:
   void calculateDiffSolution(vector<vector<Lit>> &sol1,
                              vector<vector<Lit>> &sol2, vector<string> &s1,
                              vector<string> &s2, string rnd);
+  void readInAFileToCache(SATSolver *solver2, const string &filename);
   po::options_description countOptions_;
   std::vector<int> replace_tables;
   int cycles_;
@@ -170,10 +171,12 @@ protected:
   int left_;
   int right_;
   bool use_overlap_coefficient_;
+  std::set<uint64_t> used_vars;
   string SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
                         int num_xor_cls, vector<Lit> &watch,
                         vector<vector<unsigned>> &alllits, vector<bool> &rhs,
                         Lit addInner, bool is_restarted);
+  string trimVar(SATSolver *solver, vector<unsigned> &secret_vars);
 };
 void findComponent(const SATSolver *solver);
 #endif // COMPOSE_H

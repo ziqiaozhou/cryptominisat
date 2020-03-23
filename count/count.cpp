@@ -13,6 +13,91 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
+void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
+  if (conf.verbosity) {
+    cout << "c Reading file '" << filename << "'" << endl;
+  }
+#ifndef USE_ZLIB
+  FILE *in = fopen(filename.c_str(), "rb");
+  DimacsParser<StreamBuffer<FILE *, FN>> parser(
+      solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
+  for(auto cl: trans_clauses){
+    for(auto lit: cl){
+      used_vars.insert(lit.var());
+    }
+  }
+#else
+  gzFile in = gzopen(filename.c_str(), "rb");
+
+  DimacsParser<StreamBuffer<gzFile, GZ>> parser(
+      solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
+#endif
+
+  if (in == NULL) {
+    std::cerr << "ERROR! Could not open file '" << filename
+              << "' for reading: " << strerror(errno) << endl;
+
+    std::exit(1);
+  }
+
+  bool strict_header = conf.preprocess;
+  if (!parser.parse_DIMACS(in, strict_header)) {
+    exit(-1);
+  }
+
+  if (!sampling_vars_str.empty() && !parser.sampling_vars.empty()) {
+    std::cerr << "ERROR! Independent vars set in console but also in CNF."
+              << endl;
+    exit(-1);
+  }
+
+  if (!sampling_vars_str.empty()) {
+    assert(sampling_vars.empty());
+    std::stringstream ss(sampling_vars_str);
+    uint32_t i;
+    while (ss >> i) {
+      const uint32_t var = i - 1;
+      sampling_vars.push_back(var);
+
+      if (ss.peek() == ',' || ss.peek() == ' ')
+        ss.ignore();
+    }
+  } else {
+    sampling_vars.insert(sampling_vars.end(), parser.sampling_vars.begin(),
+                         parser.sampling_vars.end());
+  }
+  symbol_vars.insert(parser.symbol_vars.begin(), parser.symbol_vars.end());
+  if (conf.keep_symbol) {
+    for (auto one_symbol_vars : symbol_vars) {
+      for (auto lit : one_symbol_vars.second)
+        sampling_vars.push_back(lit.var());
+    }
+  }
+  jaccard_vars.swap(parser.jaccard_vars);
+  jaccard_vars2.swap(parser.jaccard_vars2);
+  ob_vars.swap(parser.ob_vars);
+  attack_vars.swap(parser.attack_vars);
+  if (sampling_vars.empty()) {
+    if (only_sampling_solution) {
+      std::cout << "ERROR: only independent vars are requested in the "
+                   "solution, but no independent vars have been set!"
+                << endl;
+      exit(-1);
+    }
+  } else {
+    solver2->set_sampling_vars(&sampling_vars);
+  }
+  solver2->set_symbol_vars(&symbol_vars);
+
+  call_after_parse();
+
+#ifndef USE_ZLIB
+  fclose(in);
+#else
+  gzclose(in);
+#endif
+  cout << "parse finish and close\n";
+}
 bool shuffle(vector<bool> &secret_rhs) {
   if (secret_rhs.size() == 0)
     return false;
@@ -238,7 +323,7 @@ void Count::AddVariableSame(SATSolver *solver,
   finalout.close();
 }
 
-static string trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
+string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
   string ret = "";
   std::unordered_map<unsigned, string> fixed_var_set;
   vector<unsigned> new_secret_vars;
@@ -246,6 +331,9 @@ static string trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
     fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
   }
   for (auto var : secret_vars) {
+    if(used_vars.count(var)==0){
+      continue;
+    }
     if (fixed_var_set.count(var) > 0) {
       ret += fixed_var_set[var];
       continue;
@@ -508,10 +596,10 @@ bool Count::readVictimModel(SATSolver *&solver) {
   string symbol_tmpfile = out_dir_ + "//" + out_file_ + ".symbol";
   std::ofstream symbol_tmpf(symbol_tmpfile);
 
-  for (auto &vars : new_symbol_vars) {
-    auto values = trimVar(solver, vars.second);
+/*  for (auto &vars : new_symbol_vars) {
+    string values = trimVar(solver, vars.second);
     symbol_tmpf << vars.first << "\t" << values << std::endl;
-  }
+  }*/
   symbol_tmpf.close();
   sampling_vars.clear();
   for (auto lits : new_symbol_vars)
@@ -902,7 +990,6 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
   }
   auto cvar = count_vars;
   solver->set_sampling_vars(&cvar);
-
   vector<vector<unsigned>> added_secret_vars;
   map<string, vector<vector<unsigned>>> all_added_secret_vars;
   map<string, vector<bool>> all_added_secret_rhs;
@@ -1231,11 +1318,11 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     }
     max_hash_count = std::max(max_hash_count, hash_count);
   }
-  left_ = 0;
-  right_ = std::min(int(count_vars.size()), max_hash_count * 2);
+  left_ = std::max(0, max_hash_count - 10);
+  right_ = std::min(int(count_vars.size()), max_hash_count + 10);
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_left_[i] = 0;
-    backup_right_[i] = backup_max_hash_count[i] * 2;
+    backup_left_[i] = std::max(0,backup_max_hash_count[i] -10);
+    backup_right_[i] = std::min(int(count_vars.size()),backup_max_hash_count[i] + 10);
   }
   return true;
 }
@@ -1372,7 +1459,7 @@ void Count::run() {
   }
   solver = newCounterSolver((void *)&conf);
   inputfile = filesToRead[0];
-  readInAFile(solver, inputfile);
+  readInAFileToCache(solver, inputfile);
 
   if (init_file_.length() > 0)
     readInAFile(solver, init_file_);
