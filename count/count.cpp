@@ -1249,7 +1249,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
   cout << "Sample end\n" << std::flush;
-  cout<<"used_vars.size="<<used_vars.size()<<std::end
+  cout<<"used_vars.size="<<used_vars.size()<<std::endl;
   //  solver->add_clause(secret_watch);
   trimVar(solver, count_vars);
   cout << "secret size=" << secret_vars.size() << std::endl;
