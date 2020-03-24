@@ -27,7 +27,7 @@ void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   DimacsParser<StreamBuffer<gzFile, GZ>> parser(
       solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
 #endif
-cout<<"parse trans_clauses"<<std::endl;
+  cout << "parse trans_clauses" << std::endl;
   for (auto cl : trans_clauses) {
     for (auto lit : cl) {
       used_vars.insert(lit.var());
@@ -338,11 +338,11 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
   for (auto var : secret_vars) {
     if (used_vars.count(var) == 0) {
       ret += "u";
-      std::cout<<"unused vars"<<var<<std::endl;
+      std::cout << "unused vars" << var << std::endl;
       continue;
     }
-    if(unused_sampling_vars.count(var)){
-      std::cout<<"unused_sampling_vars vars"<<var<<std::endl;
+    if (unused_sampling_vars.count(var)) {
+      std::cout << "unused_sampling_vars vars" << var << std::endl;
       ret += "u";
       continue;
     }
@@ -394,8 +394,8 @@ void Count::RecordCount(map<int, unsigned> &sols, int hash_count, string rnd) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
 
-  count_f << sols[hash_count] << "\t" << hash_count +unrelated_number_countvars<< "\t%" << rnd
-          << std::endl;
+  count_f << sols[hash_count] << "\t" << hash_count + unrelated_number_countvars
+          << "\t%" << rnd << std::endl;
   count_f.close();
 }
 
@@ -405,11 +405,13 @@ void Count::RecordCountInter(map<int, unsigned> &sols, int hash_count,
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".inter.count",
                         std::ofstream::out | std::ofstream::app);
 
-  count_f << sols[hash_count] << "\t" << hash_count + unrelated_number_countvars<< "\t";
+  count_f << sols[hash_count] << "\t" << hash_count + unrelated_number_countvars
+          << "\t";
   int norm_sum_sols = 0;
   for (int id = 0; id < b_sols.size(); ++id) {
     int hash = b_hash_counts[id];
-    count_f << b_sols[id][hash] << "\t" << hash +unrelated_number_countvars << "\t";
+    count_f << b_sols[id][hash] << "\t" << hash + unrelated_number_countvars
+            << "\t";
     norm_sum_sols += b_sols[id][hash] * pow(2, hash - hash_count);
   }
   double j =
@@ -1256,10 +1258,10 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
   cout << "Sample end\n" << std::flush;
-  cout<<"used_vars.size="<<used_vars.size()<<std::endl;
+  cout << "used_vars.size=" << used_vars.size() << std::endl;
   //  solver->add_clause(secret_watch);
-  string trim=trimVar(solver, count_vars);
-  unrelated_number_countvars=std::count(trim.begin(),trim.end(),'u');
+  string trim = trimVar(solver, count_vars);
+  unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
   cout << "secret size=" << secret_vars.size() << std::endl;
   cout << "count size=" << count_vars.size() << std::endl;
   solver->simplify();
@@ -1411,6 +1413,7 @@ void Count::setBackupSolvers() {
   auto ids = getIDs();
   backup_solvers.resize(0);
   backup_solvers.resize(2);
+  backup_unused_sampling_vars.resize(2);
   if (inter_mode_) {
     for (int i = 0; i < 2; ++i) {
       symbol_vars.clear();
@@ -1418,7 +1421,7 @@ void Count::setBackupSolvers() {
       if (backup_solvers[i] != nullptr) {
         delete backup_solvers[i];
       }
-      backup_solvers[i] = newCounterSolver((void *)&conf,i);
+      backup_solvers[i] = newCounterSolver((void *)&conf, i);
       readInAFile(backup_solvers[i], filesToRead[0]);
       backup_solvers[i]->set_up_for_jaccard_count();
       if (i == 1 && all_declass_lits.size())
