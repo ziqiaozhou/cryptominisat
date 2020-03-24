@@ -678,8 +678,6 @@ bool OccSimplifier::can_eliminate_var(const uint32_t var) const {
       //|| (!solver->conf.allow_elim_xor_vars &&
       //solver->varData[var].added_for_xor)
   ) {
-    if (solver->conf.unused_sampling_vars)
-      solver->conf.unused_sampling_vars->insert(var);
     return false;
   }
   return true;
@@ -944,6 +942,8 @@ bool OccSimplifier::eliminate_vars() {
           vars_elimed++;
           varelim_num_limit--;
           last_elimed++;
+          if (solver->conf.unused_sampling_vars)
+            solver->conf.unused_sampling_vars->insert(var);
         }
         if (!solver->ok)
           goto end;
