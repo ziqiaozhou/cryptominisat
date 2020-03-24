@@ -1033,8 +1033,8 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
     l = ~l;
   }
   solver->add_clause(secret_watch);
-  trimVar(solver, count_vars);
   solver->simplify();
+  trimVar(solver, count_vars);
   if (solver->solve() == l_False) {
     return false;
   }
@@ -1259,12 +1259,12 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
   cout << "Sample end\n" << std::flush;
   cout << "used_vars.size=" << used_vars.size() << std::endl;
+  solver->simplify();
   //  solver->add_clause(secret_watch);
   string trim = trimVar(solver, count_vars);
   unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
   cout << "secret size=" << secret_vars.size() << std::endl;
   cout << "count size=" << count_vars.size() << std::endl;
-  solver->simplify();
   if (backup_solvers[0]->solve() == l_False) {
     std::cout << "solve is false" << std::endl;
     return false;
