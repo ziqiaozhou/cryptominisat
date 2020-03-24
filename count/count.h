@@ -16,11 +16,18 @@
 class Count : public Main {
 public:
   void add_count_options();
-  SATSolver *newCounterSolver(void *conf) {
+  SATSolver *newCounterSolver(void *conf, int idx=-1) {
     SATSolver *s = new SATSolver(conf);
-    solver->set_num_threads(1);
+    s->set_num_threads(1);
     s->set_up_for_jaccard_count();
     // s->set_allow_otf_gauss();
+    if(idx<0){
+      unused_sampling_vars.clear();
+      s->set_unused_sampling_vars(&unused_sampling_vars);
+    }else{
+      backup_unused_sampling_vars[idx].clear();
+      s->set_unused_sampling_vars(&backup_unused_sampling_vars[idx]);
+    }
     return s;
   }
   explicit Count(int argc, char **argv)
@@ -174,6 +181,9 @@ protected:
   int right_;
   bool use_overlap_coefficient_;
   std::set<uint64_t> used_vars;
+  std::set<uint32_t> unused_sampling_vars;
+  vector<std::set<uint32_t>> backup_unused_sampling_vars;
+
   string SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
                         int num_xor_cls, vector<Lit> &watch,
                         vector<vector<unsigned>> &alllits, vector<bool> &rhs,

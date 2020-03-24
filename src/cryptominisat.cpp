@@ -572,7 +572,12 @@ DLL_PUBLIC void SATSolver::set_greedy_undef() {
     s.conf.greedy_undef = true;
   }
 }
-
+DLL_PUBLIC void SATSolver::set_unused_sampling_vars(set<uint32_t> *ind_vars) {
+  for (size_t i = 0; i < data->solvers.size(); ++i) {
+    Solver &s = *data->solvers[i];
+    s.conf.unused_sampling_vars = ind_vars;
+  }
+}
 DLL_PUBLIC void SATSolver::set_sampling_vars(vector<uint32_t> *ind_vars) {
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];

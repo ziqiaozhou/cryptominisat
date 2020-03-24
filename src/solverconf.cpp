@@ -290,6 +290,7 @@ DLL_PUBLIC SolverConf::SolverConf() :
         //Greedy Undef
         , greedy_undef(false)
         , sampling_vars(NULL)
+        , unused_sampling_vars(NULL)
         ,symbol_vars(NULL)
         ,keep_symbol(1)
         ,max_sol_(1)

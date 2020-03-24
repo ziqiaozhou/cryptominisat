@@ -122,6 +122,8 @@ public:
   void set_no_bve();                        // No bounded variable elimination
   void set_greedy_undef(); // Try to set variables to l_Undef in solution
   void set_sampling_vars(std::vector<uint32_t> *ind_vars);
+  void set_unused_sampling_vars(std::set<uint32_t> *ind_vars);
+
   void
   set_symbol_vars(std::map<std::string, std::vector<Lit>> *symbol_vars);
   int n_seareched_solutions();

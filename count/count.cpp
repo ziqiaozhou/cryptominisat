@@ -341,6 +341,11 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
       std::cout<<"unused vars"<<var<<std::endl;
       continue;
     }
+    if(unused_sampling_vars.count(var)){
+      std::cout<<"unused_sampling_vars vars"<<var<<std::endl;
+      ret += "u";
+      continue;
+    }
     if (fixed_var_set.count(var) > 0) {
       ret += fixed_var_set[var];
       continue;
@@ -1046,6 +1051,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
       l = ~l;
     }
     backup_solvers[i]->add_clause(secret_watch);
+
     backup_solvers[i]->simplify();
     trimVar(backup_solvers[i], backup_count_vars[i]);
   }
@@ -1401,6 +1407,7 @@ void Count::simulate_count(SATSolver *solver, vector<unsigned> &secret_vars) {
   }
 }
 void Count::setBackupSolvers() {
+
   auto ids = getIDs();
   backup_solvers.resize(0);
   backup_solvers.resize(2);
@@ -1411,7 +1418,7 @@ void Count::setBackupSolvers() {
       if (backup_solvers[i] != nullptr) {
         delete backup_solvers[i];
       }
-      backup_solvers[i] = (newCounterSolver((void *)&conf));
+      backup_solvers[i] = newCounterSolver((void *)&conf,i);
       readInAFile(backup_solvers[i], filesToRead[0]);
       backup_solvers[i]->set_up_for_jaccard_count();
       if (i == 1 && all_declass_lits.size())
@@ -1423,6 +1430,7 @@ void Count::setBackupSolvers() {
   }
   backup_left_.resize(backup_solvers.size());
   backup_right_.resize(backup_solvers.size());
+  backup_unused_sampling_vars.resize(backup_solvers.size());
 }
 bool Count::ProbToDiffFromSecretSet() {
   solver = newCounterSolver((void *)&conf);
