@@ -353,6 +353,7 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
     new_secret_vars.push_back(var);
     ret += "x";
   }
+  cout << "new trimed vars size=" << new_secret_vars.size();
   std::swap(new_secret_vars, secret_vars);
   return ret;
 }
@@ -1264,8 +1265,10 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   //  solver->add_clause(secret_watch);
   string trim = trimVar(solver, count_vars);
   unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
+
   cout << "secret size=" << secret_vars.size() << std::endl;
-  cout << "count size=" << count_vars.size() << std::endl;
+  cout << "count size=" << count_vars.size()
+       << ",unrelated vars=" << unrelated_number_countvars << std::endl;
   if (backup_solvers[0]->solve() == l_False) {
     std::cout << "solve is false" << std::endl;
     return false;
