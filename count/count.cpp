@@ -732,7 +732,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   // solver->load_state(conf.saved_state_file);
   // setCountVars();
   auto s_vars = target_count_vars;
-  //solver->set_sampling_vars(&s_vars);
+  solver->set_sampling_vars(&s_vars);
   if (mode_ == "nonblock") {
     ret = solver->solve(&assumps, only_ind);
     for (auto sol_str : solver->get_solutions()) {
