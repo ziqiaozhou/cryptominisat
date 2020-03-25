@@ -732,7 +732,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   // solver->load_state(conf.saved_state_file);
   // setCountVars();
   auto s_vars = target_count_vars;
-  solver->set_sampling_vars(&s_vars);
+  //solver->set_sampling_vars(&s_vars);
   if (mode_ == "nonblock") {
     ret = solver->solve(&assumps, only_ind);
     for (auto sol_str : solver->get_solutions()) {
@@ -987,10 +987,10 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
   vector<vector<unsigned>> backup_count_vars(backup_solvers.size());
   for (int i = 0; i < backup_solvers.size(); ++i) {
     backup_count_vars[i] = getCISAlt();
-    backup_solvers[i]->set_sampling_vars(&backup_count_vars[i]);
+    //backup_solvers[i]->set_sampling_vars(&backup_count_vars[i]);
   }
   auto cvar = count_vars;
-  solver->set_sampling_vars(&cvar);
+  //solver->set_sampling_vars(&cvar);
   vector<vector<unsigned>> added_secret_vars;
   map<string, vector<vector<unsigned>>> all_added_secret_vars;
   map<string, vector<bool>> all_added_secret_rhs;
@@ -1263,6 +1263,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   cout << "Sample end\n" << std::flush;
   cout << "used_vars.size=" << used_vars.size() << std::endl;
   solver->set_sampling_vars(nullptr);
+  for(int i=0;i<backup_solvers.size();++i)
+    backup_solvers[i]->set_sampling_vars(nullptr);
   solver->simplify();
   //  solver->add_clause(secret_watch);
   string trim = trimVar(solver, count_vars);
