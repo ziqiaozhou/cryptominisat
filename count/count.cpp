@@ -331,7 +331,7 @@ void Count::AddVariableSame(SATSolver *solver,
 string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
   string ret = "";
   std::unordered_map<unsigned, string> fixed_var_set;
-  vector<unsigned> new_secret_vars;
+  set<unsigned> new_secret_vars;
   for (auto lit : solver->get_zero_assigned_lits()) {
     fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
   }
@@ -350,11 +350,13 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
       ret += fixed_var_set[var];
       continue;
     }
-    new_secret_vars.push_back(var);
+    new_secret_vars.insert(var);
     ret += "x";
   }
   cout << "new trimed vars size=" << new_secret_vars.size();
-  std::swap(new_secret_vars, secret_vars);
+  secret_vars.clear();
+  secret_vars.insert(secret_vars.begin(),new_secret_vars.begin(),new_secret_vars.end());
+  //std::swap(new_secret_vars, secret_vars);
   return ret;
 }
 
