@@ -700,7 +700,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
         }
         if (lits.size() < 1) {
           string newrand = GenerateRandomBits(vars.size());
-          for (unsigned j = 0; j < j < vars.size(); j++) {
+          for (unsigned j = 0; j < vars.size(); j++) {
             randomBits[i * vars.size() + j] = newrand[j];
           }
         }
