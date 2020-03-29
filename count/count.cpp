@@ -355,8 +355,9 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
   }
   cout << "new trimed vars size=" << new_secret_vars.size();
   secret_vars.clear();
-  secret_vars.insert(secret_vars.begin(),new_secret_vars.begin(),new_secret_vars.end());
-  //std::swap(new_secret_vars, secret_vars);
+  secret_vars.insert(secret_vars.begin(), new_secret_vars.begin(),
+                     new_secret_vars.end());
+  // std::swap(new_secret_vars, secret_vars);
   return ret;
 }
 
@@ -690,11 +691,19 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
         lits = alllits[i];
       }
     } else {
-      for (unsigned j = 0; j < vars.size(); j++) {
-        if (randomBits[i * vars.size() + j] == '1')
-          lits.push_back(vars[j]);
-        if (hashf)
-          *hashf << vars[j] + 1 << " ";
+      while (lits.size() < 1) {
+        for (unsigned j = 0; j < vars.size(); j++) {
+          if (randomBits[i * vars.size() + j] == '1')
+            lits.push_back(vars[j]);
+          if (hashf)
+            *hashf << vars[j] + 1 << " ";
+        }
+        if (lits.size() < 1) {
+          string newrand = GenerateRandomBits(vars.size());
+          for (unsigned j = 0; j < j < vars.size(); j++) {
+            randomBits[i * vars.size() + j] = newrand[j];
+          }
+        }
       }
       alllits.push_back(lits);
       rhs.push_back(randomBits_rhs[i] == '1');
@@ -704,9 +713,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
       solver2->new_vars(watch[i].var() - solver2->nVars() + 1);
     }
     lits.push_back(watch[i].var());
-    if (lits.size() < 2) {
-      continue;
-    }
+
     if (addInner != lit_Undef) {
       solver2->add_clause({addInner, watch[i]});
       cout << "secret hash xor:\n";
@@ -987,10 +994,10 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
   vector<vector<unsigned>> backup_count_vars(backup_solvers.size());
   for (int i = 0; i < backup_solvers.size(); ++i) {
     backup_count_vars[i] = getCISAlt();
-    //backup_solvers[i]->set_sampling_vars(&backup_count_vars[i]);
+    // backup_solvers[i]->set_sampling_vars(&backup_count_vars[i]);
   }
   auto cvar = count_vars;
-  //solver->set_sampling_vars(&cvar);
+  // solver->set_sampling_vars(&cvar);
   vector<vector<unsigned>> added_secret_vars;
   map<string, vector<vector<unsigned>>> all_added_secret_vars;
   map<string, vector<bool>> all_added_secret_rhs;
