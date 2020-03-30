@@ -287,10 +287,8 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 void Sampler::run() {
 
   solver = newCounterSolver((void *)&conf);
-
   inputfile = filesToRead[0];
   readInAFileToCache(solver, inputfile);
-
   setSecretVars();
   setCountVars();
   if (sample_noninterference_) {
@@ -305,7 +303,7 @@ void Sampler::run() {
 
   } else {
     complementary_solver = newCounterSolver((void *)&conf);
-    readInAFileToCache(complementary_solver, inputfile);
+    readInAFile(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
     AddVariableDiff(solver, all_observe_lits);
