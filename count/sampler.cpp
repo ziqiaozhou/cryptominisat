@@ -257,7 +257,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
       for (const uint32_t var : target_count_vars) {
         if (solver->get_model()[var] != l_Undef && used_vars.count(var)) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
-        } 
+        }
       }
 
       auto cissmodel = getCIISSModel(solver);
@@ -305,7 +305,7 @@ void Sampler::run() {
 
   } else {
     complementary_solver = newCounterSolver((void *)&conf);
-    readInAFile(complementary_solver, inputfile);
+    readInAFileToCache(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
     AddVariableDiff(solver, all_observe_lits);
@@ -337,6 +337,7 @@ void Sampler::run() {
   vector<vector<uint32_t>> ciss_added_vars, c_added_vars, s_added_vars,
       salt_added_vars, i_added_vars, ialt_added_vars;
   vector<bool> ciss_rhs, c_rhs, s_rhs, salt_rhs, i_rhs, ialt_rhs;
+  std::cout<<"used_vars.size()="<<used_vars.size()<<std::endl;
   for (int t = 0; t < nsample; ++t) {
     ciss_assump.clear();
     ciss_added_vars.clear();
