@@ -10,11 +10,13 @@ public:
     sample_sol_f_same->close();
     delete sample_sol_f_same;
     delete sample_sol_f;
-    sample_sol_complete_f_same->close();
-    delete sample_sol_complete_f_same;
-    sample_sol_complete_f->close();
-    delete sample_sol_complete_f;
-    complementary_solver=NULL;
+    if (record_full_) {
+      sample_sol_complete_f_same->close();
+      delete sample_sol_complete_f_same;
+      sample_sol_complete_f->close();
+      delete sample_sol_complete_f;
+    }
+    complementary_solver = NULL;
   }
   void add_sample_options();
   void add_supported_options() override;
@@ -34,8 +36,9 @@ public:
                             map<string, vector<Lit>> &all_vars);
   vector<Lit> AddVariableDiffHelper(SATSolver *solver,
                                     map<string, vector<Lit>> &all_vars);
-  void AddVariableSameOrDiff(SATSolver *solver, map<string, vector<Lit>> &all_vars,
-                        map<string, vector<Lit>> diff_vars);
+  void AddVariableSameOrDiff(SATSolver *solver,
+                             map<string, vector<Lit>> &all_vars,
+                             map<string, vector<Lit>> diff_vars);
 
 private:
   po::options_description sampleOptions_;
@@ -47,7 +50,8 @@ private:
   uint32_t num_cxor_cls_;
   uint32_t num_sxor_cls_;
   uint32_t num_ixor_cls_;
-  SATSolver * complementary_solver;
+  SATSolver *complementary_solver;
   bool useOtherAlt;
+  bool record_full_;
 };
 #endif
