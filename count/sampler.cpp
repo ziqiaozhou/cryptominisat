@@ -147,7 +147,7 @@ vector<Lit> Sampler::getCISSModelLit(SATSolver *solver) {
       if (used_vars.count(l.var()))
         ret.push_back(Lit(l.var(), model[l.var()] == l_False));
       else {
-        ret.push_back(lit_Undef);
+        //ret.push_back(lit_Undef);
       }
     }
   }
@@ -255,7 +255,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
       vector<Lit> lits, solution;
 
       for (const uint32_t var : target_count_vars) {
-        if (solver->get_model()[var] != l_Undef) {
+        if (solver->get_model()[var] != l_Undef && used_vars.count(var)) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
         } else {
           assert(false);
