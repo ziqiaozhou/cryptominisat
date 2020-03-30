@@ -257,9 +257,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
       for (const uint32_t var : target_count_vars) {
         if (solver->get_model()[var] != l_Undef && used_vars.count(var)) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
-        } else {
-          assert(false);
-        }
+        } 
       }
 
       auto cissmodel = getCIISSModel(solver);
