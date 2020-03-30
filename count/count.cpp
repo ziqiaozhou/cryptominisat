@@ -27,7 +27,7 @@ void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   DimacsParser<StreamBuffer<gzFile, GZ>> parser(
       solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
 #endif
-  cout << "parse trans_clauses" << std::endl;
+  cout << "parse trans_clauses" <<trans_clauses.size()<< std::endl;
   for (auto cl : trans_clauses) {
     for (auto lit : cl) {
       used_vars.insert(lit.var());
