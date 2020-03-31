@@ -1161,7 +1161,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
   string secret_rnd = "";
-  trimVar(solver, secret_vars);
+  //trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n" << std::flush;
   if (secret_vars.size() < num_xor_cls_) {
