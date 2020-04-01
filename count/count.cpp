@@ -350,6 +350,7 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
     }
     if (fixed_var_set.count(var) > 0) {
       ret += fixed_var_set[var];
+      std::cout << "fixed_var_set vars" << var <<" ="<<fixed_var_set[var]<< std::endl;
       continue;
     }
     new_secret_vars.insert(var);
