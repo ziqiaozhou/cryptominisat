@@ -1049,7 +1049,6 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
   }
   solver->add_clause(secret_watch);
   solver->simplify();
-  unsignedount_vars);
   if (solver->solve() == l_False) {
     return false;
   }
