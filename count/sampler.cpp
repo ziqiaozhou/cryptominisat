@@ -144,11 +144,7 @@ vector<Lit> Sampler::getCISSModelLit(SATSolver *solver) {
     if (symbol_vars.count(label) == 0)
       continue;
     for (auto l : symbol_vars[label]) {
-      if (used_vars.count(l.var()))
         ret.push_back(Lit(l.var(), model[l.var()] == l_False));
-      else {
-        //ret.push_back(lit_Undef);
-      }
     }
   }
   return ret;
@@ -335,7 +331,7 @@ void Sampler::run() {
   vector<vector<uint32_t>> ciss_added_vars, c_added_vars, s_added_vars,
       salt_added_vars, i_added_vars, ialt_added_vars;
   vector<bool> ciss_rhs, c_rhs, s_rhs, salt_rhs, i_rhs, ialt_rhs;
-  std::cout<<"used_vars.size()="<<used_vars.size()<<std::endl;
+  std::cout << "used_vars.size()=" << used_vars.size() << std::endl;
   for (int t = 0; t < nsample; ++t) {
     ciss_assump.clear();
     ciss_added_vars.clear();
@@ -358,18 +354,22 @@ void Sampler::run() {
     ialt_assump.clear();
     Count::Sample(solver, CISS, num_xor_cls_, ciss_assump, ciss_added_vars,
                   ciss_rhs, lit_Undef);
-    Count::Sample(solver, GetVars(CONTROLLED_), num_cxor_cls_, c_assump,
-                  c_added_vars, c_rhs, lit_Undef);
-    Count::Sample(solver, GetVars(SECRET_ + "_0"), num_sxor_cls_, s_assump,
-                  s_added_vars, s_rhs, lit_Undef);
-    Count::Sample(solver, GetVars(SECRET_ + "_1"), num_sxor_cls_, salt_assump,
-                  salt_added_vars, salt_rhs, lit_Undef);
-    Count::Sample(solver, GetVars(OTHER_ + "_0"), num_ixor_cls_, i_assump,
-                  i_added_vars, i_rhs, lit_Undef);
-    if (useOtherAlt)
-      Count::Sample(solver, GetVars(OTHER_ + "_1"), num_ixor_cls_, ialt_assump,
-                    ialt_added_vars, ialt_rhs, lit_Undef);
-
+    if (num_cxor_cls_ > 0)
+      Count::Sample(solver, GetVars(CONTROLLED_), num_cxor_cls_, c_assump,
+                    c_added_vars, c_rhs, lit_Undef);
+    if (num_sxor_cls_ > 0) {
+      Count::Sample(solver, GetVars(SECRET_ + "_0"), num_sxor_cls_, s_assump,
+                    s_added_vars, s_rhs, lit_Undef);
+      Count::Sample(solver, GetVars(SECRET_ + "_1"), num_sxor_cls_, salt_assump,
+                    salt_added_vars, salt_rhs, lit_Undef);
+    }
+    if (num_ixor_cls_ > 0) {
+      Count::Sample(solver, GetVars(OTHER_ + "_0"), num_ixor_cls_, i_assump,
+                    i_added_vars, i_rhs, lit_Undef);
+      if (useOtherAlt)
+        Count::Sample(solver, GetVars(OTHER_ + "_1"), num_ixor_cls_,
+                      ialt_assump, ialt_added_vars, ialt_rhs, lit_Undef);
+    }
     ciss_assump.insert(ciss_assump.end(), c_assump.begin(), c_assump.end());
     ciss_assump.insert(ciss_assump.end(), s_assump.begin(), s_assump.end());
     ciss_assump.insert(ciss_assump.end(), salt_assump.begin(),
