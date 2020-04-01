@@ -280,7 +280,8 @@ void Count::setCountVars() {
     for (auto lit : all_other_lits[id]) {
       all_count_vars[id_lits.first].push_back(lit.var());
     }
-    cout << "all_count_vars[id_lits] size=" << all_count_vars[id_lits.first].size() << std::endl;
+    cout << "all_count_vars[id_lits] size="
+         << all_count_vars[id_lits.first].size() << std::endl;
   }
 }
 void Count::AddVariableSame(SATSolver *solver,
@@ -330,11 +331,11 @@ void Count::AddVariableSame(SATSolver *solver,
   finalout.close();
 }
 
-string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
+string Count::trimVar(SATSolver *solver2, vector<unsigned> &secret_vars) {
   string ret = "";
   std::unordered_map<unsigned, string> fixed_var_set;
   set<unsigned> new_secret_vars;
-  for (auto lit : solver->get_zero_assigned_lits()) {
+  for (auto lit : solver2->get_zero_assigned_lits()) {
     fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
   }
   for (auto var : secret_vars) {
@@ -350,7 +351,8 @@ string Count::trimVar(SATSolver *solver, vector<unsigned> &secret_vars) {
     }
     if (fixed_var_set.count(var) > 0) {
       ret += fixed_var_set[var];
-      std::cout << "fixed_var_set vars" << var <<" ="<<fixed_var_set[var]<< std::endl;
+      std::cout << "fixed_var_set vars" << var << " =" << fixed_var_set[var]
+                << std::endl;
       continue;
     }
     new_secret_vars.insert(var);
@@ -1047,7 +1049,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
   }
   solver->add_clause(secret_watch);
   solver->simplify();
-  trimVar(solver, count_vars);
+  unsignedount_vars);
   if (solver->solve() == l_False) {
     return false;
   }
@@ -1163,7 +1165,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
   string secret_rnd = "";
-  //trimVar(solver, secret_vars);
+  // trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n" << std::flush;
   if (secret_vars.size() < num_xor_cls_) {
@@ -1232,6 +1234,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
     std::ofstream ff(out_dir_ + "/" + std::to_string(num_xor_cls_) +
                          ".inter.cnf",
                      std::ofstream::out);
+    solver->simplify();
     solver->dump_irred_clauses_ind_only(&ff);
     ff.close();
     // exit(1);
@@ -1275,7 +1278,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   /*solver->set_sampling_vars(nullptr);
   for(int i=0;i<backup_solvers.size();++i)
     backup_solvers[i]->set_sampling_vars(nullptr);*/
-  solver->simplify();
+
   //  solver->add_clause(secret_watch);
   cout << "count size=" << count_vars.size();
   string trim = trimVar(solver, count_vars);
