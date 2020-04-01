@@ -1234,7 +1234,6 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
     std::ofstream ff(out_dir_ + "/" + std::to_string(num_xor_cls_) +
                          ".inter.cnf",
                      std::ofstream::out);
-
     solver->dump_irred_clauses_ind_only(&ff);
     ff.close();
     // exit(1);
@@ -1279,6 +1278,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   for(int i=0;i<backup_solvers.size();++i)
     backup_solvers[i]->set_sampling_vars(nullptr);*/
   solver->simplify();
+
   //  solver->add_clause(secret_watch);
   cout << "count size=" << count_vars.size();
   string trim = trimVar(backup_solvers[0], count_vars);
