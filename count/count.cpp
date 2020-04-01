@@ -280,6 +280,7 @@ void Count::setCountVars() {
     for (auto lit : all_other_lits[id]) {
       all_count_vars[id_lits.first].push_back(lit.var());
     }
+    cout << "all_count_vars[id_lits] size=" << all_count_vars[id_lits.first].size() << std::endl;
   }
 }
 void Count::AddVariableSame(SATSolver *solver,
@@ -1275,9 +1276,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     backup_solvers[i]->set_sampling_vars(nullptr);*/
   solver->simplify();
   //  solver->add_clause(secret_watch);
+  cout << "count size=" << count_vars.size();
   string trim = trimVar(solver, count_vars);
   unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
-
   cout << "secret size=" << secret_vars.size() << std::endl;
   cout << "count size=" << count_vars.size()
        << ",unrelated vars=" << unrelated_number_countvars << std::endl;
