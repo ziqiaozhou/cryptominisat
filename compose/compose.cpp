@@ -235,7 +235,11 @@ void Compose::copy_compose() {
     current_trans_symbol_vars = trans_symbol_vars;
     for (auto name_vars : trans_symbol_vars) {
       std::ostringstream newname;
-      if (name_vars.first == "secret" || name_vars.first == "observe" || name_vars.first == "other") {
+      if (name_vars.first == "secret" ||
+      name_vars.first == "observe" ||
+      name_vars.first == "other" ||
+      name_vars.first == "declass"
+    ) {
         newname << name_vars.first << "_" << i;
         current_trans_symbol_vars[newname.str()] = name_vars.second;
         current_trans_symbol_vars.erase(name_vars.first);
