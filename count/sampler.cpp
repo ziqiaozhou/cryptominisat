@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <unordered_map>
-vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver,
+vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver2,
                                            map<string, vector<Lit>> &all_vars) {
   size_t len = -1;
   vector<Lit> watches;
@@ -18,10 +18,12 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver,
   }
   string diff_file = out_dir_ + "//" + out_file_ + ".testhash";
   std::ofstream finalout(diff_file);
+  vector<uint32_t> clause;
+  auto new_watch=solver2->nVars()-1;
+  solver2->new_vars(len);
   for (int i = 0; i < len; ++i) {
-    vector<uint32_t> clause;
-    auto new_watch = solver->nVars();
-    solver->new_var();
+    clause.clear();
+    new_watch++;
     clause.push_back(new_watch);
     watches.push_back(Lit(new_watch, true));
     bool xor_bool = true;
@@ -32,10 +34,10 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver,
       if (lits[i].sign())
         xor_bool = ~xor_bool;
     }
-    solver->add_xor_clause(clause, xor_bool);
+    solver2->add_xor_clause(clause, xor_bool);
     finalout << "x" << xor_bool ? "" : "-";
     for (auto v : clause)
-      finalout << v + 1;
+      finalout << v + 1 << " ";
     finalout << "\n";
   }
   return watches;
@@ -95,7 +97,7 @@ void Sampler::add_supported_options() {
 void Sampler::add_sample_options() {
   sampleOptions_.add_options()(
       "noninter", po::value(&sample_noninterference_)->default_value(false),
-      "Number of samples");
+      "noninterference? or interference sample");
   sampleOptions_.add_options()("num_cxor_cls",
                                po::value(&num_cxor_cls_)->default_value(10),
                                "num_cxor_cls");
@@ -106,7 +108,7 @@ void Sampler::add_sample_options() {
                                po::value(&num_ixor_cls_)->default_value(2),
                                "num_ixor_cls");
   sampleOptions_.add_options()("useOtherAlt",
-                               po::value(&useOtherAlt)->default_value(true),
+                               po::value(&useOtherAlt)->default_value(false),
                                "useOtherAlt");
   sampleOptions_.add_options()("recordFull",
                                po::value(&record_full_)->default_value(false),
@@ -144,7 +146,7 @@ vector<Lit> Sampler::getCISSModelLit(SATSolver *solver) {
     if (symbol_vars.count(label) == 0)
       continue;
     for (auto l : symbol_vars[label]) {
-        ret.push_back(Lit(l.var(), model[l.var()] == l_False));
+      ret.push_back(Lit(l.var(), model[l.var()] == l_False));
     }
   }
   return ret;
