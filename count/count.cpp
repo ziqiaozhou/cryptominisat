@@ -196,10 +196,11 @@ void Count::AddVariableDiff(SATSolver *solver,
   }
   string diff_file = out_dir_ + "//" + out_file_ + ".testhash";
   std::ofstream finalout(diff_file);
+  auto newWatch = solver->nVars()-1;
+  solver->new_vars(len);
   for (int i = 0; i < len; ++i) {
     vector<unsigned> clause;
-    auto newWatch = solver->nVars();
-    solver->new_var();
+    newWatch++;
     clause.push_back(newWatch);
     watches.push_back(Lit(newWatch, true));
     bool xor_bool = true;
@@ -213,7 +214,7 @@ void Count::AddVariableDiff(SATSolver *solver,
     solver->add_xor_clause(clause, xor_bool);
     finalout << "x" << xor_bool ? "" : "-";
     for (auto v : clause)
-      finalout << v + 1;
+      finalout << v + 1<<" ";
     finalout << std::endl;
   }
   cout << "add watches" << watches;

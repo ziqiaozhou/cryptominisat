@@ -35,7 +35,7 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver2,
         xor_bool = ~xor_bool;
     }
     solver2->add_xor_clause(clause, xor_bool);
-    finalout << "x" << xor_bool ? "" : "-";
+    finalout << "xx" << xor_bool ? "" : "-";
     for (auto v : clause)
       finalout << v + 1 << " ";
     finalout << "\n";
