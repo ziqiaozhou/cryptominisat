@@ -54,6 +54,8 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
   auto same_watch = solver->nVars();
   solver->new_var();
   clause.push_back(Lit(same_watch, false));
+  string samefile = out_dir_ + "//" + out_file_ + ".testsamehash";
+  std::ofstream finalout(samefile);
   for (int i = 0; i < len; ++i) {
     vector<uint32_t> clause;
     auto new_watch = solver->nVars();
@@ -69,13 +71,11 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
         xor_bool = ~xor_bool;
     }
     solver->add_xor_clause(clause, xor_bool);
+    finalout << "x" << xor_bool ? "" : "-";
+    for (auto v : clause)
+      finalout << v + 1 << " ";
   }
-  string samefile = out_dir_ + "//" + out_file_ + ".testsamehash";
-  std::ofstream finalout(samefile);
-  finalout << "x" << xor_bool ? "" : "-";
-  for (auto v : clause)
-    finalout << v + 1 << " ";
-  solver->add_clause(clause);
+  //solver->add_clause(clause);
   finalout.close();
   return Lit(same_watch, false);
 }
