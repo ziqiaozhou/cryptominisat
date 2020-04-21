@@ -16,10 +16,10 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver2,
     auto lits = id_lits.second;
     len = lits.size();
   }
-  string diff_file = out_dir_ + "//" + out_file_ + ".testdiffhash";
+  string diff_file = out_dir_ + "//" + out_file_ + ".AddVariableDiffHelperHash";
   std::ofstream finalout(diff_file);
   vector<uint32_t> clause;
-  auto new_watch=solver2->nVars()-1;
+  auto new_watch = solver2->nVars() - 1;
   solver2->new_vars(len);
   for (int i = 0; i < len; ++i) {
     clause.clear();
@@ -54,13 +54,14 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
   auto same_watch = solver->nVars();
   solver->new_var();
   clause.push_back(Lit(same_watch, false));
-  string samefile = out_dir_ + "//" + out_file_ + ".testsamehash";
+  string samefile = out_dir_ + "//" + out_file_ + ".AddVariableSameHelperHash";
   std::ofstream finalout(samefile);
   for (int i = 0; i < len; ++i) {
     vector<uint32_t> clause;
     auto new_watch = solver->nVars();
     solver->new_var();
     clause.push_back(new_watch);
+    finalout << Lit(new_watch, true) << " " << Lit(same_watch, true) << "\n";
     solver->add_clause({Lit(new_watch, true), Lit(same_watch, true)});
     bool xor_bool = false;
     for (auto id_vars : all_vars) {
@@ -74,8 +75,8 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
     finalout << "x" << (xor_bool ? "" : "-");
     for (auto v : clause)
       finalout << v + 1 << " ";
+    finalout << "\n";
   }
-  //solver->add_clause(clause);
   finalout.close();
   return Lit(same_watch, false);
 }
