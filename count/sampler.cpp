@@ -32,10 +32,10 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver2,
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
       if (lits[i].sign())
-        xor_bool = ~xor_bool;
+        xor_bool = !xor_bool;
     }
     solver2->add_xor_clause(clause, xor_bool);
-    finalout << "xx" << xor_bool ? "" : "-";
+    finalout << "x" << (xor_bool ? "" : "-");
     for (auto v : clause)
       finalout << v + 1 << " ";
     finalout << "\n";
@@ -68,10 +68,10 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
       if (lits[i].sign())
-        xor_bool = ~xor_bool;
+        xor_bool = !xor_bool;
     }
     solver->add_xor_clause(clause, xor_bool);
-    finalout << "x" << xor_bool ? "" : "-";
+    finalout << "x" << (xor_bool ? "" : "-");
     for (auto v : clause)
       finalout << v + 1 << " ";
   }
