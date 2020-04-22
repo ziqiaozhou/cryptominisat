@@ -16,8 +16,8 @@
 class Count : public Main {
 public:
   void add_count_options();
-  SATSolver *newCounterSolver(void *conf, int idx=-1) {
-    SATSolver *s = new SATSolver(conf);
+  SATSolver *newCounterSolver(SATSolver* s, void *conf, int idx=-1) {
+    //SATSolver *s = new SATSolver(conf);
     s->set_num_threads(1);
     s->set_up_for_jaccard_count();
     // s->set_allow_otf_gauss();
@@ -85,7 +85,7 @@ protected:
       return false;
     return true;
   }
-  void setBackupSolvers();
+  void setBackupSolvers( vector<SATSolver*>& bs);
   vector<string> getIDs() {
     vector<string> ids;
     for (auto id_var : all_secret_lits) {

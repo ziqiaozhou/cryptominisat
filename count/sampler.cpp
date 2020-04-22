@@ -290,8 +290,8 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 }
 
 void Sampler::run() {
-
-  solver = newCounterSolver((void *)&conf);
+  SATSolver s1(&conf);
+  solver = newCounterSolver(&s1,(void *)&conf);
   inputfile = filesToRead[0];
   readInAFileToCache(solver, inputfile);
   setSecretVars();
@@ -307,7 +307,8 @@ void Sampler::run() {
                             std::ofstream::out | std::ofstream::app);
 
   } else {
-    complementary_solver = newCounterSolver((void *)&conf);
+    SATSolver s2(&conf);
+    complementary_solver = newCounterSolver(&s2,(void *)&conf);
     readInAFile(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
