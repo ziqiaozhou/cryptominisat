@@ -1430,7 +1430,7 @@ void Count::simulate_count(SATSolver *solver, vector<unsigned> &secret_vars) {
     solver->set_preprocess(0);
   }
 }
-void Count::setBackupSolvers( vector<SATSolver*> &bs) {
+void Count::setBackupSolvers(vector<SATSolver *> &bs) {
   auto ids = getIDs();
   backup_solvers = bs;
   backup_unused_sampling_vars.resize(2);
@@ -1443,7 +1443,6 @@ void Count::setBackupSolvers( vector<SATSolver*> &bs) {
       }*/
       // backup_solvers[i] = newCounterSolver((void *)&conf, i);
       readInAFile(backup_solvers[i], filesToRead[0]);
-      backup_solvers[i]->set_up_for_jaccard_count();
       if (i == 1 && all_declass_lits.size())
         AddVariableSame(backup_solvers[i], all_declass_lits);
       if (all_declass_lits.size() == 0) {
@@ -1467,9 +1466,10 @@ bool Count::ProbToDiffFromSecretSet() {
   AddVariableSame(solver, all_observe_lits);
   if (all_declass_lits.size())
     AddVariableSame(solver, all_declass_lits);
-  vector<SATSolver> bss = {SATSolver(&conf), SATSolver(&conf)};
-  vector<SATSolver *> bs = {newCounterSolver(&bss[0], &conf),
-                            newCounterSolver(&bss[1], &conf)};
+  SATSolver bs1(&conf);
+  SATSolver bs2(&conf);
+  vector<SATSolver *> bs = {newCounterSolver(&bs1, &conf),
+                            newCounterSolver(&bs2, &conf)};
   setBackupSolvers(bs);
   return countCISAlt(solver, secret_vars);
 }
@@ -1564,8 +1564,10 @@ void Count::run() {
         cout << std::endl;
       }
       solver->set_up_for_jaccard_count();
-      vector<SATSolver> bss = {SATSolver(&conf), SATSolver(&conf)};
-      vector<SATSolver *> bs = {&bss[0], &bss[1]};
+      SATSolver bs1(&conf);
+      SATSolver bs2(&conf);
+      vector<SATSolver *> bs = {newCounterSolver(&bs1, &conf),
+                                newCounterSolver(&bs2, &conf)};
       setBackupSolvers(bs);
       std::ofstream finalout("solver.cnf");
       solver->dump_irred_clauses_ind_only(&finalout);
