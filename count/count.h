@@ -140,8 +140,7 @@ protected:
   std::string out_dir_;
   std::string victim_model_config_;
   std::map<std::string, std::vector<unsigned>> victim_model_;
-  vector<vector<Lit>> trans_clauses;
-  vector<std::pair<vector<unsigned>, bool>> trans_xor_clauses;
+  
   int n_trans_vars;
   string mode_;
   // model counting setting

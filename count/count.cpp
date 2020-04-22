@@ -14,6 +14,10 @@ using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
 void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
+  vector<vector<Lit>> trans_clauses;
+  vector<std::pair<vector<unsigned>, bool>> trans_xor_clauses;
+  trans_xor_clauses.clear();
+  trans_clauses.clear();
   if (conf.verbosity) {
     cout << "c Reading file '" << filename << "'" << endl;
   }
@@ -1433,6 +1437,7 @@ void Count::simulate_count(SATSolver *solver, vector<unsigned> &secret_vars) {
 void Count::setBackupSolvers(vector<SATSolver *> &bs) {
   auto ids = getIDs();
   backup_solvers = bs;
+  backup_unused_sampling_vars.clear();
   backup_unused_sampling_vars.resize(2);
   if (inter_mode_) {
     for (int i = 0; i < 2; ++i) {
