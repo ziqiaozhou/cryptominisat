@@ -238,6 +238,7 @@ void Count::setSecretVars() {
         all_secret_lits[id].push_back(lit);
       }
     }
+     name_len = DECLASS_.length();
     if (!name_lits.first.compare(0, DECLASS_.length(), DECLASS_)) {
       auto id = name_lits.first.substr(name_len);
       for (auto lit : name_lits.second) {
