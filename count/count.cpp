@@ -285,6 +285,11 @@ void Count::setCountVars() {
     for (auto lit : all_other_lits[id]) {
       all_count_vars[id_lits.first].push_back(lit.var());
     }
+    if (declassification_mode_ == 1) {
+      for (auto lit : all_declass_lits[id]) {
+        all_count_vars[id_lits.first].push_back(lit.var());
+      }
+    }
     cout << "all_count_vars[id_lits] size="
          << all_count_vars[id_lits.first].size() << std::endl;
   }
@@ -506,6 +511,10 @@ void Count::add_count_options() {
       "(sym_name,offset,size)\n control: (sym_name,offset,size) ");
   countOptions_.add_options()("debug", po::value(&debug)->default_value(false),
                               "Debug");
+  countOptions_.add_options()(
+      "declassification_mode", po::value(&declassification_mode_)->default_value(1),
+      "declassification_mode: 0: additional leakage, 1: additional leakage "
+      "when declassified is known");
   countOptions_.add_options()("symmap",
                               po::value(&symmap_file_)->default_value(""),
                               "Initilization constraint file.");

@@ -140,7 +140,7 @@ protected:
   std::string out_dir_;
   std::string victim_model_config_;
   std::map<std::string, std::vector<unsigned>> victim_model_;
-  
+
   int n_trans_vars;
   string mode_;
   // model counting setting
@@ -178,6 +178,7 @@ protected:
   const int amplifier_factor_ = 4;
   int left_;
   int right_;
+  int declassification_mode_;
   bool use_overlap_coefficient_;
   std::set<uint64_t> used_vars;
   std::set<uint32_t> unused_sampling_vars;
