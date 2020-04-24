@@ -286,7 +286,7 @@ void Count::setCountVars() {
     for (auto lit : all_other_lits[id]) {
       all_count_vars[id_lits.first].push_back(lit.var());
     }
-    if (declassification_mode_ == 1) {
+    if (declassification_mode_ == 1 && (all_declass_lits.size()>0)) {
       for (auto lit : all_declass_lits[id]) {
         all_count_vars[id_lits.first].push_back(lit.var());
       }
