@@ -12,7 +12,7 @@ template <class T> void print_map(std::map<std::string, vector<T>> &map) {
 }
 void Compose::add_compose_options() {
   composeOptions_.add_options()("cycles", po::value(&cycles_)->default_value(1),
-                                "Number of composition cycles.")(
+                                "Number of composition cycles. when in compose copy mode, it represents how many additional copy we want to make.")(
       "init", po::value(&init_file_)->default_value(""),
       "Initilization constraint file.")(
       "composedfile", po::value(&out_file_)->default_value("out"),
@@ -23,8 +23,10 @@ void Compose::add_compose_options() {
       "set this if compose a multi-cycle CNF from an intermediate state. "
       "For example, you already have cnf for state s8 and want to extend to s "
       "20. "
-      "--start_cycle=8 --cycles=20")(
-      "out", po::value(&out_dir_)->default_value("tmp"))(
+      "--start_cycle=8 --cycles=20");
+  composeOptions_.add_options()("out",
+                                po::value(&out_dir_)->default_value("tmp"));
+  composeOptions_.add_options()(
       "compose_mode", po::value(&mode_)->default_value("inc"),
       "mode: inc-> incrementally compose multicycle condition; copy: add a "
       "copy of instance; noninterference: add a copy of instance and add "
@@ -231,15 +233,12 @@ void Compose::copy_compose() {
   std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
 
   auto base_trans_symbol_vars = trans_symbol_vars;
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < cycles_+1; ++i) {
     current_trans_symbol_vars = trans_symbol_vars;
     for (auto name_vars : trans_symbol_vars) {
       std::ostringstream newname;
-      if (name_vars.first == "secret" ||
-      name_vars.first == "observe" ||
-      name_vars.first == "other" ||
-      name_vars.first == "declass"
-    ) {
+      if (name_vars.first == "secret" || name_vars.first == "observe" ||
+          name_vars.first == "other" || name_vars.first == "declass") {
         newname << name_vars.first << "_" << i;
         current_trans_symbol_vars[newname.str()] = name_vars.second;
         current_trans_symbol_vars.erase(name_vars.first);
