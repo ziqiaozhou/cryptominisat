@@ -233,7 +233,7 @@ void Compose::copy_compose() {
   std::map<std::string, std::vector<Lit>> current_trans_symbol_vars;
 
   auto base_trans_symbol_vars = trans_symbol_vars;
-  for (int i = 0; i < cycles_+1; ++i) {
+  for (int i = 0; i < cycles_; ++i) {
     current_trans_symbol_vars = trans_symbol_vars;
     for (auto name_vars : trans_symbol_vars) {
       std::ostringstream newname;
