@@ -238,7 +238,7 @@ void Count::setSecretVars() {
         all_secret_lits[id].push_back(lit);
       }
     }
-     name_len = DECLASS_.length();
+    name_len = DECLASS_.length();
     if (!name_lits.first.compare(0, DECLASS_.length(), DECLASS_)) {
       auto id = name_lits.first.substr(name_len);
       for (auto lit : name_lits.second) {
@@ -286,7 +286,7 @@ void Count::setCountVars() {
     for (auto lit : all_other_lits[id]) {
       all_count_vars[id_lits.first].push_back(lit.var());
     }
-    if (declassification_mode_ == 1 && (all_declass_lits.size()>0)) {
+    if (declassification_mode_ == 1 && (all_declass_lits.size() > 0)) {
       for (auto lit : all_declass_lits[id]) {
         all_count_vars[id_lits.first].push_back(lit.var());
       }
@@ -342,23 +342,27 @@ void Count::AddVariableSame(SATSolver *solver,
   finalout.close();
 }
 
-string Count::trimVar(SATSolver *solver2, vector<unsigned> &secret_vars) {
+string Count::trimVar(SATSolver *solver2, vector<unsigned> &vars) {
   string ret = "";
   std::unordered_map<unsigned, string> fixed_var_set;
-  set<unsigned> new_secret_vars;
+  set<unsigned> new_vars;
   for (auto lit : solver2->get_zero_assigned_lits()) {
     fixed_var_set[lit.var()] = lit.sign() ? "0" : "1";
   }
-  for (auto var : secret_vars) {
+  for (auto var : vars) {
     if (used_vars.count(var) == 0) {
-      ret += "u";
-      std::cout << "unused vars" << var << std::endl;
-      continue;
+      if (find(secret_vars.begin(),secret_vars.end(),var) == secret_vars.end()) {
+        std::cout << "unused vars" << var << std::endl;
+        ret += "u";
+        continue;
+      }
     }
     if (unused_sampling_vars.count(var)) {
-      std::cout << "unused_sampling_vars vars" << var << std::endl;
-      ret += "u";
-      continue;
+      if (find(secret_vars.begin(),secret_vars.end(),var) == secret_vars.end()) {
+        std::cout << "unused_sampling_vars vars" << var << std::endl;
+        ret += "u";
+        continue;
+      }
     }
     if (fixed_var_set.count(var) > 0) {
       ret += fixed_var_set[var];
@@ -366,13 +370,12 @@ string Count::trimVar(SATSolver *solver2, vector<unsigned> &secret_vars) {
                 << std::endl;
       continue;
     }
-    new_secret_vars.insert(var);
+    new_vars.insert(var);
     ret += "x";
   }
-  cout << "new trimed vars size=" << new_secret_vars.size();
-  secret_vars.clear();
-  secret_vars.insert(secret_vars.begin(), new_secret_vars.begin(),
-                     new_secret_vars.end());
+  cout << "new trimed vars size=" << new_vars.size();
+  vars.clear();
+  vars.insert(vars.begin(), new_vars.begin(), new_vars.end());
   // std::swap(new_secret_vars, secret_vars);
   return ret;
 }
@@ -513,7 +516,8 @@ void Count::add_count_options() {
   countOptions_.add_options()("debug", po::value(&debug)->default_value(false),
                               "Debug");
   countOptions_.add_options()(
-      "declassification_mode", po::value(&declassification_mode_)->default_value(1),
+      "declassification_mode",
+      po::value(&declassification_mode_)->default_value(1),
       "declassification_mode: 0: additional leakage, 1: additional leakage "
       "when declassified is known");
   countOptions_.add_options()("symmap",
