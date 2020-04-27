@@ -351,14 +351,16 @@ string Count::trimVar(SATSolver *solver2, vector<unsigned> &vars) {
   }
   for (auto var : vars) {
     if (used_vars.count(var) == 0) {
-      if (find(secret_vars.begin(),secret_vars.end(),var) == secret_vars.end()) {
+      if (find(secret_vars.begin(), secret_vars.end(), var) ==
+          secret_vars.end()) {
         std::cout << "unused vars" << var << std::endl;
         ret += "u";
         continue;
       }
     }
     if (unused_sampling_vars.count(var)) {
-      if (find(secret_vars.begin(),secret_vars.end(),var) == secret_vars.end()) {
+      if (find(secret_vars.begin(), secret_vars.end(), var) ==
+          secret_vars.end()) {
         std::cout << "unused_sampling_vars vars" << var << std::endl;
         ret += "u";
         continue;
@@ -1201,52 +1203,69 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
 
   } else {
     map<unsigned, int> prev_secret_var_to_index;
-
-    for (auto id_lits : all_secret_lits) {
-      string id = id_lits.first;
-      auto current_secret_vars = Lits2Vars(id_lits.second);
+    int number_S = 0;
+    vector<string> ids;
+    for (auto id_all_added_secret_rhs : all_added_secret_rhs) {
+      ids.push_back(id_all_added_secret_rhs.first);
+    }
+    for (size_t i = 0; i < 3; ++i) {
+      // for (auto id_lits : all_secret_lits) {
+      string id = ids[i];
+      auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
       // when one secret set is selcted, we should generate another set using
       // same hash but with different rhs to ensure disjoint sets.
-      if (shuffle(secret_rhs)) {
+
+      if (i > 1 || shuffle(secret_rhs)) {
         for (auto &added_vars : added_secret_vars) {
           // replace var from secret_1 to secret_2
           for (auto &var : added_vars) {
             var = current_secret_vars[prev_secret_var_to_index[var]];
           }
         }
-      } else {
-        for (int offset = 0; offset < current_secret_vars.size(); ++offset) {
-          prev_secret_var_to_index[current_secret_vars[offset]] = offset;
-        }
       }
-      auto rhs_watch = new_watch(solver);
-      // assert h(Si)=ri;
-      secret_watch.clear();
-      secret_rnd +=
-          Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
-                 added_secret_vars, secret_rhs, rhs_watch, true);
-      solver_secret_rhs_watches[id].push_back(rhs_watch);
+      for (int offset = 0; offset < current_secret_vars.size(); ++offset) {
+        prev_secret_var_to_index[current_secret_vars[offset]] = offset;
+      }
+      if (i < 2) {
+        auto rhs_watch = new_watch(solver);
+
+        // assert h(Si)=ri;
+        secret_watch.clear();
+        secret_rnd +=
+            Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
+                   added_secret_vars, secret_rhs, rhs_watch, true);
+        solver_secret_rhs_watches[id].push_back(rhs_watch);
+      } else {
+        auto rhs_watch = solver_secret_rhs_watches[ids[i-1]].back();
+        secret_rnd +=
+            Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
+                   added_secret_vars, secret_rhs, rhs_watch, true);
+      }
       // solver->add_clause({~rhs_watch});
       all_added_secret_vars[id] = added_secret_vars;
       all_added_secret_rhs[id] = secret_rhs;
     }
-    for (auto id_all_added_secret_rhs : all_added_secret_rhs) {
-      for (auto id_added_secret_vars : all_added_secret_vars) {
-        auto id = id_added_secret_vars.first;
-        if (id == id_all_added_secret_rhs.first) {
-          continue;
-        }
-        auto added_secret_vars = id_added_secret_vars.second;
-        auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
-        auto secret_rhs = id_all_added_secret_rhs.second;
-        // add H(S1)=r2 xor solver_secret_rhs_watches[2]
-        // add H(S2)=r1 xor solver_secret_rhs_watches[3]
-        auto secret_rhs_watch = new_watch(solver);
-        secret_watch.clear();
-        solver_secret_rhs_watches[id].push_back(secret_rhs_watch);
-        Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
-               added_secret_vars, secret_rhs, secret_rhs_watch, true);
-      }
+    for (size_t i = 0; i < 2; ++i) {
+      string id = ids[i];
+      string add_id = ids[1 - i];
+      auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
+      auto added_secret_vars = all_added_secret_vars[add_id];
+      auto secret_rhs = all_added_secret_rhs[add_id];
+      // add H(S1)=r2 xor solver_secret_rhs_watches[2]
+      // add H(S2)=r1 xor solver_secret_rhs_watches[3]
+      auto secret_rhs_watch = new_watch(solver);
+      secret_watch.clear();
+      solver_secret_rhs_watches[id].push_back(secret_rhs_watch);
+      Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
+             added_secret_vars, secret_rhs, secret_rhs_watch, true);
+    }
+    for (size_t i = 2; i < ids.size(); ++i) {
+      secret_watch.clear();
+      auto secret_rhs = all_added_secret_rhs[ids[1]];
+      auto added_secret_vars = all_added_secret_vars[ids[i]];
+      Sample(solver, Lits2Vars(all_secret_lits[ids[i]]), num_xor_cls_,
+             secret_watch, added_secret_vars, secret_rhs,
+             solver_secret_rhs_watches[ids[1]].back(), true);
     }
     compose_distinct_secretset(solver, solver_secret_rhs_watches,
                                use_overlap_coefficient_);
@@ -1260,15 +1279,19 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       cout << "sample for id" << i << std::endl;
       map<string, vector<Lit>> backup_secret_rhs_watches;
       backup_secret_rhs_watches.clear();
-      for (auto id_added_secret_vars : all_added_secret_vars) {
-        auto id = id_added_secret_vars.first;
+      for (size_t i = 0; i < 2; ++i) {
+        // for (auto id_lits : all_secret_lits) {
+        string id = ids[i];
+        // for (auto id_added_secret_vars : all_added_secret_vars) {
+        // auto id = id_added_secret_vars.first;
         backup_secret_rhs_watches[id].resize(2);
-        for (auto id_added_secret_rhs : all_added_secret_rhs) {
-          auto secret_rhs = id_added_secret_rhs.second;
-          auto added_secret_vars = id_added_secret_vars.second;
+        for (size_t j = 0; j < 2; ++i) {
+          string jid = ids[j];
+          auto secret_rhs = all_added_secret_rhs[jid];
+          auto added_secret_vars = all_added_secret_vars[jid];
           auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
           auto rhs_watch = new_watch(backup_solvers[i]);
-          if (id == id_added_secret_rhs.first)
+          if (id == jid)
             backup_secret_rhs_watches[id][0] = rhs_watch;
           else
             backup_secret_rhs_watches[id][1] = rhs_watch;
@@ -1462,8 +1485,11 @@ void Count::setBackupSolvers(vector<SATSolver *> &bs) {
       }*/
       // backup_solvers[i] = newCounterSolver((void *)&conf, i);
       readInAFile(backup_solvers[i], filesToRead[0]);
-      if (i == 1 && all_declass_lits.size())
+
+      if (i == 1 && all_declass_lits.size()) {
+
         AddVariableSame(backup_solvers[i], all_declass_lits);
+      }
       if (all_declass_lits.size() == 0) {
         backup_solvers.resize(1);
       }
@@ -1571,8 +1597,17 @@ void Count::run() {
       if (inter_mode_ == 2) {
         cout << "AddVariableSame for solver";
         AddVariableSame(solver, all_observe_lits);
-        if (all_declass_lits.size())
-          AddVariableSame(solver, all_declass_lits);
+        if (all_declass_lits.size()) {
+          if (all_declass_lits.count("_2")) {
+            cout << "add all_declass_lits[_0], all_declass_lits[_2];"
+                 << std::endl;
+            map<string, vector<Lit>> diff_declass_lits;
+            diff_declass_lits["_0"] = all_declass_lits["_0"];
+            diff_declass_lits["_2"] = all_declass_lits["_2"];
+            AddVariableSame(solver, diff_declass_lits);
+          } else
+            AddVariableSame(solver, all_declass_lits);
+        }
         auto ids = getIDs();
         count_vars = all_count_vars[ids[0]];
 
