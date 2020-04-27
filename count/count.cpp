@@ -1204,13 +1204,11 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
   } else {
     map<unsigned, int> prev_secret_var_to_index;
     int number_S = 0;
-    vector<string> ids;
-    for (auto id_all_added_secret_rhs : all_added_secret_rhs) {
-      ids.push_back(id_all_added_secret_rhs.first);
-    }
-    for (size_t i = 0; i < 3; ++i) {
+    vector<string> ids=getIDs();
+    for (size_t i = 0; i < ids.size(); ++i) {
       // for (auto id_lits : all_secret_lits) {
       string id = ids[i];
+      cout<<id;
       auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
       // when one secret set is selcted, we should generate another set using
       // same hash but with different rhs to ensure disjoint sets.
@@ -1610,7 +1608,6 @@ void Count::run() {
         }
         auto ids = getIDs();
         count_vars = all_count_vars[ids[0]];
-
         cout << "count vars:";
         for (auto v : count_vars) {
           cout << v << "\t";
