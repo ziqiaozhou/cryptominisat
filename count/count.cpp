@@ -1204,11 +1204,11 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
   } else {
     map<unsigned, int> prev_secret_var_to_index;
     int number_S = 0;
-    vector<string> ids=getIDs();
+    vector<string> ids = getIDs();
     for (size_t i = 0; i < ids.size(); ++i) {
       // for (auto id_lits : all_secret_lits) {
       string id = ids[i];
-      cout<<id;
+      cout << id;
       auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
       // when one secret set is selcted, we should generate another set using
       // same hash but with different rhs to ensure disjoint sets.
@@ -1234,7 +1234,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
                    added_secret_vars, secret_rhs, rhs_watch, true);
         solver_secret_rhs_watches[id].push_back(rhs_watch);
       } else {
-        auto rhs_watch = solver_secret_rhs_watches[ids[i-1]].back();
+        auto rhs_watch = solver_secret_rhs_watches[ids[i - 1]].back();
         secret_rnd +=
             Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
                    added_secret_vars, secret_rhs, rhs_watch, true);
@@ -1273,8 +1273,8 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
     solver->dump_irred_clauses_ind_only(&ff);
     ff.close();
     // exit(1);
-    for (int i = 0; i < backup_solvers.size(); ++i) {
-      cout << "sample for id" << i << std::endl;
+    for (int k = 0; k < backup_solvers.size(); ++k){
+      cout << "sample for solver id" << k << std::endl;
       map<string, vector<Lit>> backup_secret_rhs_watches;
       backup_secret_rhs_watches.clear();
       for (size_t i = 0; i < 2; ++i) {
@@ -1283,28 +1283,28 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
         // for (auto id_added_secret_vars : all_added_secret_vars) {
         // auto id = id_added_secret_vars.first;
         backup_secret_rhs_watches[id].resize(2);
-        for (size_t j = 0; j < 2; ++i) {
+        for (size_t j = 0; j < 2; ++j) {
           string jid = ids[j];
           auto secret_rhs = all_added_secret_rhs[jid];
-          auto added_secret_vars = all_added_secret_vars[jid];
+          auto added_secret_vars = all_added_secret_vars[id];
           auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
-          auto rhs_watch = new_watch(backup_solvers[i]);
+          auto rhs_watch = new_watch(backup_solvers[k]);
           if (id == jid)
             backup_secret_rhs_watches[id][0] = rhs_watch;
           else
             backup_secret_rhs_watches[id][1] = rhs_watch;
           secret_watch.clear();
-          Sample(backup_solvers[i], current_secret_vars, num_xor_cls_,
+          Sample(backup_solvers[k], current_secret_vars, num_xor_cls_,
                  secret_watch, added_secret_vars, secret_rhs, rhs_watch, true);
         }
       }
       // ( h(S1)=r1 && h(S2)=r2 ) or (h(S1)=r2 && h(S2)=r1)
-      compose_distinct_secretset(backup_solvers[i], backup_secret_rhs_watches,
+      compose_distinct_secretset(backup_solvers[k], backup_secret_rhs_watches,
                                  use_overlap_coefficient_);
       std::ofstream fff(out_dir_ + "/" + std::to_string(num_xor_cls_) +
                             ".back.cnf",
                         std::ofstream::out);
-      backup_solvers[i]->dump_irred_clauses_ind_only(&fff);
+      backup_solvers[k]->dump_irred_clauses_ind_only(&fff);
       fff.close();
     }
   }
