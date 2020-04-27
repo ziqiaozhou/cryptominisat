@@ -1273,7 +1273,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
     solver->dump_irred_clauses_ind_only(&ff);
     ff.close();
     // exit(1);
-    for (int k = 0; k < backup_solvers.size(); ++k){
+    for (int k = 0; k < backup_solvers.size(); ++k) {
       cout << "sample for solver id" << k << std::endl;
       map<string, vector<Lit>> backup_secret_rhs_watches;
       backup_secret_rhs_watches.clear();
@@ -1483,10 +1483,16 @@ void Count::setBackupSolvers(vector<SATSolver *> &bs) {
       }*/
       // backup_solvers[i] = newCounterSolver((void *)&conf, i);
       readInAFile(backup_solvers[i], filesToRead[0]);
-
       if (i == 1 && all_declass_lits.size()) {
-
-        AddVariableSame(backup_solvers[i], all_declass_lits);
+        if (all_declass_lits.count("_2")) {
+          cout << "add all_declass_lits[_0], all_declass_lits[_1];"
+               << std::endl;
+          map<string, vector<Lit>> diff_declass_lits;
+          diff_declass_lits["_0"] = all_declass_lits["_0"];
+          diff_declass_lits["_1"] = all_declass_lits["_1"];
+          AddVariableSame(solver, diff_declass_lits);
+        } else
+          AddVariableSame(backup_solvers[i], all_declass_lits);
       }
       if (all_declass_lits.size() == 0) {
         backup_solvers.resize(1);
