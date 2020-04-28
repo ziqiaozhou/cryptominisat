@@ -103,7 +103,7 @@ protected:
   }
   void setSecretVars();
   void setCountVars();
-  void RecordSolution(string rnd);
+  void RecordSolution(string rnd,string subfix);
   void RecordCount(map<int, unsigned> &sols, int hash_count, string rnd);
 
   void RecordCountInter(map<int, unsigned> &sols, int hash_count,

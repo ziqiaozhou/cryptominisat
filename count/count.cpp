@@ -496,12 +496,12 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
   }
   solution_f.close();
 }
-void Count::RecordSolution(string rnd) {
+void Count::RecordSolution(string rnd,string subfix="") {
 
   if (!record_solution_)
     return;
   std::cout << "start record solution\n";
-  std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol",
+  std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol"+subfix,
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
     solution_f << lit << " % " << rnd << std::endl;
@@ -1129,6 +1129,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
       backup_solution_counts[i] = count_once(
           backup_solvers[i], backup_count_vars[i], {}, backup_left[i],
           backup_right[i], backup_hash_count[i], true);
+      RecordSolution(secret_rnd,"."+std::to_string(i));
     }
     calculateDiffSolution(inter_solution_lits, solution_lits,
                           inter_solution_strs, solution_strs, secret_rnd);
@@ -1235,6 +1236,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
         solver_secret_rhs_watches[id].push_back(rhs_watch);
       } else {
         auto rhs_watch = solver_secret_rhs_watches[ids[i - 1]].back();
+        secret_watch.clear();
         secret_rnd +=
             Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
                    added_secret_vars, secret_rhs, rhs_watch, true);
@@ -1308,7 +1310,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       fff.close();
     }
   }
-  after_secret_sample_count(solver, secret_rnd);
+  return after_secret_sample_count(solver, secret_rnd);
 }
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
@@ -1490,7 +1492,7 @@ void Count::setBackupSolvers(vector<SATSolver *> &bs) {
           map<string, vector<Lit>> diff_declass_lits;
           diff_declass_lits["_0"] = all_declass_lits["_0"];
           diff_declass_lits["_1"] = all_declass_lits["_1"];
-          AddVariableSame(solver, diff_declass_lits);
+          AddVariableSame(backup_solvers[i], diff_declass_lits);
         } else
           AddVariableSame(backup_solvers[i], all_declass_lits);
       }
@@ -1608,6 +1610,9 @@ void Count::run() {
             map<string, vector<Lit>> diff_declass_lits;
             diff_declass_lits["_0"] = all_declass_lits["_0"];
             diff_declass_lits["_2"] = all_declass_lits["_2"];
+            AddVariableSame(solver, diff_declass_lits);
+            diff_declass_lits["_1"] = all_declass_lits["_2"];
+            diff_declass_lits.erase("_2");
             AddVariableSame(solver, diff_declass_lits);
           } else
             AddVariableSame(solver, all_declass_lits);
