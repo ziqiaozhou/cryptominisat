@@ -496,12 +496,12 @@ void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
   }
   solution_f.close();
 }
-void Count::RecordSolution(string rnd,string subfix="") {
+void Count::RecordSolution(string rnd, string subfix = "") {
 
   if (!record_solution_)
     return;
   std::cout << "start record solution\n";
-  std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol"+subfix,
+  std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol" + subfix,
                            std::ofstream::out | std::ofstream::app);
   for (auto lit : solution_lits)
     solution_f << lit << " % " << rnd << std::endl;
@@ -1129,7 +1129,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
       backup_solution_counts[i] = count_once(
           backup_solvers[i], backup_count_vars[i], {}, backup_left[i],
           backup_right[i], backup_hash_count[i], true);
-      RecordSolution(secret_rnd,"."+std::to_string(i));
+      RecordSolution(secret_rnd, "." + std::to_string(i));
     }
     calculateDiffSolution(inter_solution_lits, solution_lits,
                           inter_solution_strs, solution_strs, secret_rnd);
@@ -1371,6 +1371,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
       backup_solution_counts[i] =
           count_once(backup_solvers[i], count_vars, {}, backup_left[i],
                      backup_right[i], backup_hash_count[i], true);
+      RecordSolution(secret_rnd,"."+std::to_string(i));
       backup_max_hash_count[i] =
           std::max(backup_max_hash_count[i], backup_hash_count[i]);
       // prev_count_vars = &current_count_vars;
