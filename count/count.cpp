@@ -1612,7 +1612,7 @@ void Count::run() {
             diff_declass_lits["_0"] = all_declass_lits["_0"];
             diff_declass_lits["_2"] = all_declass_lits["_2"];
             AddVariableSame(solver, diff_declass_lits);
-            diff_declass_lits["_1"] = all_declass_lits["_2"];
+            diff_declass_lits["_1"] = all_declass_lits["_1"];
             diff_declass_lits.erase("_2");
             AddVariableSame(solver, diff_declass_lits);
           } else
