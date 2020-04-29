@@ -1515,6 +1515,7 @@ bool Count::ProbToDiffFromSecretSet() {
   readInAFile(solver, inputfile);
   setSecretVars();
   setCountVars();
+
   AddVariableSame(solver, all_observe_lits);
   if (all_declass_lits.size())
     AddVariableSame(solver, all_declass_lits);
@@ -1603,6 +1604,7 @@ void Count::run() {
             }*/
       if (inter_mode_ == 2) {
         cout << "AddVariableSame for solver";
+        all_observe_lits.erase("_2");
         AddVariableSame(solver, all_observe_lits);
         if (all_declass_lits.size()) {
           if (all_declass_lits.count("_2")) {
