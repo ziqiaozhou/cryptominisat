@@ -1315,7 +1315,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       compose_distinct_secretset(backup_solvers[k], backup_secret_rhs_watches,
                                  use_overlap_coefficient_);
       std::ofstream fff(out_dir_ + "/" + std::to_string(num_xor_cls_) +
-                            ".back.cnf"+std::to_string(k),
+                            ".back.cnf" + std::to_string(k),
                         std::ofstream::out);
       backup_solvers[k]->dump_irred_clauses_ind_only(&fff);
       fff.close();
@@ -1626,9 +1626,11 @@ void Count::run() {
             diff_declass_lits["_0"] = all_declass_lits["_0"];
             diff_declass_lits["_2"] = all_declass_lits["_2"];
             AddVariableSame(solver, diff_declass_lits);
-            diff_declass_lits["_1"] = all_declass_lits["_1"];
-            diff_declass_lits.erase("_2");
-            AddVariableSame(solver, diff_declass_lits);
+            if (declassification_mode_ == 1) {
+              diff_declass_lits["_1"] = all_declass_lits["_1"];
+              diff_declass_lits.erase("_2");
+              AddVariableSame(solver, diff_declass_lits);
+            }
           } else
             AddVariableSame(solver, all_declass_lits);
         }
