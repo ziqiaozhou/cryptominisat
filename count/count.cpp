@@ -1315,7 +1315,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       compose_distinct_secretset(backup_solvers[k], backup_secret_rhs_watches,
                                  use_overlap_coefficient_);
       std::ofstream fff(out_dir_ + "/" + std::to_string(num_xor_cls_) +
-                            ".back.cnf",
+                            ".back.cnf"+std::to_string(k),
                         std::ofstream::out);
       backup_solvers[k]->dump_irred_clauses_ind_only(&fff);
       fff.close();
