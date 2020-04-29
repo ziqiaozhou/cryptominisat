@@ -695,8 +695,22 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
          << " xor per var, thus change ratio to" << ratio << std::endl;
   }
-  string randomBits =
-      GenerateRandomBits_prob((vars.size()) * num_xor_cls, ratio);
+  string randomBits = "";
+  std::set<string> randomBitsSet;
+  for (int i = 0; i < num_xor_cls; ++i) {
+    string tmp;
+    while (true) {
+      tmp = GenerateRandomBits_prob(vars.size(), ratio);
+      if(tmp.find("1")==std::string::npos){
+        // no var is chosen in the hash
+        continue;
+      }
+      if (randomBitsSet.count(tmp) == 0)
+        break;
+    }
+    randomBitsSet.insert(tmp);
+    randomBits+=tmp;
+  }
   string randomBits_rhs = GenerateRandomBits(num_xor_cls);
   vector<unsigned> lits;
   // assert watch=0;?
@@ -725,12 +739,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
           if (hashf)
             *hashf << vars[j] + 1 << " ";
         }
-        if (lits.size() < 1) {
-          string newrand = GenerateRandomBits(vars.size());
-          for (unsigned j = 0; j < vars.size(); j++) {
-            randomBits[i * vars.size() + j] = newrand[j];
-          }
-        }
+        assert(lits.size() >= 1);
       }
       alllits.push_back(lits);
       rhs.push_back(randomBits_rhs[i] == '1');
@@ -1246,10 +1255,11 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       all_added_secret_rhs[id] = secret_rhs;
     }
     for (size_t i = 0; i < 2; ++i) {
+      std::cout<<"sample opposite sets: H(S1)=r2, H(S2)=r1"<<std::endl;
       string id = ids[i];
       string add_id = ids[1 - i];
       auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
-      auto added_secret_vars = all_added_secret_vars[add_id];
+      auto added_secret_vars = all_added_secret_vars[id];
       auto secret_rhs = all_added_secret_rhs[add_id];
       // add H(S1)=r2 xor solver_secret_rhs_watches[2]
       // add H(S2)=r1 xor solver_secret_rhs_watches[3]
@@ -1371,7 +1381,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
       backup_solution_counts[i] =
           count_once(backup_solvers[i], count_vars, {}, backup_left[i],
                      backup_right[i], backup_hash_count[i], true);
-      RecordSolution(secret_rnd,"."+std::to_string(i));
+      RecordSolution(secret_rnd, "." + std::to_string(i));
       backup_max_hash_count[i] =
           std::max(backup_max_hash_count[i], backup_hash_count[i]);
       // prev_count_vars = &current_count_vars;
@@ -1418,7 +1428,7 @@ void Count::simulate_count(SATSolver *solver, vector<unsigned> &secret_vars) {
   vector<vector<unsigned>> added_secret_vars;
   vector<Lit> secret_watch;
   vector<bool> secret_rhs;
-  trimVar(solver, secret_vars);
+  // trimVar(solver, secret_vars);
   cout << "count\n" << solver << ", secret size=" << secret_vars.size();
   cout << "Sample\n";
   if (secret_vars.size() < num_xor_cls_) {
