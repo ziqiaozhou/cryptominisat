@@ -128,13 +128,11 @@ bool shuffle(vector<bool> &secret_rhs) {
 vector<string> Count::getCIISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
-  vector<string> labels = {
-      CONTROLLED_,
-      OTHER_ + "_0",
-      SECRET_ + "_0",
-  };
-  vector<string> complete_labels = {CONTROLLED_, OTHER_ + "_0", SECRET_ + "_0",
-                                    OBSERVABLE_ + "_0"};
+  vector<string> labels = {CONTROLLED_, OTHER_ + "_0", OTHER_ + "_1",
+                           SECRET_ + "_0", SECRET_ + "_1"};
+  vector<string> complete_labels = {
+      CONTROLLED_,    OTHER_ + "_0",      OTHER_ + "_1",     SECRET_ + "_0",
+      SECRET_ + "_1", OBSERVABLE_ + "_0", OBSERVABLE_ + "_1"};
   auto &model = solver->get_model();
   for (auto label : complete_labels) {
     if (symbol_vars.count(label) == 0)
@@ -503,8 +501,9 @@ void Count::RecordSolution(string rnd, string subfix = "") {
   std::cout << "start record solution\n";
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol" + subfix,
                            std::ofstream::out | std::ofstream::app);
-  for (int i=0;i<solution_lits.size();++i)
-    solution_f << solution_lits[i]<<"; "<< solution_strs[i] << " % " << rnd << std::endl;
+  for (int i = 0; i < solution_lits.size(); ++i)
+    solution_f << solution_lits[i] << "; " << solution_strs[i] << " % " << rnd
+               << std::endl;
   solution_f.close();
 }
 
