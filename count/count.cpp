@@ -503,8 +503,8 @@ void Count::RecordSolution(string rnd, string subfix = "") {
   std::cout << "start record solution\n";
   std::ofstream solution_f(out_dir_ + "//" + out_file_ + ".sol" + subfix,
                            std::ofstream::out | std::ofstream::app);
-  for (auto lit : solution_lits)
-    solution_f << lit << " % " << rnd << std::endl;
+  for (int i=0;i<solution_lits.size();++i)
+    solution_f << solution_lits[i]<<"; "<< solution_strs[i] << " % " << rnd << std::endl;
   solution_f.close();
 }
 
@@ -701,7 +701,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     string tmp;
     while (true) {
       tmp = GenerateRandomBits_prob(vars.size(), ratio);
-      if(tmp.find("1")==std::string::npos){
+      if (tmp.find("1") == std::string::npos) {
         // no var is chosen in the hash
         continue;
       }
@@ -709,7 +709,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
         break;
     }
     randomBitsSet.insert(tmp);
-    randomBits+=tmp;
+    randomBits += tmp;
   }
   string randomBits_rhs = GenerateRandomBits(num_xor_cls);
   vector<unsigned> lits;
@@ -753,8 +753,9 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     if (addInner != lit_Undef) {
       solver2->add_clause({addInner, watch[i]});
       cout << "secret hash xor:\n";
+      cout << "watch:" << addInner << watch[i];
       for (auto l : lits) {
-        cout << l << "\t";
+        cout << l + 1 << "\t";
       }
       cout << rhs[i] << std::endl;
     }
@@ -768,7 +769,6 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
                                  const vector<unsigned> &target_count_vars,
                                  unsigned maxSolutions,
                                  const vector<Lit> &assumps, bool only_ind) {
-  solution_strs.clear();
   unsigned solutions = 0;
   vector<Lit> solution;
   lbool ret;
@@ -905,6 +905,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
   map<int, vector<string>> hash_solution_strs;
   vector<Lit> assump;
   solution_lits.clear();
+  solution_strs.clear();
   cout << "target count size" << target_count_vars.size() << std::endl;
   if (left < 1) {
     nsol = bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
@@ -919,6 +920,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
   hash_count = hash_count > 0 ? hash_count : (right + left) / 2;
   while (left < right && (nsol < max_sol_ * 0.6 || nsol >= max_sol_)) {
     solution_lits.clear();
+    solution_strs.clear();
     cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
     long start = cpuTimeTotal();
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
@@ -1255,7 +1257,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       all_added_secret_rhs[id] = secret_rhs;
     }
     for (size_t i = 0; i < 2; ++i) {
-      std::cout<<"sample opposite sets: H(S1)=r2, H(S2)=r1"<<std::endl;
+      std::cout << "sample opposite sets: H(S1)=r2, H(S2)=r1" << std::endl;
       string id = ids[i];
       string add_id = ids[1 - i];
       auto current_secret_vars = Lits2Vars(all_secret_lits[id]);
@@ -1362,6 +1364,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   vector<int> backup_max_hash_count(backup_right_.size(), 0);
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     solution_lits.clear();
+    solution_strs.clear();
     cout << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
     solution_counts.clear();
