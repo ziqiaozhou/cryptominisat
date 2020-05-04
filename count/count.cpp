@@ -1493,12 +1493,10 @@ void Count::setBackupSolvers(vector<SATSolver *> &bs) {
     for (int i = 0; i < 2; ++i) {
       symbol_vars.clear();
       sampling_vars.clear();
-      /*if (backup_solvers[i] != nullptr) {
-        delete backup_solvers[i];
-      }*/
-      // backup_solvers[i] = newCounterSolver((void *)&conf, i);
       readInAFile(backup_solvers[i], filesToRead[0]);
-      if (i == 1 && all_declass_lits.size()) {
+      if (((declassification_mode_ == 0 && i == 1) ||
+           (declassification_mode_ == 1 && i == 0)) &&
+          all_declass_lits.size()) {
         if (all_declass_lits.count("_2")) {
           cout << "add all_declass_lits[_0], all_declass_lits[_1];"
                << std::endl;
@@ -1509,9 +1507,9 @@ void Count::setBackupSolvers(vector<SATSolver *> &bs) {
         } else
           AddVariableSame(backup_solvers[i], all_declass_lits);
       }
-      if (all_declass_lits.size() == 0) {
-        backup_solvers.resize(1);
-      }
+    }
+    if (all_declass_lits.size() == 0 || declassification_mode_ == 1) {
+      backup_solvers.resize(1);
     }
   }
   backup_left_.resize(backup_solvers.size());
