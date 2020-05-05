@@ -942,7 +942,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
-        left = std::max(left, hash_count - int(log2(max_sol_ / nsol)) * 2);
+        left = std::max(left, hash_count - int(log2(max_sol_ / nsol))-1);
       }
     } else {
       nice_hash_count = hash_count;
