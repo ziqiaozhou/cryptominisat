@@ -701,12 +701,15 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   std::set<string> randomBitsSet;
   for (int i = 0; i < num_xor_cls; ++i) {
     string tmp(max_xor_per_var,'1');
+    cout<<"tmp="<<tmp;
     tmp=tmp+string(vars.size()-max_xor_per_var_,'0');
     max_xor_per_var=max_xor_per_var*xor_decay_;
     xor_decay_=1.0/xor_decay_;
+    cout<<"tmp="<<tmp;
     while (true) {
       //tmp = GenerateRandomBits_prob(vars.size(), ratio);
       std::random_shuffle(tmp.begin(),tmp.end());
+      cout<<"tmp="<<tmp;
       if (tmp.find("1") == std::string::npos) {
         // no var is chosen in the hash
         continue;
