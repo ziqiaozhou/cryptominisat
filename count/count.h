@@ -154,6 +154,7 @@ protected:
   std::map<string, vector<unsigned>> all_count_vars;
 
   double xor_ratio_;
+  double xor_decay_;
   int num_xor_cls_;
   int max_sol_;
   int backtrack_;

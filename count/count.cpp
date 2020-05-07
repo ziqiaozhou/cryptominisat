@@ -547,6 +547,8 @@ void Count::add_count_options() {
                               po::value(&max_log_size_)->default_value(-1));
   countOptions_.add_options()("max_xor_per_var",
                               po::value(&max_xor_per_var_)->default_value(32));
+  countOptions_.add_options()("xor_decay",
+                              po::value(&xor_decay_)->default_value(1.0));
   countOptions_.add_options()("count_mode",
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
@@ -689,6 +691,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
                           addInner, is_restarted);
   }*/
   double ratio = xor_ratio_;
+  int max_xor_per_var=max_xor_per_var_;
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
@@ -697,9 +700,13 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   string randomBits = "";
   std::set<string> randomBitsSet;
   for (int i = 0; i < num_xor_cls; ++i) {
-    string tmp;
+    string tmp(max_xor_per_var,'1');
+    tmp=tmp+string(vars.size()-max_xor_per_var_,'0');
+    max_xor_per_var=max_xor_per_var*xor_decay_;
+    xor_decay_=1.0/xor_decay_;
     while (true) {
-      tmp = GenerateRandomBits_prob(vars.size(), ratio);
+      //tmp = GenerateRandomBits_prob(vars.size(), ratio);
+      std::random_shuffle(tmp.begin(),tmp.end());
       if (tmp.find("1") == std::string::npos) {
         // no var is chosen in the hash
         continue;
@@ -942,8 +949,13 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
-        left = std::max(left, hash_count - int(log2(max_sol_ / nsol))-1);
+        left = std::max(left, hash_count - int(log2(max_sol_ / nsol)) - 1);
+        cout << "hash_count=" << hash_count << ", nsol=" << nsol
+             << "left=" << left << "right=" << right << std::endl;
+        hash_count = hash_count - int(log2(max_sol_ / nsol));
+        continue;
       }
+
     } else {
       nice_hash_count = hash_count;
       right = hash_count;
