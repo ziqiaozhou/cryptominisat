@@ -691,25 +691,23 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
                           addInner, is_restarted);
   }*/
   double ratio = xor_ratio_;
-  int max_xor_per_var=max_xor_per_var_;
+
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
          << " xor per var, thus change ratio to" << ratio << std::endl;
   }
+  int max_xor_per_var=ratio*vars.size();
   string randomBits = "";
   std::set<string> randomBitsSet;
   for (int i = 0; i < num_xor_cls; ++i) {
     string tmp(max_xor_per_var,'1');
-    cout<<"tmp="<<tmp;
-    tmp=tmp+string(vars.size()-max_xor_per_var_,'0');
+    tmp=tmp+string(vars.size()-max_xor_per_var,'0');
     max_xor_per_var=max_xor_per_var*xor_decay_;
     xor_decay_=1.0/xor_decay_;
-    cout<<"tmp="<<tmp;
     while (true) {
       //tmp = GenerateRandomBits_prob(vars.size(), ratio);
       std::random_shuffle(tmp.begin(),tmp.end());
-      cout<<"tmp="<<tmp;
       if (tmp.find("1") == std::string::npos) {
         // no var is chosen in the hash
         continue;
