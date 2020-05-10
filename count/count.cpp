@@ -697,17 +697,17 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
          << " xor per var, thus change ratio to" << ratio << std::endl;
   }
-  int max_xor_per_var=ratio*vars.size();
+  int max_xor_per_var = ratio * vars.size();
   string randomBits = "";
   std::set<string> randomBitsSet;
   for (int i = 0; i < num_xor_cls; ++i) {
-    string tmp(max_xor_per_var,'1');
-    tmp=tmp+string(vars.size()-max_xor_per_var,'0');
-    max_xor_per_var=max_xor_per_var*xor_decay_;
-    xor_decay_=1.0/xor_decay_;
+    string tmp(max_xor_per_var, '1');
+    tmp = tmp + string(vars.size() - max_xor_per_var, '0');
+    max_xor_per_var = max_xor_per_var * xor_decay_;
+    xor_decay_ = 1.0 / xor_decay_;
     while (true) {
-      //tmp = GenerateRandomBits_prob(vars.size(), ratio);
-      std::random_shuffle(tmp.begin(),tmp.end());
+      // tmp = GenerateRandomBits_prob(vars.size(), ratio);
+      std::random_shuffle(tmp.begin(), tmp.end());
       if (tmp.find("1") == std::string::npos) {
         // no var is chosen in the hash
         continue;
@@ -896,6 +896,9 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
                                      const vector<Lit> &secret_watch, int &left,
                                      int &right, int &hash_count,
                                      bool reserve_xor) {
+  if (left > right) {
+    left = right - 30;
+  }
   long total_start = cpuTimeTotal();
   int nsol = 0, nice_hash_count = 0;
   if (!reserve_xor) {
@@ -950,10 +953,10 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
-        left = std::max(left, hash_count - int(log2(max_sol_ / nsol)) - 1);
+        left = std::max(left, hash_count - int(ceil(log2(max_sol_ / nsol))) - 1);
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
-        hash_count = hash_count - int(log2(max_sol_ / nsol));
+        hash_count = hash_count - int(ceil(log2(max_sol_ / nsol)));
         continue;
       }
 
