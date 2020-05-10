@@ -682,6 +682,8 @@ string Count::SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
   solver2->add_clause(addInners);
   return ret;
 }
+int myrandom(int i) { return std::rand() % i; }
+
 string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
                      int num_xor_cls, vector<Lit> &watch,
                      vector<vector<unsigned>> &alllits, vector<bool> &rhs,
@@ -691,7 +693,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
                           addInner, is_restarted);
   }*/
   double ratio = xor_ratio_;
-
+  srand(unsigned(time(NULL)));
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
@@ -700,6 +702,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   int max_xor_per_var = ratio * vars.size();
   string randomBits = "";
   std::set<string> randomBitsSet;
+
   for (int i = 0; i < num_xor_cls; ++i) {
     string tmp(max_xor_per_var, '1');
     tmp = tmp + string(vars.size() - max_xor_per_var, '0');
@@ -707,7 +710,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     xor_decay_ = 1.0 / xor_decay_;
     while (true) {
       // tmp = GenerateRandomBits_prob(vars.size(), ratio);
-      std::random_shuffle(tmp.begin(), tmp.end());
+      std::random_shuffle(tmp.begin(), tmp.end(), myrandom);
       if (tmp.find("1") == std::string::npos) {
         // no var is chosen in the hash
         continue;
@@ -953,13 +956,13 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
-        left = std::max(left, hash_count - int(ceil(log2(max_sol_ / nsol))) - 1);
+        left =
+            std::max(left, hash_count - int(ceil(log2(max_sol_ / nsol))) - 1);
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
         hash_count = hash_count - int(ceil(log2(max_sol_ / nsol)));
         continue;
       }
-
     } else {
       nice_hash_count = hash_count;
       right = hash_count;
@@ -1004,7 +1007,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
            count_rhs, lit_Undef, true);
     cout << "sample time cost=" << cpuTimeTotal() - start << std::endl;
-
+    solution_lits.clear();
+    solution_strs.clear();
     assump.clear();
     // assump = secret_watch;
     assump.insert(assump.end(), count_watch.begin(),
@@ -1013,6 +1017,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
         solver, target_count_vars, retry_max_sol, assump, true);
     hash_solutions[hash_count] = solution_lits;
     hash_solution_strs[hash_count] = solution_strs;
+    cout << "retry hashcount=" << hash_count
+         << ", nsols=" << solution_counts[hash_count];
   }
 
   left = std::max(0, hash_count - std::min(5, (hash_count + 1) / 2));
