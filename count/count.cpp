@@ -957,10 +957,10 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       nice_hash_count = hash_count;
       if (nsol > 0) {
         left =
-            std::max(left, hash_count - int(ceil(log2(max_sol_ / nsol))) - 1);
+            std::max(left, hash_count - int(ceil(log2(max_sol_*1.0 / nsol))) - 1);
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
-        hash_count = hash_count - int(ceil(log2(max_sol_ / nsol)));
+        hash_count = hash_count - int(ceil(log2(max_sol_*1.0 / nsol)));
         continue;
       }
     } else {
