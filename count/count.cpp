@@ -791,7 +791,27 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   }
   return randomBits + randomBits_rhs;
 }
-
+int64_t Count::bounded_sol_count_cached(SATSolver *solver,
+                                        const vector<unsigned> &count_vars,
+                                        unsigned maxSolutions,
+                                        const vector<Lit> &assumps) {
+  int64_t nsol = 0;
+  for (auto solution : cached_inter_solution) {
+    auto begin=cpuTimeTotal();
+    solution.insert(solution.end(), assumps.begin(), assumps.end());
+    auto ret = solver->solve(&solution, true);
+    if (ret == l_True) {
+      nsol++;
+    }
+    std::cout << "check cached sol once" << cpuTimeTotal() - begin
+              << "nsol=" << nsol << std::endl;
+    if (nsol > maxSolutions) {
+      break;
+    }
+  }
+  cout << "cached solution =" << nsol;
+  return nsol;
+}
 int64_t Count::bounded_sol_count(SATSolver *solver,
                                  const vector<unsigned> &target_count_vars,
                                  unsigned maxSolutions,
@@ -803,6 +823,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   // setCountVars();
   auto s_vars = target_count_vars;
   solver->set_sampling_vars(&s_vars);
+
   if (mode_ == "nonblock") {
     ret = solver->solve(&assumps, only_ind);
     for (auto sol_str : solver->get_solutions()) {
@@ -841,6 +862,8 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   }
 
   std::cout << "after simp, time=" << cpuTimeTotal() - begin << std::endl;
+  solutions = bounded_sol_count_cached(solver, target_count_vars, maxSolutions,
+                                       assumps);
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);
@@ -1167,6 +1190,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
     map<int, unsigned> solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count);
     RecordSolution(secret_rnd);
+    cached_inter_solution = solution_lits;
     auto inter_solution_lits = solution_lits;
     auto inter_solution_strs = solution_strs;
     auto prev_count_vars = &count_vars;

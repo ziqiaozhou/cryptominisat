@@ -16,15 +16,15 @@
 class Count : public Main {
 public:
   void add_count_options();
-  SATSolver *newCounterSolver(SATSolver* s, void *conf, int idx=-1) {
-    //SATSolver *s = new SATSolver(conf);
+  SATSolver *newCounterSolver(SATSolver *s, void *conf, int idx = -1) {
+    // SATSolver *s = new SATSolver(conf);
     s->set_num_threads(1);
     s->set_up_for_jaccard_count();
     // s->set_allow_otf_gauss();
-    if(idx<0){
+    if (idx < 0) {
       unused_sampling_vars.clear();
       s->set_unused_sampling_vars(&unused_sampling_vars);
-    }else{
+    } else {
       backup_unused_sampling_vars[idx].clear();
       s->set_unused_sampling_vars(&backup_unused_sampling_vars[idx]);
     }
@@ -36,7 +36,7 @@ public:
     hashf = nullptr;
     left_ = -1;
     right_ = -1;
-    unrelated_number_countvars=0;
+    unrelated_number_countvars = 0;
   }
   ~Count() {}
   void add_supported_options() override;
@@ -69,10 +69,15 @@ protected:
                             const vector<unsigned> &count_vars,
                             unsigned maxSolutions, const vector<Lit> &assumps,
                             bool only_ind = true);
-  map<int, unsigned> count_once(SATSolver *solver, vector<unsigned> &count_vars,
-                                const vector<Lit> &secret_watch, int &left,
-                                int &right, int &hash_count,
-                                bool reserve_xor = false);
+  int64_t bounded_sol_count_cached(SATSolver *solver,
+                                   const vector<unsigned> &count_vars,
+                                   unsigned maxSolutions,
+                                   const vector<Lit> &assumps);
+      map<int, unsigned> count_once(SATSolver *solver,
+                                    vector<unsigned> &count_vars,
+                                    const vector<Lit> &secret_watch, int &left,
+                                    int &right, int &hash_count,
+                                    bool reserve_xor = false);
   bool count(SATSolver *solver, vector<unsigned> &secret_vars);
   bool countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars);
 
@@ -85,7 +90,7 @@ protected:
       return false;
     return true;
   }
-  void setBackupSolvers( vector<SATSolver*>& bs);
+  void setBackupSolvers(vector<SATSolver *> &bs);
   vector<string> getIDs() {
     vector<string> ids;
     for (auto id_var : all_secret_lits) {
@@ -103,7 +108,7 @@ protected:
   }
   void setSecretVars();
   void setCountVars();
-  void RecordSolution(string rnd,string subfix);
+  void RecordSolution(string rnd, string subfix);
   void RecordCount(map<int, unsigned> &sols, int hash_count, string rnd);
 
   void RecordCountInter(map<int, unsigned> &sols, int hash_count,
@@ -164,6 +169,7 @@ protected:
   int max_log_size_;
   int min_log_size_;
   vector<vector<Lit>> solution_lits;
+  vector<vector<Lit>> cached_inter_solution;
   vector<string> solution_strs;
   int max_xor_per_var_;
   string hash_file;
