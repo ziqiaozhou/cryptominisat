@@ -693,33 +693,50 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
                           addInner, is_restarted);
   }*/
   double ratio = xor_ratio_;
+  double xor_decay = xor_decay_;
   srand(unsigned(time(NULL)));
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
          << " xor per var, thus change ratio to" << ratio << std::endl;
   }
-  int max_xor_per_var = ratio * vars.size();
   string randomBits = "";
   std::set<string> randomBitsSet;
-
-  for (int i = 0; i < num_xor_cls; ++i) {
-    string tmp(max_xor_per_var, '1');
-    tmp = tmp + string(vars.size() - max_xor_per_var, '0');
-    max_xor_per_var = max_xor_per_var * xor_decay_;
-    xor_decay_ = 1.0 / xor_decay_;
-    while (true) {
-      // tmp = GenerateRandomBits_prob(vars.size(), ratio);
-      std::random_shuffle(tmp.begin(), tmp.end(), myrandom);
-      if (tmp.find("1") == std::string::npos) {
-        // no var is chosen in the hash
-        continue;
-      }
-      if (randomBitsSet.count(tmp) == 0)
-        break;
+  if (num_xor_cls == vars.size()) {
+    // only pick one value
+    ratio = 1.0 / num_xor_cls;
+    xor_decay = 1.0;
+    randomBits = string(vars.size() * num_xor_cls, '0');
+    for (int i = 0; i < num_xor_cls; ++i) {
+      randomBits[i + i * vars.size()] = '1';
     }
-    randomBitsSet.insert(tmp);
-    randomBits += tmp;
+    // only pick one value
+    ratio = 1.0 / num_xor_cls;
+    xor_decay = 1.0;
+    randomBits = string(vars.size() * num_xor_cls, '0');
+    for (int i = 0; i < num_xor_cls; ++i) {
+      randomBits[i + i * vars.size()] = '1';
+    }
+  } else {
+    for (int i = 0; i < num_xor_cls; ++i) {
+      int max_xor_per_var = ratio * vars.size();
+      string tmp(max_xor_per_var, '1');
+      tmp = tmp + string(vars.size() - max_xor_per_var, '0');
+      max_xor_per_var = max_xor_per_var * xor_decay;
+      xor_decay = 1.0 / xor_decay;
+      while (true) {
+        // tmp = GenerateRandomBits_prob(vars.size(), ratio);
+        std::random_shuffle(tmp.begin(), tmp.end(), myrandom);
+        if (tmp.find("1") == std::string::npos) {
+          // no var is chosen in the hash
+          continue;
+        }
+        if (randomBitsSet.count(tmp) == 0)
+          break;
+      }
+      randomBitsSet.insert(tmp);
+      randomBits += tmp;
+    }
   }
   string randomBits_rhs = GenerateRandomBits(num_xor_cls);
   vector<unsigned> lits;
@@ -956,11 +973,11 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
-        left =
-            std::max(left, hash_count - int(ceil(log2(max_sol_*1.0 / nsol))) - 1);
+        left = std::max(left, hash_count -
+                                  int(ceil(log2(max_sol_ * 1.0 / nsol))) - 1);
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
-        hash_count = hash_count - int(ceil(log2(max_sol_*1.0 / nsol)));
+        hash_count = hash_count - int(ceil(log2(max_sol_ * 1.0 / nsol)));
         continue;
       }
     } else {
