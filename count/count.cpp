@@ -797,15 +797,22 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
 int64_t Count::bounded_sol_count_cached(SATSolver *solver,
                                         const vector<unsigned> &count_vars,
                                         unsigned maxSolutions,
-                                        const vector<Lit> &assumps) {
+                                        const vector<Lit> &assumps, Lit  act_lit) {
   int64_t nsol = 0;
+  vector<Lit> blocked_lits;
   for (auto solution : cached_inter_solution) {
     auto begin = cpuTimeTotal();
     solution.insert(solution.end(), assumps.begin(), assumps.end());
     auto ret = solver->solve(&solution, true);
     if (ret == l_True) {
       nsol++;
+      blocked_lits.push_back(act_lit);
+      for (auto l:solution){
+        blocked_lits.push_back(~l);
+      }
+      solver->add_clause(blocked_lits);
     }
+
     std::cout << "check cached sol once" << cpuTimeTotal() - begin
               << "nsol=" << nsol << std::endl;
     if (nsol > maxSolutions) {
@@ -866,7 +873,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
 
   std::cout << "after simp, time=" << cpuTimeTotal() - begin << std::endl;
   solutions = bounded_sol_count_cached(solver, target_count_vars, maxSolutions,
-                                       assumps);
+                                       new_assumps,Lit(act_var, false));
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);

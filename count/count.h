@@ -72,7 +72,7 @@ protected:
   int64_t bounded_sol_count_cached(SATSolver *solver,
                                    const vector<unsigned> &count_vars,
                                    unsigned maxSolutions,
-                                   const vector<Lit> &assumps);
+                                   const vector<Lit> &assumps, Lit act_lit);
       map<int, unsigned> count_once(SATSolver *solver,
                                     vector<unsigned> &count_vars,
                                     const vector<Lit> &secret_watch, int &left,
