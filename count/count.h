@@ -187,6 +187,7 @@ protected:
   int right_;
   int declassification_mode_;
   bool use_overlap_coefficient_;
+  bool caching_solution_;
   std::set<uint64_t> used_vars;
   std::set<uint32_t> unused_sampling_vars;
   vector<std::set<uint32_t>> backup_unused_sampling_vars;

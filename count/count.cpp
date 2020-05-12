@@ -521,6 +521,9 @@ void Count::add_count_options() {
       po::value(&declassification_mode_)->default_value(1),
       "declassification_mode: 0: additional leakage, 1: additional leakage "
       "when declassified is known");
+  countOptions_.add_options()(
+      "caching_solution", po::value(&caching_solution_)->default_value(true),
+      "Caching solution when counting ");
   countOptions_.add_options()("symmap",
                               po::value(&symmap_file_)->default_value(""),
                               "Initilization constraint file.");
@@ -797,7 +800,7 @@ int64_t Count::bounded_sol_count_cached(SATSolver *solver,
                                         const vector<Lit> &assumps) {
   int64_t nsol = 0;
   for (auto solution : cached_inter_solution) {
-    auto begin=cpuTimeTotal();
+    auto begin = cpuTimeTotal();
     solution.insert(solution.end(), assumps.begin(), assumps.end());
     auto ret = solver->solve(&solution, true);
     if (ret == l_True) {
@@ -920,7 +923,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
         cout << "[appmc] Adding banning clause: " << lits << endl;
       }
       solver->add_clause(lits);
-      if (record_solution_) {
+      if (record_solution_ || caching_solution_) {
         solution_lits.push_back(solution);
         solution_strs.push_back(getCIISSModel(solver)[0]);
       }
@@ -988,6 +991,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
           bounded_sol_count(solver, target_count_vars, max_sol_, assump, true);
       hash_solutions[hash_count] = solution_lits;
       hash_solution_strs[hash_count] = solution_strs;
+      cached_inter_solution.insert(cached_inter_solution.end(),
+                                   solution_lits.begin(), solution_lits.end());
     }
     nsol = solution_counts[hash_count];
     if (nsol >= max_sol_) {
@@ -1187,6 +1192,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
 
     cout << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
+    cached_inter_solution.clear();
     map<int, unsigned> solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count);
     RecordSolution(secret_rnd);
