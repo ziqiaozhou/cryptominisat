@@ -1208,6 +1208,12 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
       max_sol_ = 2;
     } else {
       max_sol_ = max_sol;
+      left-=floor(max_sol/2);
+      right-=floor(max_sol/2);
+      for (int i = 0; i < backup_solvers.size(); ++i) {
+        backup_left[i]-=floor(max_sol/2);
+        backup_right[i]-=floor(max_sol/2);
+      }
     }
     map<int, unsigned> solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count);
