@@ -1458,23 +1458,25 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   }
   map<int, unsigned> solution_counts;
   int max_hash_count = 0;
+  bool warm_up=false;
   vector<int> backup_max_hash_count(backup_right_.size(), 0);
-  int max_sol = max_sol_;
+  int original_max_sol = max_sol_;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
-    if (count_times == 0) {
+    if (!warm_up) {
       max_sol_ = 16;
+      warm_up=true;
     } else {
-      max_sol_ = max_sol;
-      left -= floor(max_sol / 2);
-      right -= floor(max_sol / 2);
+      max_sol_ = original_max_sol;
+      left -= floor(original_max_sol / 16);
+      right -= floor(original_max_sol / 16);
       for (int i = 0; i < backup_solvers.size(); ++i) {
-        backup_left[i] -= floor(max_sol / 2);
-        backup_right[i] -= floor(max_sol / 2);
+        backup_left[i] -= floor(original_max_sol / 16);
+        backup_right[i] -= floor(original_max_sol / 16);
       }
     }
     solution_lits.clear();
     solution_strs.clear();
-    cout << "=========count for target "
+    cout << count_times<<"=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
     solution_counts.clear();
     cached_inter_solution.clear();
