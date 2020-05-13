@@ -816,7 +816,7 @@ int64_t Count::bounded_sol_count_cached(SATSolver *solver,
 
     std::cout << "check cached sol once" << cpuTimeTotal() - begin
               << "nsol=" << nsol << std::endl;
-    if (nsol > maxSolutions) {
+    if (nsol >= maxSolutions) {
       break;
     }
   }
