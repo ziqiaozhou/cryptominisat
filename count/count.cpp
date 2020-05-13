@@ -1504,7 +1504,6 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
-      if (!warm_up)
         RecordCountInter(solution_counts, hash_count, backup_solution_counts,
                          backup_hash_count, secret_rnd);
     }
