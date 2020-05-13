@@ -806,6 +806,7 @@ int64_t Count::bounded_sol_count_cached(SATSolver *solver,
     auto ret = solver->solve(&solution, true);
     if (ret == l_True) {
       nsol++;
+      blocked_lits.clear();
       blocked_lits.push_back(act_lit);
       for (auto l:solution){
         blocked_lits.push_back(~l);
