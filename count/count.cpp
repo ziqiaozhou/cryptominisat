@@ -1201,12 +1201,12 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
   int max_sol = max_sol_;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
 
-    cout << "=========count for target "
+    cout << count_times<<"=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
     cached_inter_solution.clear();
     if (count_times == 0) {
       max_sol_ = 2;
-    } else {
+    } else if (count_times > 0){
       max_sol_ = max_sol;
       left-=floor(max_sol/2);
       right-=floor(max_sol/2);
