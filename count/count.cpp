@@ -797,7 +797,8 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
 int64_t Count::bounded_sol_count_cached(SATSolver *solver,
                                         const vector<unsigned> &count_vars,
                                         unsigned maxSolutions,
-                                        const vector<Lit> &assumps, Lit  act_lit) {
+                                        const vector<Lit> &assumps,
+                                        Lit act_lit) {
   int64_t nsol = 0;
   vector<Lit> blocked_lits;
   for (auto solution : cached_inter_solution) {
@@ -808,7 +809,7 @@ int64_t Count::bounded_sol_count_cached(SATSolver *solver,
       nsol++;
       blocked_lits.clear();
       blocked_lits.push_back(act_lit);
-      for (auto l:solution){
+      for (auto l : solution) {
         blocked_lits.push_back(~l);
       }
       solver->add_clause(blocked_lits);
@@ -874,7 +875,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
 
   std::cout << "after simp, time=" << cpuTimeTotal() - begin << std::endl;
   solutions = bounded_sol_count_cached(solver, target_count_vars, maxSolutions,
-                                       new_assumps,Lit(act_var, false));
+                                       new_assumps, Lit(act_var, false));
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);
@@ -1010,10 +1011,10 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       nice_hash_count = hash_count;
       if (nsol > 0) {
         left = std::max(left, hash_count -
-                                  int(ceil(log2(max_sol_ * 1.0 / nsol))) - 1);
+                                  int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
-        hash_count = hash_count - int(ceil(log2(max_sol_ * 1.0 / nsol)));
+        hash_count = hash_count - int(floor(log2(max_sol_ * 1.0 / nsol)));
         continue;
       }
     } else {
