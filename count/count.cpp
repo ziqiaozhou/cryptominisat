@@ -1045,7 +1045,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     hash_count = left + (right - left) / 2;
   }
   hash_count = nice_hash_count;
-  bool retry = false, retry_max_sol = max_sol_;
+  bool retry = false;
+  int retry_max_sol = max_sol_;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
     retry = true;
   }
