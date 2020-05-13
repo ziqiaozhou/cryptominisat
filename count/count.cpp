@@ -1499,8 +1499,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
-      RecordCountInter(solution_counts, hash_count, backup_solution_counts,
-                       backup_hash_count, secret_rnd);
+      if (count_times > 0)
+        RecordCountInter(solution_counts, hash_count, backup_solution_counts,
+                         backup_hash_count, secret_rnd);
     }
     max_hash_count = std::max(max_hash_count, hash_count);
   }
