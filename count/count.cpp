@@ -1010,7 +1010,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
-        hash_count = std::max(left,hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))));
+        hash_count = std::max(
+            left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))));
         left = std::max(left, hash_count -
                                   int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
@@ -1197,11 +1198,17 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
                                                    : max_log_size_);
     backup_hash_count[i] = 0;
   }
+  int max_sol = max_sol_;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
 
     cout << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
     cached_inter_solution.clear();
+    if (count_times == 0) {
+      max_sol_ = 2;
+    } else {
+      max_sol_ = max_sol;
+    }
     map<int, unsigned> solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count);
     RecordSolution(secret_rnd);
@@ -1229,8 +1236,9 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
-      RecordCountInter(solution_counts, hash_count, backup_solution_counts,
-                       backup_hash_count, secret_rnd);
+      if (count_times > 0)
+        RecordCountInter(solution_counts, hash_count, backup_solution_counts,
+                         backup_hash_count, secret_rnd);
     }
   }
   left_ = 0;
