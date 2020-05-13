@@ -1011,8 +1011,13 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       right = hash_count;
       nice_hash_count = hash_count;
       if (nsol > 0) {
-        hash_count = std::max(
+        auto new_hash_count = std::max(
             left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))));
+        if (new_hash_count == hash_count) {
+          hash_count = std::max(left, hash_count - 1);
+        }else{
+          hash_count=new_hash_count;
+        }
         left = std::max(left, hash_count -
                                   int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
