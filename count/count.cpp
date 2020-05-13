@@ -1456,7 +1456,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   int max_sol=max_sol_;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     if (count_times == 0) {
-      max_sol_ = 2;
+      max_sol_ = 4;
     } else if (count_times > 0){
       max_sol_ = max_sol;
       left-=floor(max_sol/2);
