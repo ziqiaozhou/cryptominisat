@@ -163,6 +163,8 @@ protected:
   double xor_decay_;
   int num_xor_cls_;
   int max_sol_;
+  int original_max_sol;
+
   int backtrack_;
   bool search_all;
   int max_count_times_;

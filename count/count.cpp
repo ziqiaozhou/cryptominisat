@@ -1459,11 +1459,10 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   map<int, unsigned> solution_counts;
   int max_hash_count = 0;
   vector<int> backup_max_hash_count(backup_right_.size(), 0);
-  int original_max_sol = max_sol_;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     if (!warm_up) {
       max_sol_ = 16;
-      warm_up=true;
+      warm_up= true;
     } else {
       max_sol_ = original_max_sol;
       left -= floor(original_max_sol / 16);
@@ -1656,6 +1655,7 @@ void Count::run() {
   else {
     conf.max_sol_ = 1;
   }
+  original_max_sol=max_sol_;
   if (inter_mode_ == 3) {
     for (int t = 0; t < nsample; ++t) {
       if (ProbToDiffFromSecretSet() == false) {
