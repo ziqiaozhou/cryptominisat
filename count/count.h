@@ -37,6 +37,7 @@ public:
     left_ = -1;
     right_ = -1;
     unrelated_number_countvars = 0;
+    warm_up=false;
   }
   ~Count() {}
   void add_supported_options() override;
@@ -191,7 +192,7 @@ protected:
   std::set<uint64_t> used_vars;
   std::set<uint32_t> unused_sampling_vars;
   vector<std::set<uint32_t>> backup_unused_sampling_vars;
-
+bool warm_up;
   string SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
                         int num_xor_cls, vector<Lit> &watch,
                         vector<vector<unsigned>> &alllits, vector<bool> &rhs,
