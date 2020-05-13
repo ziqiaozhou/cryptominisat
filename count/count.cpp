@@ -1454,6 +1454,17 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   int max_hash_count = 0;
   vector<int> backup_max_hash_count(backup_right_.size(), 0);
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
+    if (count_times == 0) {
+      max_sol_ = 2;
+    } else if (count_times > 0){
+      max_sol_ = max_sol;
+      left-=floor(max_sol/2);
+      right-=floor(max_sol/2);
+      for (int i = 0; i < backup_solvers.size(); ++i) {
+        backup_left[i]-=floor(max_sol/2);
+        backup_right[i]-=floor(max_sol/2);
+      }
+    }
     solution_lits.clear();
     solution_strs.clear();
     cout << "=========count for target "
