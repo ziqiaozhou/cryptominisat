@@ -879,7 +879,8 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
     ret = solver->solve(&new_assumps, only_ind);
-    std::cout <<"max_sol="<< maxSolutions<<",solve once" << cpuTimeTotal() - begin << std::endl;
+    std::cout << "max_sol=" << maxSolutions << ",solve once"
+              << cpuTimeTotal() - begin << std::endl;
     assert(ret == l_False || ret == l_True);
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
@@ -1201,18 +1202,18 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
   int max_sol = max_sol_;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
 
-    cout << count_times<<"=========count for target "
+    cout << count_times << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
     cached_inter_solution.clear();
     if (count_times == 0) {
       max_sol_ = 2;
-    } else if (count_times > 0){
+    } else if (count_times > 0) {
       max_sol_ = max_sol;
-      left-=floor(max_sol/2);
-      right-=floor(max_sol/2);
+      left -= floor(max_sol / 2);
+      right -= floor(max_sol / 2);
       for (int i = 0; i < backup_solvers.size(); ++i) {
-        backup_left[i]-=floor(max_sol/2);
-        backup_right[i]-=floor(max_sol/2);
+        backup_left[i] -= floor(max_sol / 2);
+        backup_right[i] -= floor(max_sol / 2);
       }
     }
     map<int, unsigned> solution_counts =
@@ -1453,17 +1454,17 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   map<int, unsigned> solution_counts;
   int max_hash_count = 0;
   vector<int> backup_max_hash_count(backup_right_.size(), 0);
-  int max_sol=max_sol_;
+  int max_sol = max_sol_;
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     if (count_times == 0) {
       max_sol_ = 4;
-    } else if (count_times > 0){
+    } else {
       max_sol_ = max_sol;
-      left-=floor(max_sol/2);
-      right-=floor(max_sol/2);
+      left -= floor(max_sol / 2);
+      right -= floor(max_sol / 2);
       for (int i = 0; i < backup_solvers.size(); ++i) {
-        backup_left[i]-=floor(max_sol/2);
-        backup_right[i]-=floor(max_sol/2);
+        backup_left[i] -= floor(max_sol / 2);
+        backup_right[i] -= floor(max_sol / 2);
       }
     }
     solution_lits.clear();
@@ -1471,6 +1472,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     cout << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
     solution_counts.clear();
+    cached_inter_solution.clear();
     solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count);
     RecordSolution(secret_rnd);
