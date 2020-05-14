@@ -1586,8 +1586,6 @@ void Count::simulate_count(SATSolver *solver, vector<unsigned> &secret_vars) {
            count_rhs, lit_Undef);
     RecordHash("count_hash" + std::to_string(count_times) + ".cnf",
                added_count_lits, count_rhs);
-    solver->GetSolver(0)->conf.simplified_cnf =
-        "final_count_hash" + std::to_string(count_times) + ".cnf";
     solver->set_preprocess(1);
     solver->solve();
     solver->set_preprocess(0);

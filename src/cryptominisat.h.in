@@ -205,7 +205,6 @@ namespace CMSat {
         int n_seareched_solutions();
         std::unordered_set<std::string> get_solutions();
         void dump_irred_clauses_ind_only(std::ostream *out)const;
-        Solver* GetSolver(int i)const;
         void save_state(const string &fname, const lbool status);
         lbool load_state(const string &fname) ;
         void renumber_variables(bool must_renumber);

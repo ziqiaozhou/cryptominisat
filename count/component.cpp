@@ -36,10 +36,10 @@ void AnalyzeClauses(const Solver *solver,const vector<ClOffset> &cls, DisjointSe
     }
   }
 }
-void findComponent(const SATSolver *sat_solver) {
+/*void findComponent(const SATSolver *sat_solver) {
   cout << "try find component\n";
   vector<int> nclause(sat_solver->nVars());
-  Solver *solver = sat_solver->GetSolver(0);
+  auto solver = sat_solver->GetSolver(0);
   if (solver->conf.sampling_vars == nullptr ||
       solver->conf.sampling_vars->size() == 0)
     return;
@@ -75,4 +75,4 @@ void findComponent(const SATSolver *sat_solver) {
     }
   }
   cout << "number of unrelated vars:" << nirrel << "\n";
-}
+}*/

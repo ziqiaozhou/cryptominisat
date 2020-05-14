@@ -1127,9 +1127,6 @@ void DLL_PUBLIC SATSolver::renumber_variables(bool must_renumber) {
   for (int i = 0; i < data->solvers.size(); ++i)
     data->solvers[0]->renumber_variables(must_renumber);
 }
-Solver *DLL_PUBLIC SATSolver::GetSolver(int i) const {
-  return data->solvers[i];
-}
 
 void DLL_PUBLIC SATSolver::set_up_for_scalmc() {
   for (size_t i = 0; i < data->solvers.size(); i++) {
