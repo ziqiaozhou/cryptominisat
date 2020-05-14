@@ -1120,10 +1120,10 @@ void DLL_PUBLIC SATSolver::set_up_for_jaccard_count()
 {
     for (size_t i = 0; i < data->solvers.size(); i++) {
         SolverConf conf = data->solvers[i]->getConf();
-        conf.gaussconf.max_num_matrixes = 5*100;
-        conf.gaussconf.max_matrix_rows = 5000*4;
+        conf.gaussconf.max_num_matrixes = 5;
+        conf.gaussconf.max_matrix_rows = 5000;
         conf.gaussconf.autodisable = false;
-        conf.global_multiplier_multiplier_max = 6;
+        conf.global_multiplier_multiplier_max = 3;
         conf.var_and_mem_out_mult *= 6;
         conf.global_timeout_multiplier_multiplier = 1.5;
         uint32_t xor_cut = 4;
