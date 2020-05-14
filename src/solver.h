@@ -140,6 +140,10 @@ class Solver : public Searcher
         void add_in_partial_solving_stats();
         void check_implicit_stats(const bool onlypairs = false) const;
         void check_stats(const bool allowFreed = false) const;
+        void enable_comphandler();
+        bool implied_by(const std::vector<Lit>& lits,
+            std::vector<Lit>& out_implied
+        );
 
 
         //Checks
@@ -265,7 +269,7 @@ class Solver : public Searcher
         void renumber_xors_to_outside(const vector<Xor>& xors, vector<Xor>& xors_ret);
         void testing_set_solver_not_fresh();
         void check_assigns_for_assumptions() const;
-        bool check_assumptions_contradict_foced_assignement() const;
+        bool check_assumptions_contradict_foced_assignment() const;
 
     private:
         friend class Prober;
@@ -274,6 +278,7 @@ class Solver : public Searcher
         FRIEND_TEST(SearcherTest, pickpolar_auto_not_changed_by_simp);
         #endif
 
+        vector<Lit> implied_by_tmp_lits;
         vector<Lit> add_clause_int_tmp_cl;
         lbool iterate_until_solved();
         uint64_t mem_used_vardata() const;

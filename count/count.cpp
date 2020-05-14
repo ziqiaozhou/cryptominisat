@@ -566,10 +566,6 @@ void Count::add_count_options() {
       "JaccardHat if use_overlap_coefficient=false, Overlap Coef if "
       "use_overlap_coefficient=true, 3: JaccardHat with Same Other");
   countOptions_.add_options()(
-      "pick_sample_first",
-      po::value(&conf.pickSampleFirst)->default_value(false),
-      "Initilization constraint file.");
-  countOptions_.add_options()(
       "record_solution", po::value(&record_solution_)->default_value(true),
       "True: write solutions; false: do not write solutions");
   countOptions_.add_options()(
@@ -991,6 +987,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     long start = cpuTimeTotal();
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
            count_rhs, lit_Undef, true);
+
     cout << "sample time cost=" << cpuTimeTotal() - start << std::endl;
     assump.clear();
     // assump = secret_watch;
@@ -1015,8 +1012,8 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
             left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))));
         if (new_hash_count == hash_count) {
           hash_count = std::max(left, hash_count - 1);
-        }else{
-          hash_count=new_hash_count;
+        } else {
+          hash_count = new_hash_count;
         }
         left = std::max(left, hash_count -
                                   int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
@@ -1463,7 +1460,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     if (!warm_up) {
       max_sol_ = 16;
-      warm_up= true;
+      warm_up = true;
     } else {
       max_sol_ = original_max_sol;
       left -= floor(original_max_sol / 16);
@@ -1475,7 +1472,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     }
     solution_lits.clear();
     solution_strs.clear();
-    cout << count_times<<"=========count for target "
+    cout << count_times << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
     solution_counts.clear();
     cached_inter_solution.clear();
@@ -1505,8 +1502,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
-        RecordCountInter(solution_counts, hash_count, backup_solution_counts,
-                         backup_hash_count, secret_rnd);
+      RecordCountInter(solution_counts, hash_count, backup_solution_counts,
+                       backup_hash_count, secret_rnd);
     }
     max_hash_count = std::max(max_hash_count, hash_count);
   }
@@ -1655,7 +1652,7 @@ void Count::run() {
   else {
     conf.max_sol_ = 1;
   }
-  original_max_sol=max_sol_;
+  original_max_sol = max_sol_;
   if (inter_mode_ == 3) {
     for (int t = 0; t < nsample; ++t) {
       if (ProbToDiffFromSecretSet() == false) {

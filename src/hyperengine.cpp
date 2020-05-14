@@ -30,6 +30,8 @@ HyperEngine::HyperEngine(const SolverConf *_conf, std::atomic<bool>* _must_inter
 {
 }
 
+HyperEngine::~HyperEngine() = default;
+
 Lit HyperEngine::propagate_bfs(const uint64_t timeout)
 {
     timedOutPropagateFull = false;
@@ -49,7 +51,7 @@ Lit HyperEngine::propagate_bfs(const uint64_t timeout)
     //this is already set, and there is no need to set it
     if (trail.size() - trail_lim.back() == 1) {
         //Set up root node
-        Lit root = trail[qhead];
+        Lit root = trail[qhead].lit;
         varData[root.var()].reason = PropBy(~lit_Undef, false, false, false);
     }
 
@@ -68,7 +70,7 @@ Lit HyperEngine::propagate_bfs(const uint64_t timeout)
 
     //Propagate binary irred
     while (nlBinQHead < trail.size()) {
-        const Lit p = trail[nlBinQHead++];
+        const Lit p = trail[nlBinQHead++].lit;
         watch_subarray_const ws = watches[~p];
         propStats.bogoProps += 1;
         for(const Watched *k = ws.begin(), *end = ws.end()
@@ -91,7 +93,7 @@ Lit HyperEngine::propagate_bfs(const uint64_t timeout)
     //Propagate binary redundant
     ret = PROP_NOTHING;
     while (lBinQHead < trail.size()) {
-        const Lit p = trail[lBinQHead];
+        const Lit p = trail[lBinQHead].lit;
         watch_subarray_const ws = watches[~p];
         propStats.bogoProps += 1;
         size_t done = 0;
@@ -118,7 +120,7 @@ Lit HyperEngine::propagate_bfs(const uint64_t timeout)
 
     ret = PROP_NOTHING;
     while (qhead < trail.size()) {
-        const Lit p = trail[qhead];
+        const Lit p = trail[qhead].lit;
         watch_subarray ws = watches[~p];
         propStats.bogoProps += 1;
 
@@ -191,10 +193,10 @@ Lit HyperEngine::prop_red_bin_dfs(
             case PROP_SOMETHING:
                 propStats.bogoProps += 8;
                 stamp.stampingTime++;
-                stamp.tstamp[trail.back().toInt()].start[stampType] = stamp.stampingTime;
+                stamp.tstamp[trail.back().lit.toInt()].start[stampType] = stamp.stampingTime;
 
                 //Root for literals propagated afterwards will be this literal
-                root = trail.back();
+                root = trail.back().lit;
 
                 #ifdef DEBUG_STAMPING
                 cout
@@ -203,9 +205,9 @@ Lit HyperEngine::prop_red_bin_dfs(
                 << endl;
                 #endif
 
-                toPropNorm.push(trail.back());
-                toPropBin.push(trail.back());
-                toPropRedBin.push(trail.back());
+                toPropNorm.push(trail.back().lit);
+                toPropBin.push(trail.back().lit);
+                toPropRedBin.push(trail.back().lit);
                 propStats.bogoProps += done*4;
                 restart = true;
                 return lit_Undef;
@@ -270,7 +272,7 @@ Lit HyperEngine::prop_irred_bin_dfs(
             case PROP_SOMETHING:
                 propStats.bogoProps += 8;
                 stamp.stampingTime++;
-                stamp.tstamp[trail.back().toInt()].start[stampType] = stamp.stampingTime;
+                stamp.tstamp[trail.back().lit.toInt()].start[stampType] = stamp.stampingTime;
                 #ifdef DEBUG_STAMPING
                 cout
                 << "From " << p << " enqueued " << trail.back()
@@ -278,9 +280,9 @@ Lit HyperEngine::prop_irred_bin_dfs(
                 << endl;
                 #endif
 
-                toPropNorm.push(trail.back());
-                toPropBin.push(trail.back());
-                if (stampType == STAMP_IRRED) toPropRedBin.push(trail.back());
+                toPropNorm.push(trail.back().lit);
+                toPropBin.push(trail.back().lit);
+                if (stampType == STAMP_IRRED) toPropRedBin.push(trail.back().lit);
                 propStats.bogoProps += done*4;
                 restart = true;
                 return lit_Undef;
@@ -358,15 +360,15 @@ Lit HyperEngine::prop_larger_than_bin_cl_dfs(
             << " for stamp.stampingTime " << stamp.stampingTime
             << endl;
             #endif
-            stamp.tstamp[trail.back().toInt()].start[stampType] = stamp.stampingTime;
+            stamp.tstamp[trail.back().lit.toInt()].start[stampType] = stamp.stampingTime;
             if (stampType == STAMP_IRRED) {
                 //Root for literals propagated afterwards will be this literal
-                root = trail.back();
-                toPropRedBin.push(trail.back());
+                root = trail.back().lit;
+                toPropRedBin.push(trail.back().lit);
             }
 
-            toPropNorm.push(trail.back());
-            toPropBin.push(trail.back());
+            toPropNorm.push(trail.back().lit);
+            toPropBin.push(trail.back().lit);
             propStats.bogoProps += ws.size()*8;
             restart = true;
             return lit_Undef;
@@ -420,7 +422,7 @@ Lit HyperEngine::propagate_dfs(
     //this is already set, and there is no need to set it
     if (trail.size() - trail_lim.back() == 1) {
         //Set up root node
-        Lit root = trail[qhead];
+        Lit root = trail[qhead].lit;
         varData[root.var()].reason = PropBy(~lit_Undef, false, false, false);
     }
 
@@ -429,7 +431,7 @@ Lit HyperEngine::propagate_dfs(
     toPropRedBin.clear();
     toPropNorm.clear();
 
-    Lit root = trail.back();
+    Lit root = trail.back().lit;
     toPropBin.push(root);
     toPropNorm.push(root);
     if (stampType == STAMP_RED)
@@ -1059,7 +1061,9 @@ void HyperEngine::enqueue_with_acestor_info(
     , const Lit ancestor
     , const bool redStep
 ) {
-    enqueue(p, PropBy(~ancestor, redStep, false, false));
+    //only called at decision level 1 during solving OR
+    //during intree probing
+    enqueue(p, decisionLevel(), PropBy(~ancestor, redStep, false, false));
 
     assert(varData[ancestor.var()].level != 0);
 

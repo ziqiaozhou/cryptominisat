@@ -70,6 +70,20 @@ enum PropResult {
     , PROP_TODO = 3
 };
 
+struct Trail {
+
+    Trail () {
+    }
+
+    Trail (Lit _lit, uint32_t _lev) :
+        lit(_lit)
+        , lev(_lev)
+    {}
+
+    Lit lit;
+    uint32_t lev;
+};
+
 /**
 @brief The propagating and conflict generation class
 
@@ -98,15 +112,18 @@ public:
         return trail.size();
     }
     Lit trail_at(size_t at) const {
-        return trail[at];
+        return trail[at].lit;
     }
     bool propagate_occur();
     PropStats propStats;
     template<bool update_bogoprops = true>
-    void enqueue(const Lit p, const PropBy from = PropBy());
+    void enqueue(const Lit p, const uint32_t level, const PropBy from = PropBy());
+    template<bool update_bogoprops = true>
+    void enqueue(const Lit p);
     void new_decision_level();
     vector<double> var_act_vsids;
     vector<double> var_act_maple;
+    vector<double> lit_act_lsids;
 
     //Variable activities
     struct VarOrderLt { ///Order variables according to their activities
@@ -146,7 +163,7 @@ protected:
     vector<Lit>         sample_trail;            ///< Assignment stack; stores all assigments made in the order they were made.
     vector<uint32_t>    sample_trail_lim;
     vector<std::pair<uint32_t,Lit>>    sample_trail_lim_lim;
-    vector<Lit>         trail;            ///< Assignment stack; stores all assigments made in the order they were made.
+    vector<Trail>         trail;             ///< Assignment stack; stores all assigments made in the order they were made.
     vector<uint32_t>    trail_lim;        ///< Separator indices for different decision levels in 'trail'.
     uint32_t            qhead;            ///< Head of queue (as index into the trail)
     Lit                 failBinLit;       ///< Used to store which watches[lit] we were looking through when conflict occured
@@ -247,6 +264,7 @@ private:
         const Watched* i
         , const Lit p
         , PropBy& confl
+        , uint32_t currLevel
     ); ///<Propagate 2-long clause
     template<bool update_bogoprops>
     bool prop_long_cl_any_order(
@@ -254,6 +272,7 @@ private:
         , Watched*& j
         , const Lit p
         , PropBy& confl
+        , uint32_t currLevel
     );
 };
 
@@ -365,8 +384,9 @@ inline PropResult PropEngine::handle_normal_prop_fail(
     confl = PropBy(offset);
     #ifdef VERBOSE_DEBUG_FULLPROP
     cout << "Conflict from ";
-    for(size_t i = 0; i < confl.size(); i++) {
-        cout  << confl[i] << " , ";
+    Clause& c = *cl_alloc.ptr(offset);
+    for(size_t i = 0; i < c.size(); i++) {
+        cout  << c[i] << " , ";
     }
     cout << endl;
     #endif //VERBOSE_DEBUG_FULLPROP
@@ -386,7 +406,13 @@ inline PropResult PropEngine::handle_normal_prop_fail(
 }
 
 template<bool update_bogoprops>
-void PropEngine::enqueue(const Lit p, const PropBy from)
+void PropEngine::enqueue(const Lit p)
+{
+    enqueue<update_bogoprops>(p, decisionLevel(), PropBy());
+}
+
+template<bool update_bogoprops>
+void PropEngine::enqueue(const Lit p, const uint32_t level, const PropBy from)
 {
     #ifdef DEBUG_ENQUEUE_LEVEL0
     #ifndef VERBOSE_DEBUG
@@ -417,7 +443,7 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
         assert(sumConflicts >= varData[v].cancelled);
         uint32_t age = sumConflicts - varData[v].cancelled;
         if (age > 0) {
-            double decay = std::pow(0.95, age);
+            double decay = std::pow(maple_decay_base, age);
             var_act_maple[v] *= decay;
             if (order_heap_maple.inHeap(v))
                 order_heap_maple.increase(v);
@@ -427,7 +453,7 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
     const bool sign = p.sign();
     assigns[v] = boolToLBool(!sign);
     varData[v].reason = from;
-    varData[v].level = decisionLevel();
+    varData[v].level = level;
     if (!update_bogoprops) {
         varData[v].polarity = !sign;
         #ifdef STATS_NEEDED
@@ -438,7 +464,8 @@ void PropEngine::enqueue(const Lit p, const PropBy from)
         }
         #endif
     }
-    trail.push_back(p);
+    trail.push_back(Trail(p, level));
+
     if (update_bogoprops) {
         propStats.bogoProps += 1;
     }
