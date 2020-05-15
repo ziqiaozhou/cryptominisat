@@ -721,8 +721,10 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
       int max_xor_per_var = ratio * vars.size();
       string tmp(max_xor_per_var, '1');
       tmp = tmp + string(vars.size() - max_xor_per_var, '0');
-      ratio = ratio * xor_decay;
-      xor_decay = 1.0 / xor_decay;
+      if (num_xor_cls > 100) {
+        ratio = ratio * xor_decay;
+        xor_decay = 1.0 / xor_decay;
+      }
       while (true) {
         // tmp = GenerateRandomBits_prob(vars.size(), ratio);
         std::random_shuffle(tmp.begin(), tmp.end(), myrandom);
