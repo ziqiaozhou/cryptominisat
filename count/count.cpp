@@ -1462,7 +1462,6 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     if (!warm_up) {
       max_sol_ = 16;
-      warm_up = true;
     } else {
       max_sol_ = original_max_sol;
       left -= floor(original_max_sol / 16);
@@ -1494,9 +1493,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     auto union_solution_strs = solution_strs;
     cout << count_times << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
-    if (backup_hash_count.size() > 0 &&(backup_hash_count[0] - left_) < 12){
-        right = backup_hash_count[0] + 10;
-        left = backup_hash_count[0] - 10;
+    if (backup_hash_count.size() > 0 &&(warm_up ||(backup_hash_count[0] - left_) < 12)){
+        right = backup_hash_count[0] + 5;
+        left = backup_hash_count[0] - 5;
       }
     solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count, true);
@@ -1510,13 +1509,14 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
                        backup_hash_count, secret_rnd);
     }
     max_hash_count = std::max(max_hash_count, hash_count);
+    warm_up=false;
   }
-  left_ = std::max(0, max_hash_count - 10);
-  right_ = std::min(int(count_vars.size()), max_hash_count + 10);
+  left_ = std::max(0, max_hash_count - 8);
+  right_ = std::min(int(count_vars.size()), max_hash_count + 8);
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_left_[i] = std::max(0, backup_max_hash_count[i] - 10);
+    backup_left_[i] = std::max(0, backup_max_hash_count[i] - 8);
     backup_right_[i] =
-        std::min(int(count_vars.size()), backup_max_hash_count[i] + 10);
+        std::min(int(count_vars.size()), backup_max_hash_count[i] + 8);
   }
   return true;
 }
