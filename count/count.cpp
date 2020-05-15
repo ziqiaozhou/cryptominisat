@@ -1483,13 +1483,15 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     }
     auto union_solution_lits = solution_lits;
     auto union_solution_strs = solution_strs;
-    cout << count_times << "=========count for target "
-         << "left=" << left << ",right= " << right << "\n\n";
+
     if (backup_hash_count.size() > 0 &&
         (warm_up || (backup_hash_count[0] - left_) < 12)) {
-      right = backup_hash_count[0] + 5;
-      left = backup_hash_count[0] - 5;
+      right = backup_hash_count[0] + min(backup_hash_count[0], 5);
+      left = backup_hash_count[0] - min(backup_hash_count[0], 5);
     }
+    cout << count_times << "=========count for target "
+         << "left=" << left << ",right= " << right << "\n\n";
+
     solution_counts =
         count_once(solver, count_vars, {}, left, right, hash_count, true);
     RecordSolution(secret_rnd);
@@ -1505,11 +1507,13 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     if (warm_up) {
       max_sol_ = original_max_sol;
       int diff = floor(log2(original_max_sol / 16));
+      max_hash_count -= diff;
       left -= diff;
       right -= diff;
       for (int i = 0; i < backup_solvers.size(); ++i) {
-        backup_left[i] -= diff;
+        backup_max_hash_count[i] -= diff;
         backup_right[i] -= diff;
+        backup_left[i] -= diff;
       }
     }
     warm_up = false;
