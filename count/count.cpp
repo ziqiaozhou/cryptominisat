@@ -1421,13 +1421,21 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
 }
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
+  vector<map<int, unsigned>> backup_solution_counts(backup_solvers.size());
+  map<int, unsigned> solution_counts;
+  int max_hash_count = 0;
+  vector<int> backup_max_hash_count(backup_right_.size(), 0);
+  int hash_count = 0;
+  int left, right;
+  vector<int> backup_left(backup_solvers.size()),
+      backup_right(backup_solvers.size()),
+      backup_hash_count(backup_solvers.size());
   cout << "Sample end\n" << std::flush;
   cout << "used_vars.size=" << used_vars.size() << std::endl;
   /*solver->set_sampling_vars(nullptr);
   for(int i=0;i<backup_solvers.size();++i)
     backup_solvers[i]->set_sampling_vars(nullptr);*/
   solver->simplify();
-
   //  solver->add_clause(secret_watch);
   cout << "count size=" << count_vars.size();
   string trim = trimVar(backup_solvers[0], count_vars);
@@ -1440,11 +1448,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     return false;
   }
   std::cout << "solve is ok" << std::endl;
-  int hash_count = 0;
-  int left, right;
-  vector<int> backup_left(backup_solvers.size()),
-      backup_right(backup_solvers.size()),
-      backup_hash_count(backup_solvers.size());
+
   left = (left_ > -1) ? left_ : ((min_log_size_ == -1) ? 0 : min_log_size_);
   right = (right_ > -1)
               ? right_
@@ -1454,9 +1458,6 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     backup_right[i] = backup_right_[i] ? backup_right_[i] : right;
     backup_hash_count[i] = 0;
   }
-  map<int, unsigned> solution_counts;
-  int max_hash_count = 0;
-  vector<int> backup_max_hash_count(backup_right_.size(), 0);
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     if (!warm_up) {
       max_sol_ = 16;
@@ -1472,17 +1473,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     }
     solution_lits.clear();
     solution_strs.clear();
-    cout << count_times << "=========count for target "
-         << "left=" << left << ",right= " << right << "\n\n";
     solution_counts.clear();
     cached_inter_solution.clear();
-    solution_counts =
-        count_once(solver, count_vars, {}, left, right, hash_count);
-    RecordSolution(secret_rnd);
-    auto inter_solution_lits = solution_lits;
-    auto inter_solution_strs = solution_strs;
-    auto prev_count_vars = &count_vars;
-    vector<map<int, unsigned>> backup_solution_counts(backup_solvers.size());
     int idx = 0;
     for (size_t i = 0; i < backup_solvers.size(); ++i) {
       cout << "======count for id=" << i << "left=" << backup_left[i]
@@ -1497,8 +1489,15 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
           std::max(backup_max_hash_count[i], backup_hash_count[i]);
       // prev_count_vars = &current_count_vars;
     }
-    calculateDiffSolution(inter_solution_lits, solution_lits,
-                          inter_solution_strs, solution_strs, secret_rnd);
+    auto union_solution_lits = solution_lits;
+    auto union_solution_strs = solution_strs;
+    cout << count_times << "=========count for target "
+         << "left=" << left << ",right= " << right << "\n\n";
+    solution_counts =
+        count_once(solver, count_vars, {}, left, right, hash_count);
+    RecordSolution(secret_rnd);
+    calculateDiffSolution(solution_lits, union_solution_lits,
+                          solution_strs, union_solution_strs, secret_rnd);
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
