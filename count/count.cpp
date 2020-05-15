@@ -1486,8 +1486,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
 
     if (backup_hash_count.size() > 0 &&
         (warm_up || (backup_hash_count[0] - left_) < 12)) {
-      right = backup_hash_count[0] + min(backup_hash_count[0], 5);
-      left = backup_hash_count[0] - min(backup_hash_count[0], 5);
+      right = backup_hash_count[0] + std::min(backup_hash_count[0], 5);
+      left = backup_hash_count[0] - std::min(backup_hash_count[0], 5);
     }
     cout << count_times << "=========count for target "
          << "left=" << left << ",right= " << right << "\n\n";
