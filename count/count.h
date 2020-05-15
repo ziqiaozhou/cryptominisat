@@ -37,7 +37,7 @@ public:
     left_ = -1;
     right_ = -1;
     unrelated_number_countvars = 0;
-    warm_up=false;
+    warm_up=true;
   }
   ~Count() {}
   void add_supported_options() override;
