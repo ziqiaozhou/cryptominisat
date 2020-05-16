@@ -780,12 +780,13 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
 
     if (addInner != lit_Undef) {
       solver2->add_clause({addInner, watch[i]});
-      cout << "secret hash xor:\n";
+    /* debugging
+    cout << "secret hash xor:\n";
       cout << "watch:" << addInner << watch[i];
       for (auto l : lits) {
         cout << l + 1 << "\t";
       }
-      cout << rhs[i] << std::endl;
+      cout << rhs[i] << std::endl;*/
     }
     // e.g., xor watch 1 2 4 ..
     solver2->add_xor_clause(lits, rhs[i]);
@@ -1437,7 +1438,6 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   /*solver->set_sampling_vars(nullptr);
   for(int i=0;i<backup_solvers.size();++i)
     backup_solvers[i]->set_sampling_vars(nullptr);*/
-  solver->simplify();
   //  solver->add_clause(secret_watch);
   cout << "count size=" << count_vars.size();
   string trim = trimVar(backup_solvers[0], count_vars);
@@ -1445,8 +1445,11 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   cout << "secret size=" << secret_vars.size() << std::endl;
   cout << "count size=" << count_vars.size()
        << ",unrelated vars=" << unrelated_number_countvars << std::endl;
-  if (backup_solvers[0]->solve() == l_False) {
-    std::cout << "solve is false" << std::endl;
+  auto begin = cpuTimeTotal();
+  auto check = backup_solvers[0]->solve();
+  std::cout << "checking time=" << cpuTimeTotal() - begin() << std::end;
+  if (check == l_False) {
+    std::cerr << "solve is false" << std::endl;
     return false;
   }
   std::cout << "solve is ok" << std::endl;
