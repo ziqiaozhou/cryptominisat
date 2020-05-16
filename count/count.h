@@ -19,7 +19,7 @@ public:
   SATSolver *newCounterSolver(SATSolver *s, void *conf, int idx = -1) {
     // SATSolver *s = new SATSolver(conf);
     s->set_num_threads(1);
-    s->set_up_for_scalmc();
+    //s->set_up_for_scalmc();
     // s->set_allow_otf_gauss();
     if (idx < 0) {
       unused_sampling_vars.clear();
