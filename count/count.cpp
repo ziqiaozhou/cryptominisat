@@ -1447,7 +1447,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
        << ",unrelated vars=" << unrelated_number_countvars << std::endl;
   auto begin = cpuTimeTotal();
   auto check = backup_solvers[0]->solve();
-  std::cout << "checking time=" << cpuTimeTotal() - begin() << std::end;
+  std::cout << "checking time=" << cpuTimeTotal() - begin << std::end;
   if (check == l_False) {
     std::cerr << "solve is false" << std::endl;
     return false;
