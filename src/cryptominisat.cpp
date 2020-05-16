@@ -1161,6 +1161,7 @@ void DLL_PUBLIC SATSolver::set_up_for_jaccard_count() {
     uint32_t xor_cut = 4;
     assert(xor_cut >= 3);
     conf.xor_var_per_cut = xor_cut - 2;
+    /*
     conf.simplify_at_startup = 1;
     conf.varElimRatioPerIter = 1;
     conf.restartType = Restart::geom;
@@ -1168,6 +1169,7 @@ void DLL_PUBLIC SATSolver::set_up_for_jaccard_count() {
     conf.maple = 0;
     conf.do_simplify_problem = true;
     conf.keep_symbol = false;
+    */
     data->solvers[i]->setConf(conf);
   }
 }
