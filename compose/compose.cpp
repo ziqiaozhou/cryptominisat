@@ -11,8 +11,10 @@ template <class T> void print_map(std::map<std::string, vector<T>> &map) {
   }
 }
 void Compose::add_compose_options() {
-  composeOptions_.add_options()("cycles", po::value(&cycles_)->default_value(1),
-                                "Number of composition cycles. when in compose copy mode, it represents how many additional copy we want to make.")(
+  composeOptions_.add_options()(
+      "cycles", po::value(&cycles_)->default_value(1),
+      "Number of composition cycles. when in compose copy mode, it represents "
+      "how many additional copy we want to make.")(
       "init", po::value(&init_file_)->default_value(""),
       "Initilization constraint file.")(
       "composedfile", po::value(&out_file_)->default_value("out"),
@@ -310,9 +312,19 @@ void Compose::incremental_compose() {
   current_trans_symbol_vars = trans_symbol_vars;
   current_trans_symbol_vars.erase("s0");
   current_trans_symbol_vars.erase("s1");
+  std::string state_path;
   for (int i = start_cycle_; i < cycles_; ++i) {
     // compose;
-    std::string state_path = out_dir_;
+    if (i > start_cycle_) {
+      delete init_solver;
+      conf2 = conf_copy;
+      init_solver = new SATSolver((void *)&conf2);
+      symbol_vars.clear();
+      sampling_vars.clear();
+      readInAFile(init_solver, state_path);
+      init_symbol_vars = symbol_vars;
+    }
+    state_path = out_dir_;
     std::cerr << "cycle" << i << "\n";
     std::string prev_state = "s" + std::to_string(i);
     std::string current_state = "s" + std::to_string(i + 1);
@@ -335,16 +347,12 @@ void Compose::incremental_compose() {
       init_solver->set_sampling_vars(&sampling_vars);
       init_solver->simplify();
       std::ofstream finalout(state_path);
+      if (init_solver->solve() == l_False) {
+        std::cout << "solving is false";
+      }
       init_solver->dump_irred_clauses_ind_only(&finalout);
       // restore to the old var map after dumping
       finalout.close();
-      delete init_solver;
-      conf2 = conf_copy;
-      init_solver = new SATSolver((void *)&conf2);
-      symbol_vars.clear();
-      sampling_vars.clear();
-      readInAFile(init_solver, state_path);
-      init_symbol_vars = symbol_vars;
     }
     // init_solver->renumber_variables(true);
     if (conf.verbosity >= 0) {
