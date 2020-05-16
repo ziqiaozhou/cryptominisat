@@ -1165,9 +1165,9 @@ void DLL_PUBLIC SATSolver::set_up_for_jaccard_count() {
     //conf.varElimRatioPerIter = 1;
     conf.do_simplify_problem = true;
     conf.keep_symbol = false;
-    conf.more_more_with_cache=true;
-    conf.doCache=true;
-    conf.useCacheWhenFindingXors=true;
+    //conf.more_more_with_cache=true;
+    //conf.doCache=true;
+    //conf.useCacheWhenFindingXors=true;
     conf.modulo_maple_iter=2;
     /*
     conf.simplify_at_startup = 1;
