@@ -1803,7 +1803,7 @@ lbool Solver::iterate_until_solved()
         if (conf.maple) {
             //The 1st of every modulo N is VSIDS otherwise Maple
             long modulo = ((long)iteration_num-1) % conf.modulo_maple_iter;
-            if (modulo < ((long)conf.modulo_maple_iter-1)) {
+            if (modulo > 0) {
                 VSIDS = false;
                 if (conf.alternate_maple) {
                     if ((iteration_num_maple%2) == 0) {
