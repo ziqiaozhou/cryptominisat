@@ -1440,6 +1440,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     backup_solvers[i]->set_sampling_vars(nullptr);*/
   //  solver->add_clause(secret_watch);
   cout << "count size=" << count_vars.size();
+  solver->simplify();
+  backup_solvers[0]->simplify();
   string trim = trimVar(backup_solvers[0], count_vars);
   unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
   cout << "secret size=" << secret_vars.size() << std::endl;
