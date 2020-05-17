@@ -16,6 +16,11 @@
 class Count : public Main {
 public:
   void add_count_options();
+  void simplify(SATSolver* solver, const vector< Lit >* assumptions=nullptr){
+    solver->set_timeout_all_calls(10);
+    solver->simplify();
+    solver->set_timeout_all_calls(std::numeric_limits<double>::max());
+  }
   SATSolver *newCounterSolver(SATSolver *s, void *conf, int idx = -1) {
     // SATSolver *s = new SATSolver(conf);
     s->set_num_threads(1);

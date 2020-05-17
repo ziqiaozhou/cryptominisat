@@ -633,7 +633,7 @@ bool Count::readVictimModel(SATSolver *&solver) {
     for (auto lit : lits.second)
       sampling_vars.push_back(lit.var());
   solver->set_sampling_vars(&sampling_vars);
-  solver->simplify();
+  simplify(solver);
   string victim_cnf_file = out_dir_ + "//" + out_file_ + ".simp";
   std::ofstream finalout(victim_cnf_file);
   solver->dump_irred_clauses_ind_only(&finalout);
@@ -860,7 +860,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   new_assumps.push_back(Lit(act_var, true));
   long begin = cpuTimeTotal();
   if (new_assumps.size() > 1)
-    solver->simplify(&new_assumps);
+    simplify(solver,&new_assumps);
   if (debug) {
     std::ofstream finalout("debug.cnf");
     for (auto l : new_assumps) {
@@ -1164,7 +1164,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
     l = ~l;
   }
   solver->add_clause(secret_watch);
-  solver->simplify();
+  simplify(solver);
   if (solver->solve() == l_False) {
     return false;
   }
@@ -1183,8 +1183,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
       l = ~l;
     }
     backup_solvers[i]->add_clause(secret_watch);
-
-    backup_solvers[i]->simplify();
+    simplify(backup_solvers[i]);
     trimVar(backup_solvers[i], backup_count_vars[i]);
   }
   cout << "count size=" << count_vars.size() << std::endl;
@@ -1440,8 +1439,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     backup_solvers[i]->set_sampling_vars(nullptr);*/
   //  solver->add_clause(secret_watch);
   cout << "count size=" << count_vars.size();
-  solver->simplify();
-  backup_solvers[0]->simplify();
+  simplify(solver);
+  simplify(backup_solvers[0]);
   string trim = trimVar(backup_solvers[0], count_vars);
   unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
   cout << "secret size=" << secret_vars.size() << std::endl;
