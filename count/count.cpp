@@ -561,6 +561,10 @@ void Count::add_count_options() {
       "Valid when inter_mode=2, False: use Y1 V Y2 as denominator, True: use "
       "Y1 as denominator");
   countOptions_.add_options()(
+      "use_simplify",
+      po::value(&use_simplify_)->default_value(true),
+      "use simplify");
+  countOptions_.add_options()(
       "inter_mode", po::value(&inter_mode_)->default_value(0),
       "1-> secret_1 and secret_2, observe_1 and observe_2, 0: single,  2: "
       "JaccardHat if use_overlap_coefficient=false, Overlap Coef if "
@@ -860,7 +864,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   new_assumps.push_back(Lit(act_var, true));
   long begin = cpuTimeTotal();
   if (new_assumps.size() > 1)
-    simplify(solver,&new_assumps);
+    simplify(solver, &new_assumps);
   if (debug) {
     std::ofstream finalout("debug.cnf");
     for (auto l : new_assumps) {
@@ -1467,7 +1471,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
 
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
     if (warm_up) {
-      max_sol_ = max_sol_/2;
+      max_sol_ = max_sol_ / 2;
     }
     solution_lits.clear();
     solution_strs.clear();

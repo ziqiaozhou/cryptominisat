@@ -17,9 +17,8 @@ class Count : public Main {
 public:
   void add_count_options();
   void simplify(SATSolver* solver, const vector< Lit >* assumptions=nullptr){
-    solver->set_timeout_all_calls(10);
-    solver->simplify();
-    solver->set_timeout_all_calls(std::numeric_limits<double>::max());
+    if(use_simplify_)
+    solver->simplify(assumptions);
   }
   SATSolver *newCounterSolver(SATSolver *s, void *conf, int idx = -1) {
     // SATSolver *s = new SATSolver(conf);
@@ -198,6 +197,7 @@ protected:
   bool caching_solution_;
   std::set<uint64_t> used_vars;
   std::set<uint32_t> unused_sampling_vars;
+  bool use_simplify_;
   vector<std::set<uint32_t>> backup_unused_sampling_vars;
 bool warm_up;
   string SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
