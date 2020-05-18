@@ -109,10 +109,10 @@ void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   }
 }
 
-string bit2string(vector<bool> &secret_rhs){
-  string ret="";
+string bit2string(vector<bool> &secret_rhs) {
+  string ret = "";
   for (int i = 0; i < secret_rhs.size(); ++i) {
-    ret+=secret_rhs[i]?"1":"0";
+    ret += secret_rhs[i] ? "1" : "0";
   }
   return ret;
 }
@@ -566,10 +566,9 @@ void Count::add_count_options() {
       po::value(&use_overlap_coefficient_)->default_value(true),
       "Valid when inter_mode=2, False: use Y1 V Y2 as denominator, True: use "
       "Y1 as denominator");
-  countOptions_.add_options()(
-      "use_simplify",
-      po::value(&use_simplify_)->default_value(true),
-      "use simplify");
+  countOptions_.add_options()("use_simplify",
+                              po::value(&use_simplify_)->default_value(true),
+                              "use simplify");
   countOptions_.add_options()(
       "inter_mode", po::value(&inter_mode_)->default_value(0),
       "1-> secret_1 and secret_2, observe_1 and observe_2, 0: single,  2: "
@@ -703,7 +702,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   }*/
   double ratio = xor_ratio_;
   double xor_decay = xor_decay_;
-  //srand(unsigned(time(NULL)));
+  // srand(unsigned(time(NULL)));
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
@@ -1252,7 +1251,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
       RecordCountInter(solution_counts, hash_count, backup_solution_counts,
-                         backup_hash_count, secret_rnd);
+                       backup_hash_count, secret_rnd);
     }
   }
   left_ = 0;
@@ -1343,7 +1342,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
         secret_rnd +=
             Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
                    added_secret_vars, secret_rhs, rhs_watch, true);
-        secret_rnd + =bit2string(secret_rhs);
+        secret_rnd += bit2string(secret_rhs);
         solver_secret_rhs_watches[id].push_back(rhs_watch);
       } else {
         auto rhs_watch = solver_secret_rhs_watches[ids[i - 1]].back();
@@ -1422,7 +1421,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       fff.close();
     }
   }
-  cout<<"secret_rnd="<<secret_rnd<<std::endl;
+  cout << "secret_rnd=" << secret_rnd << std::endl;
   return after_secret_sample_count(solver, secret_rnd);
 }
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
