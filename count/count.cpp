@@ -720,7 +720,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     for (int i = 0; i < num_xor_cls; ++i){
       tmp[i]=i;
     }
-    std::shuffle(tmp.begin(), tmp.end(), randomEngine);
+    //std::shuffle(tmp.begin(), tmp.end(), randomEngine);
     randomBits = string(vars.size() * num_xor_cls, '0');
     for (int i = 0; i < num_xor_cls; ++i) {
       randomBits[tmp[i] + i * vars.size()] = '1';
