@@ -745,6 +745,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
           break;
       }
       randomBitsSet.insert(tmp);
+      cout<<"add hash "<<tmp<<std::endl;
       randomBits += tmp;
     }
   }
