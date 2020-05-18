@@ -894,10 +894,10 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     begin = cpuTimeTotal();
     solver->set_max_time(one_call_timeout_);
     ret = solver->solve(&new_assumps, only_ind);
-    solver->set_max_time(100000*one_call_timeout_);
+    solver->set_max_time(100000 * one_call_timeout_);
     std::cout << "max_sol=" << maxSolutions << ",solve once"
               << cpuTimeTotal() - begin << std::endl;
-    //assert(ret == l_False || ret == l_True);
+    // assert(ret == l_False || ret == l_True);
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
       if (ret == l_True) {
@@ -960,7 +960,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   cl_that_removes.push_back(Lit(act_var, false));
   solver->add_clause(cl_that_removes);
 
-  if (ret != l_Undef) {
+  if (ret == l_Undef) {
     return -solutions;
   }
   return solutions;
@@ -974,7 +974,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     left = right - 30;
   }
   long total_start = cpuTimeTotal();
-  int nsol = 0, nice_hash_count = 0;
+  int nsol = 0, nice_hash_count = -1, timeout_nice_hash_count = -1;
   if (!reserve_xor) {
     added_count_lits.clear();
     count_rhs.clear();
@@ -998,6 +998,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     if (nsol < max_sol_) {
       left = right = hash_count = 0;
       solution_counts[0] = nsol;
+      nice_hash_count = 0;
       cout << "found solution" << nsol << "no need xor\n";
     }
   }
@@ -1028,9 +1029,13 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     if (nsol >= max_sol_) {
       left = hash_count + 1;
     } else if (nsol < max_sol_ * 0.6) {
-      right = hash_count;
-      nice_hash_count = hash_count;
+      if (nsol > 0)
+        nice_hash_count = hash_count;
+      else if (nsol < 0) {
+        timeout_nice_hash_count = hash_count;
+      }
       if (nsol > 0) {
+        right = hash_count;
         auto new_hash_count = std::max(
             left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))));
         if (new_hash_count == hash_count) {
@@ -1044,9 +1049,11 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
              << "left=" << left << "right=" << right << std::endl;
         continue;
       } else if (nsol < 0) {
-        left=hash_count;
+        left = hash_count;
         hash_count++;
         cout << "timeout..... Let's check larger hashcount to see some luck";
+      }else (nsol == 0){
+        right = hash_count;
       }
     } else {
       nice_hash_count = hash_count;
@@ -1068,7 +1075,9 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
          << "right=" << right << std::endl;
     hash_count = left + (right - left) / 2;
   }
-  hash_count = nice_hash_count;
+  if ((nice_hash_count > 0) || (timeout_nice_hash_count > 0))
+    hash_count =
+        (nice_hash_count > 0) ? nice_hash_count : timeout_nice_hash_count;
   bool retry = false;
   int retry_max_sol = max_sol_;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
