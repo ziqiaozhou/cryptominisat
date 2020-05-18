@@ -1052,7 +1052,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
         left = hash_count;
         hash_count++;
         cout << "timeout..... Let's check larger hashcount to see some luck";
-      }else (nsol == 0){
+      } else if (nsol == 0) {
         right = hash_count;
       }
     } else {
