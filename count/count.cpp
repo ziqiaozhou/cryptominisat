@@ -108,6 +108,14 @@ void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
     }
   }
 }
+
+string bit2string(vector<bool> &secret_rhs){
+  string ret="";
+  for (int i = 0; i < secret_rhs.size(); ++i) {
+    ret+=secret_rhs[i]?"1":"0";
+  }
+  return ret;
+}
 bool shuffle(vector<bool> &secret_rhs) {
   if (secret_rhs.size() == 0)
     return false;
@@ -786,7 +794,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     // e.g., xor watch 1 2 4 ..
     solver2->add_xor_clause(lits, rhs[i]);
   }
-  return randomBits + randomBits_rhs;
+  return randomBits;
 }
 int64_t Count::bounded_sol_count_cached(SATSolver *solver,
                                         const vector<unsigned> &count_vars,
@@ -1335,6 +1343,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
         secret_rnd +=
             Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
                    added_secret_vars, secret_rhs, rhs_watch, true);
+        secret_rnd + =bit2string(secret_rhs);
         solver_secret_rhs_watches[id].push_back(rhs_watch);
       } else {
         auto rhs_watch = solver_secret_rhs_watches[ids[i - 1]].back();
