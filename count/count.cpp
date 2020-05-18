@@ -900,7 +900,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
         std::max(one_call_timeout_, total_call_timeout_ - used_time_));
     ret = solver->solve(&new_assumps, only_ind);
     used_time_ = cpuTimeTotal() - begin;
-    std::cout << "max_sol=" << maxSolutions << ",solve once"
+    std::cout << "sol="<< solutions << "/" << maxSolutions << ",solve once"
               << cpuTimeTotal() - begin << std::endl;
     solver->set_max_time(100000 * one_call_timeout_);
     // assert(ret == l_False || ret == l_True);
@@ -1038,7 +1038,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       if (nsol > 0)
         nice_hash_count = hash_count;
       else if (nsol < 0) {
-        timeout_nice_hash_count = std::min(timeout_nice_hash_count,hash_count);
+        timeout_nice_hash_count = std::min(timeout_nice_hash_count, hash_count);
       }
       if (nsol > 0) {
         right = hash_count;
@@ -1488,9 +1488,16 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   cout << "count size=" << count_vars.size()
        << ",unrelated vars=" << unrelated_number_countvars << std::endl;
   auto start = cpuTimeTotal();
-  auto check = backup_solvers[0]->solve();
+  auto checkunion = backup_solvers[0]->solve();
+  auto time1 = (cpuTimeTotal() - start);
+  auto checkinter = solver->solve();
+  auto time2 = (cpuTimeTotal() - start) - time1;
+  bool count_inter_first = false;
+  if (time2 < time1 / 4) {
+    count_inter_first = true;
+  }
   std::cout << "checking time=" << (cpuTimeTotal() - start) << std::endl;
-  if (check == l_False) {
+  if (checkunion == l_False) {
     std::cerr << "solve is false" << std::endl;
     return false;
   }
@@ -1515,6 +1522,21 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     solution_counts.clear();
     cached_inter_solution.clear();
     int idx = 0;
+    if (count_inter_first) {
+      //count intersection before unions
+      cout << count_times << "=========count for target "
+           << "left=" << left << ",right= " << right << "\n\n";
+      solution_counts =
+          count_once(solver, count_vars, {}, left, right, hash_count, true);
+      if (warm_up) {
+        for (size_t i = 0; i < backup_solvers.size(); ++i) {
+          backup_right[i] = hash_count + std::min(hash_count, 5);
+          backup_left[i] = hash_count - std::min(hash_count, 5);
+        }
+      }
+    }
+    auto inter_solution_lits = solution_lits;
+    auto inter_solution_strs = solution_strs;
     for (size_t i = 0; i < backup_solvers.size(); ++i) {
       cout << "======count for id=" << i << "left=" << backup_left[i]
            << ",right= " << backup_right[i] << "\n\n";
@@ -1530,19 +1552,24 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     }
     auto union_solution_lits = solution_lits;
     auto union_solution_strs = solution_strs;
-
-    if (warm_up) {
-      right = backup_hash_count[0] + std::min(backup_hash_count[0], 5);
-      left = backup_hash_count[0] - std::min(backup_hash_count[0], 5);
+    if (!count_inter_first) {
+      //count unions before intersection;
+      if (warm_up) {
+        right = backup_hash_count[0] + std::min(backup_hash_count[0], 5);
+        left = backup_hash_count[0] - std::min(backup_hash_count[0], 5);
+      }
+      cout << count_times << "=========count for target "
+           << "left=" << left << ",right= " << right << "\n\n";
+      solution_lits.clear();
+      solution_strs.clear();
+      solution_counts =
+          count_once(solver, count_vars, {}, left, right, hash_count, true);
+      inter_solution_lits = solution_lits;
+      inter_solution_strs = solution_strs;
     }
-    cout << count_times << "=========count for target "
-         << "left=" << left << ",right= " << right << "\n\n";
-
-    solution_counts =
-        count_once(solver, count_vars, {}, left, right, hash_count, true);
     RecordSolution(secret_rnd);
-    calculateDiffSolution(solution_lits, union_solution_lits, solution_strs,
-                          union_solution_strs, secret_rnd);
+    calculateDiffSolution(inter_solution_lits, union_solution_lits,
+                          inter_solution_strs, union_solution_strs, secret_rnd);
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
