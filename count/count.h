@@ -15,10 +15,13 @@
 
 class Count : public Main {
 public:
+  string GenerateRandomBits_prob(unsigned size, double prob);
+  string GenerateRandomBits(unsigned size);
+  bool shuffle(vector<bool> &secret_rhs);
   void add_count_options();
-  void simplify(SATSolver* solver, const vector< Lit >* assumptions=nullptr){
-    if(use_simplify_)
-    solver->simplify(assumptions);
+  void simplify(SATSolver *solver, const vector<Lit> *assumptions = nullptr) {
+    if (use_simplify_)
+      solver->simplify(assumptions);
   }
   SATSolver *newCounterSolver(SATSolver *s, void *conf, int idx = -1) {
     // SATSolver *s = new SATSolver(conf);
@@ -41,7 +44,9 @@ public:
     left_ = -1;
     right_ = -1;
     unrelated_number_countvars = 0;
-    warm_up=true;
+    warm_up = true;
+    std::random_device rd;
+    randomEngine.seed(rd());
   }
   ~Count() {}
   void add_supported_options() override;
@@ -78,11 +83,10 @@ protected:
                                    const vector<unsigned> &count_vars,
                                    unsigned maxSolutions,
                                    const vector<Lit> &assumps, Lit act_lit);
-      map<int, unsigned> count_once(SATSolver *solver,
-                                    vector<unsigned> &count_vars,
-                                    const vector<Lit> &secret_watch, int &left,
-                                    int &right, int &hash_count,
-                                    bool reserve_xor = false);
+  map<int, unsigned> count_once(SATSolver *solver, vector<unsigned> &count_vars,
+                                const vector<Lit> &secret_watch, int &left,
+                                int &right, int &hash_count,
+                                bool reserve_xor = false);
   bool count(SATSolver *solver, vector<unsigned> &secret_vars);
   bool countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars);
 
@@ -198,8 +202,9 @@ protected:
   std::set<uint64_t> used_vars;
   std::set<uint32_t> unused_sampling_vars;
   bool use_simplify_;
+  std::mt19937 randomEngine;
   vector<std::set<uint32_t>> backup_unused_sampling_vars;
-bool warm_up;
+  bool warm_up;
   string SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
                         int num_xor_cls, vector<Lit> &watch,
                         vector<vector<unsigned>> &alllits, vector<bool> &rhs,

@@ -13,16 +13,42 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
-static string GenerateRandomBits_prob(unsigned size, double prob) {
+string Count::GenerateRandomBits_prob(unsigned size, double prob) {
   string randomBits = "";
-  unsigned base = 100000;
+  unsigned base = 10000;
+  std::uniform_int_distribution<uint32_t> dist{0, base};
   for (int i = 0; i < size; ++i) {
-    randomBits += ((rand() % base) < prob * base) ? "1" : "0";
+    randomBits += (dist(randomEngine) < (base * prob)) ? "1" : "0";
   }
   return randomBits;
 }
-static string GenerateRandomBits(unsigned size) {
+string Count::GenerateRandomBits(unsigned size) {
   return GenerateRandomBits_prob(size, 0.5);
+}
+string bit2string(vector<bool> &secret_rhs) {
+  string ret = "";
+  for (int i = 0; i < secret_rhs.size(); ++i) {
+    ret += secret_rhs[i] ? "1" : "0";
+  }
+  return ret;
+}
+
+bool Count::shuffle(vector<bool> &secret_rhs) {
+  if (secret_rhs.size() == 0)
+    return false;
+  string randomBits_rhs_old = bit2string(secret_rhs);
+  vector<bool> old_secret_rhs = secret_rhs;
+  bool success = false;
+  while (!success) {
+    string randomBits_rhs = GenerateRandomBits(secret_rhs.size());
+    if (randomBits_rhs != randomBits_rhs_old) {
+      success = true;
+    }
+    for (int i = 0; i < secret_rhs.size(); ++i) {
+      secret_rhs[i] = randomBits_rhs[i] == '1';
+    }
+  }
+  return true;
 }
 void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   vector<vector<Lit>> trans_clauses;
@@ -120,31 +146,6 @@ void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   }
 }
 
-string bit2string(vector<bool> &secret_rhs) {
-  string ret = "";
-  for (int i = 0; i < secret_rhs.size(); ++i) {
-    ret += secret_rhs[i] ? "1" : "0";
-  }
-  return ret;
-}
-
-bool shuffle(vector<bool> &secret_rhs) {
-  if (secret_rhs.size() == 0)
-    return false;
-  string randomBits_rhs_old=bit2string(secret_rhs);
-  vector<bool> old_secret_rhs = secret_rhs;
-  bool success = false;
-  while (!success) {
-    string randomBits_rhs=GenerateRandomBits(secret_rhs.size());
-    if(randomBits_rhs!=randomBits_rhs_old){
-      success = true;
-    }
-    for (int i = 0; i < secret_rhs.size(); ++i) {
-      secret_rhs[i] = randomBits_rhs[i]=='1';
-    }
-  }
-  return true;
-}
 vector<string> Count::getCIISSModel(SATSolver *solver) {
   string ret = "";
   std::stringstream ret2;
@@ -399,8 +400,6 @@ string Count::trimVar(SATSolver *solver2, vector<unsigned> &vars) {
   // std::swap(new_secret_vars, secret_vars);
   return ret;
 }
-
-
 
 template <class T> void print_map(std::map<std::string, vector<T>> &map) {
   for (auto var : map) {
@@ -694,7 +693,6 @@ string Count::SampleSmallXor(SATSolver *solver2, std::vector<unsigned> vars,
   solver2->add_clause(addInners);
   return ret;
 }
-int myrandom(int i) { return std::rand() % i; }
 
 string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
                      int num_xor_cls, vector<Lit> &watch,
@@ -733,7 +731,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
       }
       while (true) {
         // tmp = GenerateRandomBits_prob(vars.size(), ratio);
-        std::random_shuffle(tmp.begin(), tmp.end(), myrandom);
+        std::shuffle(tmp.begin(), tmp.end(), randomEngine);
         if (tmp.find("1") == std::string::npos) {
           // no var is chosen in the hash
           continue;
