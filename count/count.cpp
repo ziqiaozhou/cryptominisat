@@ -555,6 +555,8 @@ void Count::add_count_options() {
   countOptions_.add_options()("nsample", po::value(&nsample)->default_value(5));
   countOptions_.add_options()("min_log_size",
                               po::value(&min_log_size_)->default_value(-1));
+  countOptions_.add_options()(
+      "one_call_timeout", po::value(&one_call_timeout_)->default_value(200));
   countOptions_.add_options()("max_log_size",
                               po::value(&max_log_size_)->default_value(-1));
   countOptions_.add_options()("max_xor_per_var",
@@ -890,6 +892,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
                                        new_assumps, Lit(act_var, false));
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
+    solver->set_max_time(one_call_timeout_);
     ret = solver->solve(&new_assumps, only_ind);
     std::cout << "max_sol=" << maxSolutions << ",solve once"
               << cpuTimeTotal() - begin << std::endl;
@@ -956,7 +959,9 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   cl_that_removes.push_back(Lit(act_var, false));
   solver->add_clause(cl_that_removes);
 
-  assert(ret != l_Undef);
+  if (ret != l_Undef) {
+    return -solutions;
+  }
   return solutions;
 }
 map<int, unsigned> Count::count_once(SATSolver *solver,
@@ -1018,6 +1023,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
                                    solution_lits.begin(), solution_lits.end());
     }
     nsol = solution_counts[hash_count];
+    solution_counts[hash_count] = abs(nsol);
     if (nsol >= max_sol_) {
       left = hash_count + 1;
     } else if (nsol < max_sol_ * 0.6) {
@@ -1036,6 +1042,10 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
         continue;
+      } else if (nsol < 0) {
+        left=hash_count;
+        hash_count++;
+        cout << "timeout..... Let's check larger hashcount to see some luck";
       }
     } else {
       nice_hash_count = hash_count;
@@ -1538,12 +1548,12 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     warm_up = false;
   }
 
-  left_ = std::max(0, max_hash_count - 8);
-  right_ = std::min(int(count_vars.size()), max_hash_count + 8);
+  left_ = std::max(0, max_hash_count - 5);
+  right_ = std::min(int(count_vars.size()), max_hash_count + 5);
   for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_left_[i] = std::max(0, backup_max_hash_count[i] - 8);
+    backup_left_[i] = std::max(0, backup_max_hash_count[i] - 5);
     backup_right_[i] =
-        std::min(int(count_vars.size()), backup_max_hash_count[i] + 8);
+        std::min(int(count_vars.size()), backup_max_hash_count[i] + 5);
   }
   return true;
 }
