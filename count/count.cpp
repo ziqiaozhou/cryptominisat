@@ -13,6 +13,17 @@ using std::map;
 using std::ofstream;
 using std::unordered_map;
 using std::unordered_set;
+static string GenerateRandomBits_prob(unsigned size, double prob) {
+  string randomBits = "";
+  unsigned base = 100000;
+  for (int i = 0; i < size; ++i) {
+    randomBits += ((rand() % base) < prob * base) ? "1" : "0";
+  }
+  return randomBits;
+}
+static string GenerateRandomBits(unsigned size) {
+  return GenerateRandomBits_prob(size, 0.5);
+}
 void Count::readInAFileToCache(SATSolver *solver2, const string &filename) {
   vector<vector<Lit>> trans_clauses;
   vector<std::pair<vector<unsigned>, bool>> trans_xor_clauses;
@@ -389,17 +400,7 @@ string Count::trimVar(SATSolver *solver2, vector<unsigned> &vars) {
   return ret;
 }
 
-static string GenerateRandomBits_prob(unsigned size, double prob) {
-  string randomBits = "";
-  unsigned base = 100000;
-  for (int i = 0; i < size; ++i) {
-    randomBits += ((rand() % base) < prob * base) ? "1" : "0";
-  }
-  return randomBits;
-}
-static string GenerateRandomBits(unsigned size) {
-  return GenerateRandomBits_prob(size, 0.5);
-}
+
 
 template <class T> void print_map(std::map<std::string, vector<T>> &map) {
   for (auto var : map) {
