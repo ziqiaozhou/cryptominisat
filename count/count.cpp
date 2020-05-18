@@ -897,7 +897,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     solver->set_max_time(100000*one_call_timeout_);
     std::cout << "max_sol=" << maxSolutions << ",solve once"
               << cpuTimeTotal() - begin << std::endl;
-    assert(ret == l_False || ret == l_True);
+    //assert(ret == l_False || ret == l_True);
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
       if (ret == l_True) {
