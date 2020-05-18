@@ -894,6 +894,7 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
     begin = cpuTimeTotal();
     solver->set_max_time(one_call_timeout_);
     ret = solver->solve(&new_assumps, only_ind);
+    solver->set_max_time(100000*one_call_timeout_);
     std::cout << "max_sol=" << maxSolutions << ",solve once"
               << cpuTimeTotal() - begin << std::endl;
     assert(ret == l_False || ret == l_True);
