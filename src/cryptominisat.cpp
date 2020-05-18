@@ -1156,7 +1156,6 @@ void DLL_PUBLIC SATSolver::set_up_for_jaccard_count() {
     conf.gaussconf.max_matrix_rows = 10000;
     conf.gaussconf.autodisable = false;
     conf.global_multiplier_multiplier_max = 3;
-    conf.maxXorToFind=20;
     conf.useCacheWhenFindingXors=true;
     conf.var_and_mem_out_mult *= 6;
     conf.global_timeout_multiplier_multiplier = 1.5;
