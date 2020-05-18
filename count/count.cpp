@@ -735,8 +735,8 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
         xor_decay = 1.0 / xor_decay;
       }
       while (true) {
-        // tmp = GenerateRandomBits_prob(vars.size(), ratio);
-        std::shuffle(tmp.begin(), tmp.end(), randomEngine);
+        tmp = GenerateRandomBits_prob(vars.size(), ratio);
+        //std::shuffle(tmp.begin(), tmp.end(), randomEngine);
         if (tmp.find("1") == std::string::npos) {
           // no var is chosen in the hash
           continue;
