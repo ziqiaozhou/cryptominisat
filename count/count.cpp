@@ -117,8 +117,6 @@ bool shuffle(vector<bool> &secret_rhs) {
     for (int i = 0; i < secret_rhs.size(); ++i) {
       secret_rhs[i] = (rand() % 2) ? true : false;
       if (secret_rhs[i] != old_secret_rhs[i]) {
-        cout << "secret_rhs[i]=" << secret_rhs[i]
-             << ",old_secret_rhs[i]=" << old_secret_rhs[i] << std::endl;
         success = true;
       }
     }
@@ -697,7 +695,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   }*/
   double ratio = xor_ratio_;
   double xor_decay = xor_decay_;
-  srand(unsigned(time(NULL)));
+  //srand(unsigned(time(NULL)));
   if (num_xor_cls * ratio > max_xor_per_var_) {
     ratio = max_xor_per_var_ * 1.0 / num_xor_cls;
     cout << "too many xor... we hope to use at most" << max_xor_per_var_
@@ -706,13 +704,6 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   string randomBits = "";
   std::set<string> randomBitsSet;
   if (num_xor_cls == vars.size()) {
-    // only pick one value
-    ratio = 1.0 / num_xor_cls;
-    xor_decay = 1.0;
-    randomBits = string(vars.size() * num_xor_cls, '0');
-    for (int i = 0; i < num_xor_cls; ++i) {
-      randomBits[i + i * vars.size()] = '1';
-    }
     // only pick one value
     ratio = 1.0 / num_xor_cls;
     xor_decay = 1.0;
@@ -1252,8 +1243,7 @@ bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
-      if (count_times > 0)
-        RecordCountInter(solution_counts, hash_count, backup_solution_counts,
+      RecordCountInter(solution_counts, hash_count, backup_solution_counts,
                          backup_hash_count, secret_rnd);
     }
   }
@@ -1423,6 +1413,7 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
       fff.close();
     }
   }
+  cout<<"secret_rnd="<<secret_rnd<<std::endl;
   return after_secret_sample_count(solver, secret_rnd);
 }
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
