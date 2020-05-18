@@ -716,9 +716,14 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
     // only pick one value
     ratio = 1.0 / num_xor_cls;
     xor_decay = 1.0;
+    vector<int> tmp(num_xor_cls);
+    for (int i = 0; i < num_xor_cls; ++i){
+      tmp[i]=i;
+    }
+    std::shuffle(tmp.begin(), tmp.end(), randomEngine);
     randomBits = string(vars.size() * num_xor_cls, '0');
     for (int i = 0; i < num_xor_cls; ++i) {
-      randomBits[i + i * vars.size()] = '1';
+      randomBits[tmp[i] + i * vars.size()] = '1';
     }
   } else {
     for (int i = 0; i < num_xor_cls; ++i) {
