@@ -785,8 +785,8 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
         }
         assert(lits.size() >= 1);
       }
-      cout << "add hash " << randomBits.substr(i * vars.size(), vars.size())
-           << std::endl;
+      /*cout << "add hash " << randomBits.substr(i * vars.size(), vars.size())
+           << std::endl;*/
       alllits.push_back(lits);
       rhs.push_back(randomBits_rhs[i] == '1');
     }
