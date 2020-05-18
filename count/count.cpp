@@ -116,17 +116,20 @@ string bit2string(vector<bool> &secret_rhs) {
   }
   return ret;
 }
+
 bool shuffle(vector<bool> &secret_rhs) {
   if (secret_rhs.size() == 0)
     return false;
+  string randomBits_rhs_old=bit2string(secret_rhs);
   vector<bool> old_secret_rhs = secret_rhs;
   bool success = false;
   while (!success) {
+    string randomBits_rhs=GenerateRandomBits(secret_rhs.size());
+    if(randomBits_rhs!=randomBits_rhs_old){
+      success = true;
+    }
     for (int i = 0; i < secret_rhs.size(); ++i) {
-      secret_rhs[i] = (rand() % 2) ? true : false;
-      if (secret_rhs[i] != old_secret_rhs[i]) {
-        success = true;
-      }
+      secret_rhs[i] = randomBits_rhs[i]=='1';
     }
   }
   return true;
