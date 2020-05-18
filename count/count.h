@@ -189,6 +189,8 @@ protected:
   int inter_mode_;
   int nsample;
   int one_call_timeout_;
+  int total_call_timeout_;
+  int used_time_;
   vector<vector<unsigned>> added_count_lits;
   vector<bool> count_rhs;
   vector<Lit> count_watch;

@@ -556,6 +556,9 @@ void Count::add_count_options() {
   countOptions_.add_options()("min_log_size",
                               po::value(&min_log_size_)->default_value(-1));
   countOptions_.add_options()(
+      "total_call_timeout",
+      po::value(&total_call_timeout_)->default_value(700));
+  countOptions_.add_options()(
       "one_call_timeout", po::value(&one_call_timeout_)->default_value(200));
   countOptions_.add_options()("max_log_size",
                               po::value(&max_log_size_)->default_value(-1));
@@ -890,13 +893,16 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   std::cout << "after simp, time=" << cpuTimeTotal() - begin << std::endl;
   solutions = bounded_sol_count_cached(solver, target_count_vars, maxSolutions,
                                        new_assumps, Lit(act_var, false));
+  used_time_ = 0;
   while (solutions < maxSolutions) {
     begin = cpuTimeTotal();
-    solver->set_max_time(one_call_timeout_);
+    solver->set_max_time(
+        std::max(one_call_timeout_, total_call_timeout_ - used_time_));
     ret = solver->solve(&new_assumps, only_ind);
-    solver->set_max_time(100000 * one_call_timeout_);
+    used_time_ = cpuTimeTotal() - begin;
     std::cout << "max_sol=" << maxSolutions << ",solve once"
               << cpuTimeTotal() - begin << std::endl;
+    solver->set_max_time(100000 * one_call_timeout_);
     // assert(ret == l_False || ret == l_True);
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
@@ -1032,7 +1038,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       if (nsol > 0)
         nice_hash_count = hash_count;
       else if (nsol < 0) {
-        timeout_nice_hash_count = hash_count;
+        timeout_nice_hash_count = std::min(timeout_nice_hash_count,hash_count);
       }
       if (nsol > 0) {
         right = hash_count;
@@ -1052,6 +1058,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
         left = hash_count;
         hash_count++;
         cout << "timeout..... Let's check larger hashcount to see some luck";
+        continue;
       } else if (nsol == 0) {
         right = hash_count;
       }
