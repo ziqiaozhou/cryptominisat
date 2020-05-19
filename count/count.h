@@ -75,21 +75,19 @@ protected:
                 vector<Lit> &watch, vector<vector<unsigned>> &alllits,
                 vector<bool> &rhs, Lit addInner = lit_Undef,
                 bool is_restarted = false);
-  int64_t bounded_sol_count(SATSolver *solver,
+  int bounded_sol_count(SATSolver *solver,
                             const vector<unsigned> &count_vars,
                             unsigned maxSolutions, const vector<Lit> &assumps,
                             bool only_ind = true);
-  int64_t bounded_sol_count_cached(SATSolver *solver,
+  int bounded_sol_count_cached(SATSolver *solver,
                                    const vector<unsigned> &count_vars,
                                    unsigned maxSolutions,
                                    const vector<Lit> &assumps, Lit act_lit);
-  map<int, unsigned> count_once(SATSolver *solver, vector<unsigned> &count_vars,
+  map<int, int> count_once(SATSolver *solver, vector<unsigned> &count_vars,
                                 const vector<Lit> &secret_watch, int &left,
                                 int &right, int &hash_count,
                                 bool reserve_xor = false);
   bool count(SATSolver *solver, vector<unsigned> &secret_vars);
-  bool countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars);
-
   void simulate_count(SATSolver *solver, vector<unsigned> &secret_vars);
 
   bool IsValidVictimLabel(std::string label) {
@@ -118,17 +116,16 @@ protected:
   void setSecretVars();
   void setCountVars();
   void RecordSolution(string rnd, string subfix);
-  void RecordCount(map<int, unsigned> &sols, int hash_count, string rnd);
+  void RecordCount(map<int, int> &sols, int hash_count, string rnd);
 
-  void RecordCountInter(map<int, unsigned> &sols, int hash_count,
-                        vector<map<int, unsigned>> b_sols,
+  void RecordCountInter(map<int, int> &sols, int hash_count,
+                        vector<map<int, int>> b_sols,
                         vector<int> b_hash_counts, string rnd);
   vector<unsigned> getCISAlt();
   // Return true if reading victim model;
   // Return false if no model to read;
   bool readVictimModel(SATSolver *&solver);
   vector<string> getCIISSModel(SATSolver *solver);
-  bool ProbToDiffFromSecretSet();
   void calculateDiffSolution(vector<vector<Lit>> &sol1,
                              vector<vector<Lit>> &sol2, vector<string> &s1,
                              vector<string> &s2, string rnd);
@@ -202,7 +199,7 @@ protected:
   int declassification_mode_;
   bool use_overlap_coefficient_;
   bool caching_solution_;
-  std::set<uint64_t> used_vars;
+  std::set<uint> used_vars;
   std::set<uint32_t> unused_sampling_vars;
   bool use_simplify_;
   std::mt19937 randomEngine;

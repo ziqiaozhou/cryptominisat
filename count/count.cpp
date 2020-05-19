@@ -422,7 +422,7 @@ static string getSSignature(vector<vector<unsigned>> &added_secret_vars) {
   }
   return sxor;
 }
-void Count::RecordCount(map<int, unsigned> &sols, int hash_count, string rnd) {
+void Count::RecordCount(map<int, int> &sols, int hash_count, string rnd) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".count",
                         std::ofstream::out | std::ofstream::app);
 
@@ -431,24 +431,26 @@ void Count::RecordCount(map<int, unsigned> &sols, int hash_count, string rnd) {
   count_f.close();
 }
 
-void Count::RecordCountInter(map<int, unsigned> &sols, int hash_count,
-                             vector<map<int, unsigned>> b_sols,
+void Count::RecordCountInter(map<int, int> &sols, int hash_count,
+                             vector<map<int, int>> b_sols,
                              vector<int> b_hash_counts, string rnd) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".inter.count",
                         std::ofstream::out | std::ofstream::app);
-
-  count_f << sols[hash_count] << "\t" << hash_count + unrelated_number_countvars
-          << "\t";
+  count_f << abs(sols[hash_count]) << "\t"
+          << hash_count + unrelated_number_countvars << "\t";
   int norm_sum_sols = 0;
+  string timeoutmark = "";
+  timeoutmark += (sols[hash_count] < 0) ? "t" : "";
   for (int id = 0; id < b_sols.size(); ++id) {
     int hash = b_hash_counts[id];
-    count_f << b_sols[id][hash] << "\t" << hash + unrelated_number_countvars
-            << "\t";
-    norm_sum_sols += b_sols[id][hash] * pow(2, hash - hash_count);
+    timeoutmark += (b_sols[id][hash] < 0) ? "t" : "";
+    count_f << abs(b_sols[id][hash]) << "\t"
+            << hash + unrelated_number_countvars << "\t";
+    norm_sum_sols += abs(b_sols[id][hash]) * pow(2, hash - hash_count);
   }
-  double j =
-      1 - 1.0 * sols[hash_count] / double(norm_sum_sols - sols[hash_count]);
-  count_f << std::setprecision(4) << j << "\t%" << rnd << std::endl;
+  double j = 1 - 1.0 * abs(sols[hash_count]) / norm_sum_sols;
+  count_f << std::setprecision(3) << j << "\t%" << timeoutmark << "," << rnd
+          << std::endl;
   count_f.close();
 }
 void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
@@ -811,12 +813,11 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   }
   return randomBits;
 }
-int64_t Count::bounded_sol_count_cached(SATSolver *solver,
-                                        const vector<unsigned> &count_vars,
-                                        unsigned maxSolutions,
-                                        const vector<Lit> &assumps,
-                                        Lit act_lit) {
-  int64_t nsol = 0;
+int Count::bounded_sol_count_cached(SATSolver *solver,
+                                    const vector<unsigned> &count_vars,
+                                    unsigned maxSolutions,
+                                    const vector<Lit> &assumps, Lit act_lit) {
+  int nsol = 0;
   vector<Lit> blocked_lits;
   for (auto solution : cached_inter_solution) {
     auto begin = cpuTimeTotal();
@@ -841,11 +842,11 @@ int64_t Count::bounded_sol_count_cached(SATSolver *solver,
   cout << "cached solution =" << nsol;
   return nsol;
 }
-int64_t Count::bounded_sol_count(SATSolver *solver,
-                                 const vector<unsigned> &target_count_vars,
-                                 unsigned maxSolutions,
-                                 const vector<Lit> &assumps, bool only_ind) {
-  unsigned solutions = 0;
+int Count::bounded_sol_count(SATSolver *solver,
+                             const vector<unsigned> &target_count_vars,
+                             unsigned maxSolutions, const vector<Lit> &assumps,
+                             bool only_ind) {
+  int solutions = 0;
   vector<Lit> solution;
   lbool ret;
   // solver->load_state(conf.saved_state_file);
@@ -971,11 +972,10 @@ int64_t Count::bounded_sol_count(SATSolver *solver,
   }
   return solutions;
 }
-map<int, unsigned> Count::count_once(SATSolver *solver,
-                                     vector<unsigned> &target_count_vars,
-                                     const vector<Lit> &secret_watch, int &left,
-                                     int &right, int &hash_count,
-                                     bool reserve_xor) {
+map<int, int> Count::count_once(SATSolver *solver,
+                                vector<unsigned> &target_count_vars,
+                                const vector<Lit> &secret_watch, int &left,
+                                int &right, int &hash_count, bool reserve_xor) {
   if (left > right) {
     left = right - 30;
   }
@@ -990,7 +990,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
     Sample(solver, target_count_vars, added_count_lits.size(), count_watch,
            added_count_lits, count_rhs, lit_Undef, true);
   }
-  map<int, unsigned> solution_counts;
+  map<int, int> solution_counts;
   map<int, vector<vector<Lit>>> hash_solutions;
   map<int, vector<string>> hash_solution_strs;
   vector<Lit> assump;
@@ -1038,7 +1038,11 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
       if (nsol > 0)
         nice_hash_count = hash_count;
       else if (nsol < 0) {
-        timeout_nice_hash_count = std::min(timeout_nice_hash_count, hash_count);
+        if (timeout_nice_hash_count == -1)
+          timeout_nice_hash_count = hash_count;
+        else
+          timeout_nice_hash_count =
+              std::min(timeout_nice_hash_count, hash_count);
       }
       if (nsol > 0) {
         right = hash_count;
@@ -1085,6 +1089,7 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
   if ((nice_hash_count > 0) || (timeout_nice_hash_count > 0))
     hash_count =
         (nice_hash_count > 0) ? nice_hash_count : timeout_nice_hash_count;
+  bool use_timeout_result = (hash_count == timeout_nice_hash_count);
   bool retry = false;
   int retry_max_sol = max_sol_;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
@@ -1131,6 +1136,9 @@ map<int, unsigned> Count::count_once(SATSolver *solver,
   solution_lits = hash_solutions[hash_count];
   solution_strs = hash_solution_strs[hash_count];
   cout << "Total time=" << cpuTimeTotal() - total_start << std::endl;
+  if (use_timeout_result) {
+    solution_counts[hash_count] = -solution_counts[hash_count];
+  }
   return solution_counts;
 }
 
@@ -1148,158 +1156,6 @@ vector<unsigned> Count::getCISAlt() {
   }
   return ret;
 }
-bool Count::countCISAlt(SATSolver *solver, vector<unsigned> &secret_vars) {
-  count_vars = getCISAlt();
-  // when in declassification mode, backup_solvers.size()=2; when in normal
-  // mode, backup_solvers.size()=1
-  vector<vector<unsigned>> backup_count_vars(backup_solvers.size());
-  for (int i = 0; i < backup_solvers.size(); ++i) {
-    backup_count_vars[i] = getCISAlt();
-    // backup_solvers[i]->set_sampling_vars(&backup_count_vars[i]);
-  }
-  auto cvar = count_vars;
-  // solver->set_sampling_vars(&cvar);
-  vector<vector<unsigned>> added_secret_vars;
-  map<string, vector<vector<unsigned>>> all_added_secret_vars;
-  map<string, vector<bool>> all_added_secret_rhs;
-  vector<Lit> secret_watch;
-  vector<bool> secret_rhs;
-  string secret_rnd = "";
-  // trimVar(solver, secret_vars);
-  cout << "count\n"
-       << solver << ", secret size=" << secret_vars.size()
-       << "count size=" << count_vars.size();
-  cout << "Sample\n" << std::flush;
-  if (secret_vars.size() < num_xor_cls_) {
-    cout << "add more xor " << num_xor_cls_ << " than secret var size\n"
-         << std::flush;
-    num_xor_cls_ = secret_vars.size();
-  }
-  set<vector<bool>> secret_rhs_set;
-  map<unsigned, int> var_index;
-  string id = "_0";
-  vector<unsigned> current_secret_vars, alt_secret_vars;
-  int offset = 0;
-  current_secret_vars.clear();
-  for (auto lit : all_secret_lits[id]) {
-    current_secret_vars.push_back(lit.var());
-    var_index[lit.var()] = offset;
-    offset++;
-  }
-  for (auto lit : all_secret_lits["_1"]) {
-    alt_secret_vars.push_back(lit.var());
-  }
-  // when one secret set is selcted, we should generate another set using
-  // same hash but with different rhs to ensure disjoint sets.
-  auto rhs_watch = new_watch(solver);
-  // assert h(Si)=ri;
-  secret_watch.clear();
-  secret_rnd += Sample(solver, current_secret_vars, num_xor_cls_, secret_watch,
-                       added_secret_vars, secret_rhs, rhs_watch, true);
-  secret_watch.clear();
-  solver->add_clause({~rhs_watch});
-  Sample(solver, alt_secret_vars, num_xor_cls_, secret_watch, added_secret_vars,
-         secret_rhs, lit_Undef, true);
-  for (auto &l : secret_watch) {
-    l = ~l;
-  }
-  solver->add_clause(secret_watch);
-  simplify(solver);
-  if (solver->solve() == l_False) {
-    return false;
-  }
-  assert(backup_solvers.size());
-  for (int i = 0; i < backup_solvers.size(); ++i) {
-    // assert h(Si)=ri;
-    secret_watch.clear();
-    Sample(backup_solvers[i], current_secret_vars, num_xor_cls_, secret_watch,
-           added_secret_vars, secret_rhs, lit_Undef, true);
-    // hash(s)!=r;
-    // xor1(s1,s2..) = watch1;
-    // xor2(s1,s2..) = watch2;
-    // ...
-    // ~watch1 || ~watch2 ...
-    for (auto &l : secret_watch) {
-      l = ~l;
-    }
-    backup_solvers[i]->add_clause(secret_watch);
-    simplify(backup_solvers[i]);
-    trimVar(backup_solvers[i], backup_count_vars[i]);
-  }
-  cout << "count size=" << count_vars.size() << std::endl;
-
-  int hash_count = 0;
-  int left, right;
-  vector<int> backup_left(backup_solvers.size(), 0),
-      backup_right(backup_solvers.size(), 0),
-      backup_hash_count(backup_solvers.size(), 0);
-  left = left_ ? left_ : ((min_log_size_ == -1) ? 0 : min_log_size_);
-  right = right_ ? right_
-                 : ((max_log_size_ == -1) ? count_vars.size() : max_log_size_);
-  for (int i = 0; i < backup_solvers.size(); ++i) {
-    backup_left[i] = backup_left_[i] ? backup_left_[i] : left;
-    backup_right[i] = backup_right_[i]
-                          ? backup_right_[i]
-                          : ((max_log_size_ == -1) ? backup_count_vars[i].size()
-                                                   : max_log_size_);
-    backup_hash_count[i] = 0;
-  }
-  int max_sol = max_sol_;
-  for (int count_times = 0; count_times < max_count_times_; ++count_times) {
-
-    cout << count_times << "=========count for target "
-         << "left=" << left << ",right= " << right << "\n\n";
-    cached_inter_solution.clear();
-    if (count_times == 0) {
-      max_sol_ = 2;
-    } else if (count_times > 0) {
-      max_sol_ = max_sol;
-      left -= floor(max_sol / 2);
-      right -= floor(max_sol / 2);
-      for (int i = 0; i < backup_solvers.size(); ++i) {
-        backup_left[i] -= floor(max_sol / 2);
-        backup_right[i] -= floor(max_sol / 2);
-      }
-    }
-    map<int, unsigned> solution_counts =
-        count_once(solver, count_vars, {}, left, right, hash_count);
-    RecordSolution(secret_rnd);
-    cached_inter_solution = solution_lits;
-    auto inter_solution_lits = solution_lits;
-    auto inter_solution_strs = solution_strs;
-    auto prev_count_vars = &count_vars;
-    vector<map<int, unsigned>> backup_solution_counts(backup_solvers.size());
-    int idx = 0;
-    for (int i = 0; i < backup_solvers.size(); ++i) {
-      cout << "======count for id=" << i << "left=" << backup_left[i]
-           << ",right= " << backup_right[i] << "\n\n";
-      backup_solution_counts[i] = count_once(
-          backup_solvers[i], backup_count_vars[i], {}, backup_left[i],
-          backup_right[i], backup_hash_count[i], true);
-      RecordSolution(secret_rnd, "." + std::to_string(i));
-    }
-    calculateDiffSolution(inter_solution_lits, solution_lits,
-                          inter_solution_strs, solution_strs, secret_rnd);
-    if (hash_count != backup_hash_count[0] ||
-        solution_counts[hash_count] != backup_solution_counts[0][hash_count]) {
-      std::cerr << "find non zero J";
-      exit(-1);
-    }
-    if (inter_mode_ == 0)
-      RecordCount(solution_counts, hash_count, secret_rnd);
-    else {
-      RecordCountInter(solution_counts, hash_count, backup_solution_counts,
-                       backup_hash_count, secret_rnd);
-    }
-  }
-  left_ = 0;
-  for (size_t i = 0; i < backup_right_.size(); ++i) {
-    backup_left_[i] = 0;
-    // backup_right_[i] = backup_right[i] + 3;
-  }
-  return true;
-}
-
 void compose_distinct_secretset(
     SATSolver *solver,
     const map<string, vector<Lit>> &solver_secret_rhs_watches, bool useCup) {
@@ -1464,8 +1320,8 @@ bool Count::count(SATSolver *solver, vector<unsigned> &secret_vars) {
 }
 bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   // exit(0);
-  vector<map<int, unsigned>> backup_solution_counts(backup_solvers.size());
-  map<int, unsigned> solution_counts;
+  vector<map<int, int>> backup_solution_counts(backup_solvers.size());
+  map<int, int> solution_counts;
   int max_hash_count = 0;
   vector<int> backup_max_hash_count(backup_right_.size(), 0);
   int hash_count = 0;
@@ -1708,26 +1564,7 @@ void Count::setBackupSolvers(vector<SATSolver *> &bs) {
   backup_right_.resize(backup_solvers.size());
   backup_unused_sampling_vars.resize(backup_solvers.size());
 }
-bool Count::ProbToDiffFromSecretSet() {
-  SATSolver s(&conf);
-  solver = newCounterSolver(&s, (void *)&conf);
-  inputfile = filesToRead[0];
-  symbol_vars.clear();
-  sampling_vars.clear();
-  readInAFile(solver, inputfile);
-  setSecretVars();
-  setCountVars();
 
-  AddVariableSame(solver, all_observe_lits);
-  if (all_declass_lits.size())
-    AddVariableSame(solver, all_declass_lits);
-  SATSolver bs1(&conf);
-  SATSolver bs2(&conf);
-  vector<SATSolver *> bs = {newCounterSolver(&bs1, &conf),
-                            newCounterSolver(&bs2, &conf)};
-  setBackupSolvers(bs);
-  return countCISAlt(solver, secret_vars);
-}
 void Count::run() {
   string target_file = filesToRead[0];
   if (mode_ == "nonblock")
@@ -1736,15 +1573,6 @@ void Count::run() {
     conf.max_sol_ = 1;
   }
   original_max_sol = max_sol_;
-  if (inter_mode_ == 3) {
-    for (int t = 0; t < nsample; ++t) {
-      if (ProbToDiffFromSecretSet() == false) {
-        t--;
-      }
-      backup_solvers.resize(0);
-    }
-    return;
-  }
   SATSolver s1(&conf);
   solver = newCounterSolver(&s1, (void *)&conf);
   inputfile = filesToRead[0];
