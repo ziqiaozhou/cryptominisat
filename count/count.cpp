@@ -1015,7 +1015,9 @@ map<int, int> Count::count_once(SATSolver *solver,
   while (left < right && (nsol < max_sol_ * 0.6 || nsol >= max_sol_)) {
     solution_lits.clear();
     solution_strs.clear();
-    cout << "starting... hash_count=" << hash_count << std::endl << std::flush;
+    cout << "starting... hash_count=" << hash_count << ",left=" << left
+         << ", right=" << right << std::endl
+         << std::flush;
     long start = cpuTimeTotal();
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
            count_rhs, lit_Undef, true);
@@ -1032,25 +1034,31 @@ map<int, int> Count::count_once(SATSolver *solver,
       hash_solution_strs[hash_count] = solution_strs;
       cached_inter_solution.insert(cached_inter_solution.end(),
                                    solution_lits.begin(), solution_lits.end());
-    }else{
+    } else {
       break;
     }
+    cout << "hash_count=" << hash_count << ", nsol=" << nsol << std::endl;
     nsol = solution_counts[hash_count];
     solution_counts[hash_count] = abs(nsol);
     if (nsol >= max_sol_) {
       left = hash_count + 1;
     } else if (nsol < max_sol_ * 0.6) {
+
       if (nsol > 0 && timeout_nice_hash_counts.count(hash_count) == 0)
         nice_hash_counts.insert(hash_count);
       else if (nsol < 0) {
         timeouts++;
         timeout_nice_hash_counts.insert(hash_count);
-        ;
       }
       if (nsol > 0) {
         right = hash_count;
         auto new_hash_count = std::max(
             left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))));
+        if (nice_hash_counts.size() == 0) {
+          left =
+              std::min(left, new_hash_count -
+                                 int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
+        }
         if (new_hash_count == hash_count) {
           hash_count = std::max(left, hash_count - 1);
         } else {
@@ -1092,8 +1100,7 @@ map<int, int> Count::count_once(SATSolver *solver,
         left = 0;
       }
     }
-    cout << "hash_count=" << hash_count << ", nsol=" << nsol << "left=" << left
-         << "right=" << right << std::endl;
+
     hash_count = left + (right - left) / 2;
   }
   bool use_timeout_result = (nice_hash_counts.size() == 0);
