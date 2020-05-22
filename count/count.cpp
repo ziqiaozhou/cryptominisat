@@ -1011,6 +1011,7 @@ map<int, int> Count::count_once(SATSolver *solver,
     }
   }
   hash_count = hash_count > 0 ? hash_count : (right + left) / 2;
+  int timeouts = 0;
   while (left < right && (nsol < max_sol_ * 0.6 || nsol >= max_sol_)) {
     solution_lits.clear();
     solution_strs.clear();
@@ -1031,15 +1032,18 @@ map<int, int> Count::count_once(SATSolver *solver,
       hash_solution_strs[hash_count] = solution_strs;
       cached_inter_solution.insert(cached_inter_solution.end(),
                                    solution_lits.begin(), solution_lits.end());
+    }else{
+      break;
     }
     nsol = solution_counts[hash_count];
     solution_counts[hash_count] = abs(nsol);
     if (nsol >= max_sol_) {
       left = hash_count + 1;
     } else if (nsol < max_sol_ * 0.6) {
-      if (nsol > 0 && timeout_nice_hash_counts.count(nice_hash_count) == 0)
+      if (nsol > 0 && timeout_nice_hash_counts.count(hash_count) == 0)
         nice_hash_counts.insert(hash_count);
       else if (nsol < 0) {
+        timeouts++;
         timeout_nice_hash_counts.insert(hash_count);
         ;
       }
@@ -1058,9 +1062,15 @@ map<int, int> Count::count_once(SATSolver *solver,
              << "left=" << left << "right=" << right << std::endl;
         continue;
       } else if (nsol < 0) {
-        left = hash_count;
-        hash_count++;
-        cout << "timeout..... Let's check larger hashcount to see some luck";
+        if (timeouts < 3 && (hash_count - left > 1)) {
+          hash_count--;
+          cout << "timeout..... Let's check smaller hashcount to see some luck";
+        } else {
+          left = hash_count;
+          hash_count++;
+          cout << "timeouts > 2..... Let's check larger hashcount to see some "
+                  "luck";
+        }
         continue;
       } else if (nsol == 0) {
         right = hash_count;
@@ -1415,6 +1425,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
       if (warm_up) {
         right = backup_hash_count[0] + std::min(backup_hash_count[0], 5);
         left = backup_hash_count[0] - std::min(backup_hash_count[0], 5);
+      } else {
+        right = backup_hash_count[0];
+        left = right - 5;
       }
       cout << count_times << "=========count for target "
            << "left=" << left << ",right= " << right << "\n\n";
