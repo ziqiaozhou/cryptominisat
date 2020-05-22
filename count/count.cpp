@@ -980,7 +980,9 @@ map<int, int> Count::count_once(SATSolver *solver,
     left = right - 30;
   }
   long total_start = cpuTimeTotal();
-  int nsol = 0, nice_hash_count = -1, timeout_nice_hash_count = -1;
+  int nsol = 0, nice_hash_count = target_count_vars.size() * 2,
+      timeout_nice_hash_count = target_count_vars.size() * 2;
+  std::set<int> nice_hash_counts, timeout_nice_hash_counts;
   if (!reserve_xor) {
     added_count_lits.clear();
     count_rhs.clear();
@@ -1035,14 +1037,11 @@ map<int, int> Count::count_once(SATSolver *solver,
     if (nsol >= max_sol_) {
       left = hash_count + 1;
     } else if (nsol < max_sol_ * 0.6) {
-      if (nsol > 0)
-        nice_hash_count = hash_count;
+      if (nsol > 0 && timeout_nice_hash_counts.count(nice_hash_count) == 0)
+        nice_hash_counts.insert(hash_count);
       else if (nsol < 0) {
-        if (timeout_nice_hash_count == -1)
-          timeout_nice_hash_count = hash_count;
-        else
-          timeout_nice_hash_count =
-              std::min(timeout_nice_hash_count, hash_count);
+        timeout_nice_hash_counts.insert(hash_count);
+        ;
       }
       if (nsol > 0) {
         right = hash_count;
@@ -1067,7 +1066,8 @@ map<int, int> Count::count_once(SATSolver *solver,
         right = hash_count;
       }
     } else {
-      nice_hash_count = hash_count;
+      if (timeout_nice_hash_counts.count(nice_hash_count) == 0)
+        nice_hash_counts.insert(hash_count);
       right = hash_count;
       left = hash_count;
       break;
@@ -1086,10 +1086,12 @@ map<int, int> Count::count_once(SATSolver *solver,
          << "right=" << right << std::endl;
     hash_count = left + (right - left) / 2;
   }
-  if ((nice_hash_count > 0) || (timeout_nice_hash_count > 0))
-    hash_count =
-        (nice_hash_count > 0) ? nice_hash_count : timeout_nice_hash_count;
-  bool use_timeout_result = (hash_count == timeout_nice_hash_count);
+  bool use_timeout_result = (nice_hash_counts.size() == 0);
+  if ((nice_hash_counts.size() > 0) || (timeout_nice_hash_counts.size() > 0))
+    hash_count = (nice_hash_counts.size() > 0)
+                     ? *nice_hash_counts.begin()
+                     : *timeout_nice_hash_counts.begin();
+
   bool retry = false;
   int retry_max_sol = max_sol_;
   if (!solution_counts.count(hash_count) && hash_count >= 0) {
