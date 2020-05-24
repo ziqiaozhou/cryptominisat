@@ -313,7 +313,7 @@ void Sampler::run() {
 
   } else {
     //SATSolver s2(&conf);
-    complementary_solver = new SATSolver(&conf) //;= newCounterSolver(&s2, (void *)&conf);
+    complementary_solver = new SATSolver(&conf); //;= newCounterSolver(&s2, (void *)&conf);
     readInAFile(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
