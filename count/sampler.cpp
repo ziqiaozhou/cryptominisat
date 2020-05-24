@@ -291,7 +291,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 
 void Sampler::run() {
   SATSolver s1(&conf);
-  solver = newCounterSolver(&s1,(void *)&conf);
+  solver = newCounterSolver(&s1, (void *)&conf);
   inputfile = filesToRead[0];
   readInAFileToCache(solver, inputfile);
   setSecretVars();
@@ -308,7 +308,7 @@ void Sampler::run() {
 
   } else {
     SATSolver s2(&conf);
-    complementary_solver = newCounterSolver(&s2,(void *)&conf);
+    complementary_solver = newCounterSolver(&s2, (void *)&conf);
     readInAFile(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
@@ -332,10 +332,9 @@ void Sampler::run() {
 
   vector<uint32_t> CISS = GetCIISS();
   solver->set_sampling_vars(&CISS);
-  solver->simplify();
-  string victim_cnf_file = out_dir_ + "//" + out_file_ + ".sol.simp";
-  std::ofstream finalout(victim_cnf_file);
-  solver->dump_irred_clauses_ind_only(&finalout);
+
+  // solver->simplify();
+
   vector<Lit> ciss_assump, c_assump, s_assump, salt_assump, i_assump,
       ialt_assump;
   vector<vector<uint32_t>> ciss_added_vars, c_added_vars, s_added_vars,
@@ -387,7 +386,9 @@ void Sampler::run() {
     ciss_assump.insert(ciss_assump.end(), i_assump.begin(), i_assump.end());
     ciss_assump.insert(ciss_assump.end(), ialt_assump.begin(),
                        ialt_assump.end());
-
+    string victim_cnf_file = out_dir_ + "//" + out_file_ + ".sol.simp";
+    std::ofstream finalout(victim_cnf_file);
+    solver->dump_irred_clauses_ind_only(&finalout);
     // trimVar(solver,sample_vars);
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
     cout << "nsol=" << nsol << std::endl;
