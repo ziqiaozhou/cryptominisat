@@ -312,8 +312,8 @@ void Sampler::run() {
                             std::ofstream::out | std::ofstream::app);
 
   } else {
-    SATSolver s2(&conf);
-    complementary_solver = &s2; //;= newCounterSolver(&s2, (void *)&conf);
+    //SATSolver s2(&conf);
+    complementary_solver = new SatSolver(&conf) //;= newCounterSolver(&s2, (void *)&conf);
     readInAFile(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);

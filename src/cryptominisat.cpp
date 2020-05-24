@@ -887,7 +887,7 @@ DLL_PUBLIC std::string SATSolver::get_text_version_info() {
         "get MIT version"
      << endl;
 #else
-    ss << "c CMS is MIT licensed" << endl;
+  ss << "c CMS is MIT licensed" << endl;
 #endif
   ss << "c Using Yalsat by Armin Biere, see Balint et al. Improving "
         "implementation of SLS solvers [...], SAT'14"
@@ -913,7 +913,7 @@ DLL_PUBLIC std::string SATSolver::get_text_version_info() {
 #ifdef __GNUC__
   ss << "c CMS compiled with gcc version " << __VERSION__ << endl;
 #else
-    ss << "c CMS compiled with non-gcc compiler" << endl;
+  ss << "c CMS compiled with non-gcc compiler" << endl;
 #endif
 
   return ss.str();
@@ -1023,13 +1023,13 @@ DLL_PUBLIC void SATSolver::set_sqlite(std::string filename) {
 
 DLL_PUBLIC uint64_t SATSolver::get_sum_conflicts() {
   uint64_t conlf = 0;
-  std::cout<<data<<std::endl;
-  std::cout<<data->solvers.size()<<std::endl;
+  std::cout << "data=" << data << std::endl;
+  std::cout << "data->solvers.size()" << data->solvers.size() << std::endl;
 
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];
     conlf += s.sumConflicts;
-    std::cout<<s.sumConflicts<<std::endl;
+    std::cout << s.sumConflicts << std::endl;
   }
   return conlf;
 }
@@ -1160,20 +1160,20 @@ void DLL_PUBLIC SATSolver::set_up_for_jaccard_count() {
     conf.gaussconf.max_matrix_rows = 20000;
     conf.gaussconf.autodisable = false;
     conf.global_multiplier_multiplier_max = 3;
-    conf.useCacheWhenFindingXors=true;
+    conf.useCacheWhenFindingXors = true;
     conf.var_and_mem_out_mult *= 6;
     conf.global_timeout_multiplier_multiplier = 1.5;
     uint32_t xor_cut = 4;
     assert(xor_cut >= 3);
     conf.xor_var_per_cut = xor_cut - 2;
     conf.simplify_at_startup = 1;
-    //conf.varElimRatioPerIter = 1;
+    // conf.varElimRatioPerIter = 1;
     conf.do_simplify_problem = true;
     conf.keep_symbol = false;
-    //conf.more_more_with_cache=true;
-    //conf.doCache=true;
-    //conf.useCacheWhenFindingXors=true;
-    conf.modulo_maple_iter=2;
+    // conf.more_more_with_cache=true;
+    // conf.doCache=true;
+    // conf.useCacheWhenFindingXors=true;
+    conf.modulo_maple_iter = 2;
     /*
     conf.simplify_at_startup = 1;
     conf.varElimRatioPerIter = 1;
