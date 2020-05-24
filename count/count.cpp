@@ -433,7 +433,8 @@ void Count::RecordCount(map<int, int> &sols, int hash_count, string rnd) {
 
 void Count::RecordCountInter(map<int, int> &sols, int hash_count,
                              vector<map<int, int>> b_sols,
-                             vector<int> b_hash_counts, string rnd) {
+                             vector<int> b_hash_counts, string rnd,
+                             int totaltime) {
   std::ofstream count_f(out_dir_ + "/" + out_file_ + ".inter.count",
                         std::ofstream::out | std::ofstream::app);
   count_f << abs(sols[hash_count]) << "\t"
@@ -449,8 +450,8 @@ void Count::RecordCountInter(map<int, int> &sols, int hash_count,
     norm_sum_sols += abs(b_sols[id][hash]) * pow(2, hash - hash_count);
   }
   double j = 1 - 1.0 * abs(sols[hash_count]) / norm_sum_sols;
-  count_f << std::setprecision(3) << j << "\t%" << timeoutmark << "," << rnd
-          << std::endl;
+  count_f << std::setprecision(3) << j << "\t%" << timeoutmark
+          << ",used=" << totaltime << "," << rnd << std::endl;
   count_f.close();
 }
 void Count::calculateDiffSolution(vector<vector<Lit>> &sol1,
@@ -976,8 +977,9 @@ map<int, int> Count::count_once(SATSolver *solver,
                                 vector<unsigned> &target_count_vars,
                                 const vector<Lit> &secret_watch, int &left,
                                 int &right, int &hash_count, bool reserve_xor) {
+  right = std::min(int(target_count_vars.size()), right);
   if (left > right) {
-    left = right - 30;
+    left = right / 2;
   }
   long total_start = cpuTimeTotal();
   int nsol = 0, nice_hash_count = target_count_vars.size() * 2,
@@ -1389,6 +1391,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   }
 
   for (int count_times = 0; count_times < max_count_times_; ++count_times) {
+    auto start_time = cpuTimeTotal();
     if (warm_up) {
       max_sol_ = max_sol_ / 2;
     }
@@ -1451,8 +1454,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     if (inter_mode_ == 0)
       RecordCount(solution_counts, hash_count, secret_rnd);
     else {
+      auto total_time = cpuTimeTotal() - start_time;
       RecordCountInter(solution_counts, hash_count, backup_solution_counts,
-                       backup_hash_count, secret_rnd);
+                       backup_hash_count, secret_rnd, total_time);
     }
     max_hash_count = std::max(max_hash_count, hash_count);
     if (warm_up) {

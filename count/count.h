@@ -75,18 +75,17 @@ protected:
                 vector<Lit> &watch, vector<vector<unsigned>> &alllits,
                 vector<bool> &rhs, Lit addInner = lit_Undef,
                 bool is_restarted = false);
-  int bounded_sol_count(SATSolver *solver,
-                            const vector<unsigned> &count_vars,
-                            unsigned maxSolutions, const vector<Lit> &assumps,
-                            bool only_ind = true);
+  int bounded_sol_count(SATSolver *solver, const vector<unsigned> &count_vars,
+                        unsigned maxSolutions, const vector<Lit> &assumps,
+                        bool only_ind = true);
   int bounded_sol_count_cached(SATSolver *solver,
-                                   const vector<unsigned> &count_vars,
-                                   unsigned maxSolutions,
-                                   const vector<Lit> &assumps, Lit act_lit);
+                               const vector<unsigned> &count_vars,
+                               unsigned maxSolutions,
+                               const vector<Lit> &assumps, Lit act_lit);
   map<int, int> count_once(SATSolver *solver, vector<unsigned> &count_vars,
-                                const vector<Lit> &secret_watch, int &left,
-                                int &right, int &hash_count,
-                                bool reserve_xor = false);
+                           const vector<Lit> &secret_watch, int &left,
+                           int &right, int &hash_count,
+                           bool reserve_xor = false);
   bool count(SATSolver *solver, vector<unsigned> &secret_vars);
   void simulate_count(SATSolver *solver, vector<unsigned> &secret_vars);
 
@@ -119,8 +118,8 @@ protected:
   void RecordCount(map<int, int> &sols, int hash_count, string rnd);
 
   void RecordCountInter(map<int, int> &sols, int hash_count,
-                        vector<map<int, int>> b_sols,
-                        vector<int> b_hash_counts, string rnd);
+                        vector<map<int, int>> b_sols, vector<int> b_hash_counts,
+                        string rnd, int totaltime=0);
   vector<unsigned> getCISAlt();
   // Return true if reading victim model;
   // Return false if no model to read;
