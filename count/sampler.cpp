@@ -124,7 +124,7 @@ void Sampler::add_sample_options() {
   help_options_complicated.add(sampleOptions_);
 }
 vector<uint32_t> Sampler::GetCIISS() {
-  vector<uint32_t> sample_vars;
+  set<uint32_t> sample_vars;
   vector<string> labels = {CONTROLLED_, OTHER_ + "_0", OTHER_ + "_1",
                            SECRET_ + "_0", SECRET_ + "_1"};
   for (auto label : labels)
@@ -132,10 +132,13 @@ vector<uint32_t> Sampler::GetCIISS() {
       if (!useOtherAlt && label == (OTHER_ + "_1")) {
         continue;
       }
-      sample_vars.push_back(l.var());
+      sample_vars.insert(l.var());
     }
-
-  return sample_vars;
+  set<uint32_t> ret;
+  for (auto var : sample_vars) {
+    ret.push_bak(var);
+  }
+  return ret;
 }
 vector<uint32_t> Sampler::GetVars(string label) {
   vector<uint32_t> sample_vars;
@@ -361,8 +364,9 @@ void Sampler::run() {
     salt_assump.clear();
     i_assump.clear();
     ialt_assump.clear();
-    Count::Sample(solver, CISS, num_xor_cls_, ciss_assump, ciss_added_vars,
-                  ciss_rhs, lit_Undef);
+    if (num_xor_cls_ > 0)
+      Count::Sample(solver, CISS, num_xor_cls_, ciss_assump, ciss_added_vars,
+                    ciss_rhs, lit_Undef);
     if (num_cxor_cls_ > 0)
       Count::Sample(solver, GetVars(CONTROLLED_), num_cxor_cls_, c_assump,
                     c_added_vars, c_rhs, lit_Undef);
