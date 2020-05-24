@@ -239,9 +239,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   new_assumps.push_back(Lit(act_var, true));
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
-  std::cout << "bounded_sol_generation, after simplify" << std::endl;
   while (total_sol < maxSolutions) {
-    std::cout << "bounded_sol_generation, before solve" << std::endl;
     ret = solver->solve(&new_assumps, only_ind);
 
     assert(ret == l_False || ret == l_True);
@@ -396,9 +394,7 @@ void Sampler::run() {
     std::ofstream finalout(victim_cnf_file);
     solver->dump_irred_clauses_ind_only(&finalout);
     // trimVar(solver,sample_vars);
-    std::cout << "before solve" << std::endl;
-    solver->solve();
-    std::cout << "after solve" << std::endl;
+    solver->simplify();
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
     cout << "nsol=" << nsol << std::endl;
   }

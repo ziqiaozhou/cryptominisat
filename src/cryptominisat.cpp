@@ -1023,9 +1023,6 @@ DLL_PUBLIC void SATSolver::set_sqlite(std::string filename) {
 
 DLL_PUBLIC uint64_t SATSolver::get_sum_conflicts() {
   uint64_t conlf = 0;
-  std::cout << "data=" << data << std::endl;
-  std::cout << "data->solvers.size()" << data->solvers.size() << std::endl;
-
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];
     conlf += s.sumConflicts;
