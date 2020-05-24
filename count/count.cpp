@@ -1039,8 +1039,10 @@ map<int, int> Count::count_once(SATSolver *solver,
     } else {
       break;
     }
-    cout << "hash_count=" << hash_count << ", nsol=" << nsol << std::endl;
+
     nsol = solution_counts[hash_count];
+    cout << "hash_count=" << hash_count
+         << ", nsol=" << solution_counts[hash_count] << std::endl;
     solution_counts[hash_count] = abs(nsol);
     if (nsol >= max_sol_) {
       left = hash_count + 1;
@@ -1436,8 +1438,10 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
         right = backup_hash_count[0] + std::min(backup_hash_count[0], 5);
         left = backup_hash_count[0] - std::min(backup_hash_count[0], 5);
       } else {
-        right = backup_hash_count[0];
-        left = right - 5;
+        if (abs((right + left) / 2 - backup_hash_count[0]) < 3) {
+          right = backup_hash_count[0] + 2;
+          left = backup_hash_count[0] - 2;
+        }
       }
       cout << count_times << "=========count for target "
            << "left=" << left << ",right= " << right << "\n\n";
