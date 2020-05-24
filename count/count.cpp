@@ -217,7 +217,9 @@ void Count::AddVariableDiff(SATSolver *solver,
     }
     len = lits.size();
   }
-  string diff_file = out_dir_ + "//" + out_file_ + ".addVarDiffhash";
+  static int outtimes=0;
+  outtimes++;
+  string diff_file = out_dir_ + "//" + out_file_ + ".addVarDiffhash"+std::to_string(outtimes);
   std::ofstream finalout(diff_file);
   auto newWatch = solver->nVars() - 1;
   solver->new_vars(len);
