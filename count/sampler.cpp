@@ -239,8 +239,9 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   new_assumps.push_back(Lit(act_var, true));
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
-
+  std::cout << "bounded_sol_generation, after simplify" << std::endl;
   while (total_sol < maxSolutions) {
+    std::cout << "bounded_sol_generation, before solve" << std::endl;
     ret = solver->solve(&new_assumps, only_ind);
 
     assert(ret == l_False || ret == l_True);
@@ -295,7 +296,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 void Sampler::run() {
   SATSolver s1(&conf);
   solver = &s1;
-  //newCounterSolver(&s1, (void *)&conf);
+  // newCounterSolver(&s1, (void *)&conf);
   inputfile = filesToRead[0];
   readInAFileToCache(solver, inputfile);
   setSecretVars();
@@ -312,7 +313,7 @@ void Sampler::run() {
 
   } else {
     SATSolver s2(&conf);
-    complementary_solver= &s2; //;= newCounterSolver(&s2, (void *)&conf);
+    complementary_solver = &s2; //;= newCounterSolver(&s2, (void *)&conf);
     readInAFile(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
@@ -396,7 +397,7 @@ void Sampler::run() {
     solver->dump_irred_clauses_ind_only(&finalout);
     // trimVar(solver,sample_vars);
     solver->solve(&ciss_assump);
-    std::cout<<"after solve"<<std::endl;
+    std::cout << "after solve" << std::endl;
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
     cout << "nsol=" << nsol << std::endl;
   }
