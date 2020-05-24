@@ -396,6 +396,8 @@ void Sampler::run() {
     std::ofstream finalout(victim_cnf_file);
     solver->dump_irred_clauses_ind_only(&finalout);
     // trimVar(solver,sample_vars);
+    std::cout << "before solve" << std::endl;
+
     solver->solve(&ciss_assump);
     std::cout << "after solve" << std::endl;
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
