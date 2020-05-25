@@ -104,7 +104,8 @@ void Sampler::add_supported_options() {
 void Sampler::add_sample_options() {
   sampleOptions_.add_options()(
       "noninter", po::value(&sample_noninterference_)->default_value(1),
-      "1: strict noninterference,-1: relaxed noninterference; 0 interference sample");
+      "1: strict noninterference,-1: relaxed noninterference; 0 interference "
+      "sample");
   sampleOptions_.add_options()("num_cxor_cls",
                                po::value(&num_cxor_cls_)->default_value(0),
                                "num_cxor_cls");
@@ -294,9 +295,9 @@ void Sampler::run() {
   readInAFileToCache(solver, inputfile);
   setSecretVars();
   setCountVars();
-  if (sample_noninterference_>0) {
+  if (sample_noninterference_ > 0) {
     AddVariableSame(solver, all_observe_lits);
-    //AddVariableSame(solver, all_declass_lits);
+    // AddVariableSame(solver, all_declass_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
                                      std::ofstream::out | std::ofstream::app);
     if (record_full_)
@@ -304,9 +305,10 @@ void Sampler::run() {
           new std::ofstream(out_dir_ + "//" + out_file_ + ".same_complete.csv",
                             std::ofstream::out | std::ofstream::app);
 
-  }
-  else if (sample_noninterference_<0) {
+  } else if (sample_noninterference_ < 0) {
     // sample relaxed noninterference;
+    if (all_declass_lits.size() == 0)
+      return;
     AddVariableDiff(solver, all_declass_lits);
     complementary_solver =
         new SATSolver(&conf); //;= newCounterSolver(&s2, (void *)&conf);
@@ -360,7 +362,7 @@ void Sampler::run() {
       salt_added_vars, i_added_vars, ialt_added_vars;
   vector<bool> ciss_rhs, c_rhs, s_rhs, salt_rhs, i_rhs, ialt_rhs;
   std::cout << "used_vars.size()=" << used_vars.size() << std::endl;
-  int left = 0, right = CISS.size(),hash_count;
+  int left = 0, right = CISS.size(), hash_count;
   if (num_xor_cls_ > 0)
     hash_count = num_xor_cls_;
   else

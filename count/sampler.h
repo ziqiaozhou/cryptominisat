@@ -4,7 +4,10 @@
 class Sampler : public Count {
 public:
   explicit Sampler(int argc, char **argv)
-      : Count(argc, argv), sampleOptions_("Sample options") {}
+      : Count(argc, argv), sampleOptions_("Sample options") {
+    solver = NULL;
+    complementary_solver = NULL;
+  }
   ~Sampler() {
     sample_sol_f->close();
     sample_sol_f_same->close();
@@ -16,7 +19,13 @@ public:
       sample_sol_complete_f->close();
       delete sample_sol_complete_f;
     }
-    solver=NULL;
+    if (solver) {
+      delete solver;
+    }
+    if (complementary_solver) {
+      delete complementary_solver;
+    }
+    solver = NULL;
     complementary_solver = NULL;
   }
   void add_sample_options();
