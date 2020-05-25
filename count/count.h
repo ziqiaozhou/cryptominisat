@@ -170,7 +170,6 @@ protected:
   int original_max_sol;
 
   int backtrack_;
-  bool search_all;
   int max_count_times_;
   bool record_solution_;
   int max_log_size_;

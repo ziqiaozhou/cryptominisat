@@ -217,9 +217,10 @@ void Count::AddVariableDiff(SATSolver *solver,
     }
     len = lits.size();
   }
-  static int outtimes=0;
+  static int outtimes = 0;
   outtimes++;
-  string diff_file = out_dir_ + "//" + out_file_ + ".addVarDiffhash"+std::to_string(outtimes);
+  string diff_file = out_dir_ + "//" + out_file_ + ".addVarDiffhash" +
+                     std::to_string(outtimes);
   std::ofstream finalout(diff_file);
   auto newWatch = solver->nVars() - 1;
   solver->new_vars(len);
@@ -583,15 +584,13 @@ void Count::add_count_options() {
                               po::value(&use_simplify_)->default_value(true),
                               "use simplify");
   countOptions_.add_options()(
-      "inter_mode", po::value(&inter_mode_)->default_value(0),
+      "inter_mode", po::value(&inter_mode_)->default_value(2),
       "1-> secret_1 and secret_2, observe_1 and observe_2, 0: single,  2: "
-      "JaccardHat if use_overlap_coefficient=false, Overlap Coef if "
-      "use_overlap_coefficient=true, 3: JaccardHat with Same Other");
+      "JaccardHat with diff set if use_overlap_coefficient=false, "
+      "JaccardHat with symmetric diff set if use_overlap_coefficient=true, 3: "
+      "JaccardHat with Same Other");
   countOptions_.add_options()(
       "record_solution", po::value(&record_solution_)->default_value(true),
-      "True: write solutions; false: do not write solutions");
-  countOptions_.add_options()(
-      "search_all", po::value(&search_all)->default_value(false),
       "True: write solutions; false: do not write solutions");
   help_options_simple.add(countOptions_);
   help_options_complicated.add(countOptions_);

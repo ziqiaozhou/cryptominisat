@@ -106,13 +106,13 @@ void Sampler::add_sample_options() {
       "noninter", po::value(&sample_noninterference_)->default_value(1),
       "1: strict noninterference,-1: relaxed noninterference; 0 interference sample");
   sampleOptions_.add_options()("num_cxor_cls",
-                               po::value(&num_cxor_cls_)->default_value(10),
+                               po::value(&num_cxor_cls_)->default_value(0),
                                "num_cxor_cls");
   sampleOptions_.add_options()("num_sxor_cls",
-                               po::value(&num_sxor_cls_)->default_value(2),
+                               po::value(&num_sxor_cls_)->default_value(0),
                                "num_sxor_cls");
   sampleOptions_.add_options()("num_ixor_cls",
-                               po::value(&num_ixor_cls_)->default_value(2),
+                               po::value(&num_ixor_cls_)->default_value(0),
                                "num_ixor_cls");
   sampleOptions_.add_options()("useOtherAlt",
                                po::value(&useOtherAlt)->default_value(false),
