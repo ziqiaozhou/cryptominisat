@@ -241,9 +241,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
     solver->simplify(&new_assumps);
   while (total_sol < maxSolutions) {
     ret = solver->solve(&new_assumps, only_ind);
-
     assert(ret == l_False || ret == l_True);
-
     if (conf.verbosity >= 2) {
       cout << "[appmc] bounded_sol_count ret: " << std::setw(7) << ret;
       if (ret == l_True) {
@@ -252,7 +250,6 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
         cout << " No more. " << std::setw(3) << "";
       }
     }
-
     if (ret != l_True) {
       break;
     }
@@ -260,7 +257,6 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
     total_sol++;
     if (solutions < maxSolutions) {
       vector<Lit> lits, solution;
-
       for (const uint32_t var : target_count_vars) {
         if (solver->get_model()[var] != l_Undef && used_vars.count(var)) {
           lits.push_back(Lit(var, solver->get_model()[var] == l_True));
@@ -292,9 +288,8 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
 }
 
 void Sampler::run() {
-  SATSolver s1(&conf);
-  solver = &s1;
-  // newCounterSolver(&s1, (void *)&conf);
+  solver = new SATSolver(&conf);
+  solver = newCounterSolver(solver, (void *)&conf);
   inputfile = filesToRead[0];
   readInAFileToCache(solver, inputfile);
   setSecretVars();
@@ -310,8 +305,12 @@ void Sampler::run() {
                             std::ofstream::out | std::ofstream::app);
 
   } else {
-    //SATSolver s2(&conf);
-    complementary_solver = new SATSolver(&conf); //;= newCounterSolver(&s2, (void *)&conf);
+    // SATSolver s2(&conf);
+    complementary_solver =
+        new SATSolver(&conf); //;= newCounterSolver(&s2, (void *)&conf);
+    complementary_solver =
+        newCounterSolver(complementary_solver, (void *)&conf);
+
     readInAFile(complementary_solver, inputfile);
     AddVariableSameOrDiff(complementary_solver, all_observe_lits,
                           all_declass_lits);
@@ -335,9 +334,7 @@ void Sampler::run() {
 
   vector<uint32_t> CISS = GetCIISS();
   solver->set_sampling_vars(&CISS);
-
   // solver->simplify();
-
   vector<Lit> ciss_assump, c_assump, s_assump, salt_assump, i_assump,
       ialt_assump;
   vector<vector<uint32_t>> ciss_added_vars, c_added_vars, s_added_vars,

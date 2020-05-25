@@ -1026,7 +1026,6 @@ DLL_PUBLIC uint64_t SATSolver::get_sum_conflicts() {
   for (size_t i = 0; i < data->solvers.size(); ++i) {
     Solver &s = *data->solvers[i];
     conlf += s.sumConflicts;
-    std::cout << s.sumConflicts << std::endl;
   }
   return conlf;
 }
