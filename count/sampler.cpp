@@ -217,14 +217,12 @@ void Sampler::RecordSampleSol(vector<string> &sol) {
 }
 
 void Sampler::RecordSampleSolSame(vector<string> &sol) {
-
   if (!record_solution_)
     return;
   if (record_full_)
     *sample_sol_complete_f_same << sol[0] << endl;
   *sample_sol_f_same << sol[1] << endl;
 }
-
 int64_t Sampler::bounded_sol_generation(SATSolver *solver,
                                         vector<uint32_t> &target_count_vars,
                                         uint32_t maxSolutions,
@@ -240,7 +238,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   new_assumps.push_back(Lit(act_var, true));
   if (new_assumps.size() > 1)
     solver->simplify(&new_assumps);
-  while (total_sol < maxSolutions) {
+  while (solutions < maxSolutions) {
     ret = solver->solve(&new_assumps, only_ind);
     assert(ret == l_False || ret == l_True);
     if (conf.verbosity >= 2) {
@@ -387,7 +385,7 @@ void Sampler::run() {
     salt_assump.clear();
     i_assump.clear();
     ialt_assump.clear();
-    if (num_xor_cls_ > 0)
+    if (hash_count > 0)
       Count::Sample(solver, CISS, hash_count, ciss_assump, ciss_added_vars,
                     ciss_rhs, lit_Undef);
     if (num_cxor_cls_ > 0)
@@ -419,13 +417,14 @@ void Sampler::run() {
     // trimVar(solver,sample_vars);
     solver->simplify();
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
+    cout << hash_count << "nsol=" << nsol << std::endl;
     if (nsol >= max_sol_) {
       left = hash_count + 1;
       hash_count = (left + right) / 2;
     } else if (nsol == 0) {
       right = hash_count - 1;
       hash_count = (left + right) / 2;
-    } else if (nsol < max_sol_ * 0.2) {
+    } else if (nsol < max_sol_ * 0.4) {
       hash_count = hash_count - floor(log2(max_sol_ / nsol));
       left = hash_count;
       right = hash_count;
@@ -433,7 +432,6 @@ void Sampler::run() {
       left = hash_count;
       right = hash_count;
     }
-    cout << "nsol=" << nsol << std::endl;
   }
 }
 
