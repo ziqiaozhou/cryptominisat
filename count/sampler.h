@@ -16,6 +16,7 @@ public:
       sample_sol_complete_f->close();
       delete sample_sol_complete_f;
     }
+    solver=NULL;
     complementary_solver = NULL;
   }
   void add_sample_options();
@@ -46,7 +47,7 @@ private:
   std::ofstream *sample_sol_complete_f;
   std::ofstream *sample_sol_f_same;
   std::ofstream *sample_sol_complete_f_same;
-  bool sample_noninterference_;
+  int sample_noninterference_;
   uint32_t num_cxor_cls_;
   uint32_t num_sxor_cls_;
   uint32_t num_ixor_cls_;

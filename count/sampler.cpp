@@ -103,8 +103,8 @@ void Sampler::add_supported_options() {
 }
 void Sampler::add_sample_options() {
   sampleOptions_.add_options()(
-      "noninter", po::value(&sample_noninterference_)->default_value(false),
-      "noninterference? or interference sample");
+      "noninter", po::value(&sample_noninterference_)->default_value(1),
+      "1: strict noninterference,-1: relaxed noninterference; 0 interference sample");
   sampleOptions_.add_options()("num_cxor_cls",
                                po::value(&num_cxor_cls_)->default_value(10),
                                "num_cxor_cls");
@@ -266,7 +266,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
       auto cissmodel = getCIISSModel(solver);
       lits.push_back(Lit(act_var, false));
       solver->add_clause(lits);
-      if (!sample_noninterference_) {
+      if (complementary_solver) {
         if (!useOtherAlt) {
           vector<Lit> sol_lits = getCISSModelLit(solver);
           if (complementary_solver->solve(&sol_lits) == l_True) {
@@ -294,9 +294,26 @@ void Sampler::run() {
   readInAFileToCache(solver, inputfile);
   setSecretVars();
   setCountVars();
-  if (sample_noninterference_) {
-    AddVariableSameOrDiff(solver, all_observe_lits, all_declass_lits);
+  if (sample_noninterference_>0) {
+    AddVariableSame(solver, all_observe_lits);
+    //AddVariableSame(solver, all_declass_lits);
+    sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
+                                     std::ofstream::out | std::ofstream::app);
+    if (record_full_)
+      sample_sol_complete_f =
+          new std::ofstream(out_dir_ + "//" + out_file_ + ".same_complete.csv",
+                            std::ofstream::out | std::ofstream::app);
 
+  }
+  else if (sample_noninterference_<0) {
+    // sample relaxed noninterference;
+    AddVariableDiff(solver, all_declass_lits);
+    complementary_solver =
+        new SATSolver(&conf); //;= newCounterSolver(&s2, (void *)&conf);
+    complementary_solver =
+        newCounterSolver(complementary_solver, (void *)&conf);
+    readInAFile(complementary_solver, inputfile);
+    AddVariableSame(complementary_solver, all_declass_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
                                      std::ofstream::out | std::ofstream::app);
     if (record_full_)
@@ -305,6 +322,7 @@ void Sampler::run() {
                             std::ofstream::out | std::ofstream::app);
 
   } else {
+    // sample interferenceSet
     // SATSolver s2(&conf);
     complementary_solver =
         new SATSolver(&conf); //;= newCounterSolver(&s2, (void *)&conf);
@@ -312,8 +330,9 @@ void Sampler::run() {
         newCounterSolver(complementary_solver, (void *)&conf);
 
     readInAFile(complementary_solver, inputfile);
-    AddVariableSameOrDiff(complementary_solver, all_observe_lits,
-                          all_declass_lits);
+    // AddVariableSameOrDiff(complementary_solver, all_observe_lits,
+    //                    all_declass_lits);
+    AddVariableSame(complementary_solver, all_observe_lits);
     AddVariableDiff(solver, all_observe_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".diff.csv",
                                      std::ofstream::out | std::ofstream::app);
@@ -341,6 +360,11 @@ void Sampler::run() {
       salt_added_vars, i_added_vars, ialt_added_vars;
   vector<bool> ciss_rhs, c_rhs, s_rhs, salt_rhs, i_rhs, ialt_rhs;
   std::cout << "used_vars.size()=" << used_vars.size() << std::endl;
+  int left = 0, right = CISS.size(),hash_count;
+  if (num_xor_cls_ > 0)
+    hash_count = num_xor_cls_;
+  else
+    hash_count = right - 10;
   for (int t = 0; t < nsample; ++t) {
     ciss_assump.clear();
     ciss_added_vars.clear();
@@ -362,7 +386,7 @@ void Sampler::run() {
     i_assump.clear();
     ialt_assump.clear();
     if (num_xor_cls_ > 0)
-      Count::Sample(solver, CISS, num_xor_cls_, ciss_assump, ciss_added_vars,
+      Count::Sample(solver, CISS, hash_count, ciss_assump, ciss_added_vars,
                     ciss_rhs, lit_Undef);
     if (num_cxor_cls_ > 0)
       Count::Sample(solver, GetVars(CONTROLLED_), num_cxor_cls_, c_assump,
@@ -393,6 +417,20 @@ void Sampler::run() {
     // trimVar(solver,sample_vars);
     solver->simplify();
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
+    if (nsol >= max_sol_) {
+      left = hash_count + 1;
+      hash_count = (left + right) / 2;
+    } else if (nsol == 0) {
+      right = hash_count - 1;
+      hash_count = (left + right) / 2;
+    } else if (nsol < max_sol_ * 0.2) {
+      hash_count = hash_count - floor(log2(max_sol_ / nsol));
+      left = hash_count;
+      right = hash_count;
+    } else {
+      left = hash_count;
+      right = hash_count;
+    }
     cout << "nsol=" << nsol << std::endl;
   }
 }
