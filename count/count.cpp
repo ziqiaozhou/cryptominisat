@@ -453,6 +453,7 @@ void Count::RecordCountInter(map<int, int> &sols, int hash_count,
     norm_sum_sols += abs(b_sols[id][hash]) * pow(2, hash - hash_count);
   }
   double j = 1 - 1.0 * abs(sols[hash_count]) / norm_sum_sols;
+  std::cout<<"Jaccard ="<<j<<std::endl;
   count_f << std::setprecision(3) << j << "\t%" << timeoutmark
           << ",used=" << totaltime << "," << rnd << std::endl;
   count_f.close();
@@ -1059,7 +1060,8 @@ map<int, int> Count::count_once(SATSolver *solver,
         right = hash_count;
         auto new_hash_count = std::max(
             left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))));
-        if (nice_hash_counts.size() == 0) {
+        if (nice_hash_counts.size() == 1 ||
+            solution_counts.begin()->second < max_sol_) {
           left =
               std::min(left, new_hash_count -
                                  int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
@@ -1087,6 +1089,7 @@ map<int, int> Count::count_once(SATSolver *solver,
         continue;
       } else if (nsol == 0) {
         right = hash_count;
+        left = std::min(left, right - int(floor(log2(max_sol_))) - 2);
       }
     } else {
       if (timeout_nice_hash_counts.count(nice_hash_count) == 0)
@@ -1105,7 +1108,6 @@ map<int, int> Count::count_once(SATSolver *solver,
         left = 0;
       }
     }
-
     hash_count = left + (right - left) / 2;
   }
   bool use_timeout_result = (nice_hash_counts.size() == 0);
@@ -1408,7 +1410,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
       cout << count_times << "=========count for target "
            << "left=" << left << ",right= " << right << "\n\n";
       solution_counts =
-          count_once(solver, count_vars, {}, left, right, hash_count, true);
+          count_once(solver, count_vars, {}, left, right, hash_count);
       if (warm_up) {
         for (size_t i = 0; i < backup_solvers.size(); ++i) {
           backup_right[i] = hash_count + std::min(hash_count, 5);
@@ -1423,9 +1425,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
            << ",right= " << backup_right[i] << "\n\n";
       // auto &current_count_vars = all_count_vars.begin()->second;
       // replace_vars(added_count_lits, *prev_count_vars, current_count_vars);
-      backup_solution_counts[i] =
-          count_once(backup_solvers[i], count_vars, {}, backup_left[i],
-                     backup_right[i], backup_hash_count[i], i > 0);
+      backup_solution_counts[i] = count_once(
+          backup_solvers[i], count_vars, {}, backup_left[i], backup_right[i],
+          backup_hash_count[i], (i > 0) & count_inter_first);
       RecordSolution(secret_rnd, "." + std::to_string(i));
       backup_max_hash_count[i] =
           std::max(backup_max_hash_count[i], backup_hash_count[i]);
