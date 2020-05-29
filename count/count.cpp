@@ -453,7 +453,7 @@ void Count::RecordCountInter(map<int, int> &sols, int hash_count,
     norm_sum_sols += abs(b_sols[id][hash]) * pow(2, hash - hash_count);
   }
   double j = 1 - 1.0 * abs(sols[hash_count]) / norm_sum_sols;
-  std::cout<<"Jaccard ="<<j<<std::endl;
+  std::cout << "Jaccard =" << j << std::endl;
   count_f << std::setprecision(3) << j << "\t%" << timeoutmark
           << ",used=" << totaltime << "," << rnd << std::endl;
   count_f.close();
@@ -1375,7 +1375,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   auto checkinter = solver->solve();
   auto time2 = (cpuTimeTotal() - start) - time1;
   bool count_inter_first = false;
-  if (time2 < time1 / 4) {
+  if (time2 > 1 && time2 < time1 / 4) {
     count_inter_first = true;
   }
   std::cout << "checking time=" << time1 << time2 << std::endl;
@@ -1425,9 +1425,9 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
            << ",right= " << backup_right[i] << "\n\n";
       // auto &current_count_vars = all_count_vars.begin()->second;
       // replace_vars(added_count_lits, *prev_count_vars, current_count_vars);
-      backup_solution_counts[i] = count_once(
-          backup_solvers[i], count_vars, {}, backup_left[i], backup_right[i],
-          backup_hash_count[i], (i > 0) & count_inter_first);
+      backup_solution_counts[i] =
+          count_once(backup_solvers[i], count_vars, {}, backup_left[i],
+                     backup_right[i], backup_hash_count[i], count_inter_first);
       RecordSolution(secret_rnd, "." + std::to_string(i));
       backup_max_hash_count[i] =
           std::max(backup_max_hash_count[i], backup_hash_count[i]);
