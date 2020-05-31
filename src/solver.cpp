@@ -2807,7 +2807,6 @@ bool Solver::verify_model_implicit_clauses() const
     ) {
         Lit lit = Lit::toLit(wsLit);
         watch_subarray_const ws = *it;
-
         for (Watched w: ws) {
             if (w.isBin()
                 && model_value(lit) != l_True

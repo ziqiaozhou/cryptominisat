@@ -803,13 +803,13 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
 
     if (addInner != lit_Undef) {
       solver2->add_clause({addInner, watch[i]});
-      /* debugging
+      /* debugging*/
       cout << "secret hash xor:\n";
         cout << "watch:" << addInner << watch[i];
         for (auto l : lits) {
           cout << l + 1 << "\t";
         }
-        cout << rhs[i] << std::endl;*/
+        cout << rhs[i] << std::endl;
     }
     // e.g., xor watch 1 2 4 ..
     solver2->add_xor_clause(lits, rhs[i]);

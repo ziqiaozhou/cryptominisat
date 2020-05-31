@@ -475,8 +475,9 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
     }
   }
 
-  void ClauseDumper::dump_irred_cls_for_preprocessor(
-      std::ostream * out, const bool outer_numbering) {
+  void
+  ClauseDumper::dump_irred_cls_for_preprocessor(std::ostream *out,
+                                                const bool outer_numbering) {
     indCompSet.clear();
     if (solver->conf.sampling_vars)
     for (uint32_t var : *solver->conf.sampling_vars) {
