@@ -805,11 +805,11 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
       solver2->add_clause({addInner, watch[i]});
       /* debugging*/
       cout << "secret hash xor:\n";
-        cout << "watch:" << addInner << watch[i];
-        for (auto l : lits) {
-          cout << l + 1 << "\t";
-        }
-        cout << rhs[i] << std::endl;
+      cout << "watch:" << addInner << watch[i];
+      for (auto l : lits) {
+        cout << l + 1 << "\t";
+      }
+      cout << rhs[i] << std::endl;
     }
     // e.g., xor watch 1 2 4 ..
     solver2->add_xor_clause(lits, rhs[i]);
@@ -1370,20 +1370,21 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   auto start = cpuTimeTotal();
   auto checkunion = backup_solvers[0]->solve();
   auto time1 = (cpuTimeTotal() - start);
-  auto checkinter = solver->solve();
-  auto time2 = (cpuTimeTotal() - start) - time1;
-  bool count_inter_first = false;
-  if (time2 > 1 && time2 < time1 / 4) {
-    count_inter_first = true;
-  }
   std::cout << "checking time=" << time1 << time2 << std::endl;
   if (checkunion == l_False) {
     std::cerr << "solve is false" << std::endl;
     return false;
   }
+  std::cout << "solve is ok" << std::endl;
+  start = cpuTimeTotal();
+  auto checkinter = solver->solve();
+  auto time2 = (cpuTimeTotal() - start) - time1;
+  bool count_inter_first = false;
   simplify(solver);
   simplify(backup_solvers[0]);
-  std::cout << "solve is ok" << std::endl;
+  if (time2 > 1 && time2 < time1 / 4) {
+    count_inter_first = true;
+  }
 
   left = (left_ > -1) ? left_ : ((min_log_size_ == -1) ? 0 : min_log_size_);
   right = (right_ > -1)
