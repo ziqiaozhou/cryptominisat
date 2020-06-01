@@ -655,7 +655,7 @@ bool Count::readVictimModel(SATSolver *&solver) {
     for (auto lit : lits.second)
       sampling_vars.push_back(lit.var());
   solver->set_sampling_vars(&sampling_vars);
-  simplify(solver);
+  //simplify(solver);
   string victim_cnf_file = out_dir_ + "//" + out_file_ + ".simp";
   std::ofstream finalout(victim_cnf_file);
   solver->dump_irred_clauses_ind_only(&finalout);
@@ -1361,12 +1361,6 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   for(int i=0;i<backup_solvers.size();++i)
     backup_solvers[i]->set_sampling_vars(nullptr);*/
   //  solver->add_clause(secret_watch);
-  cout << "count size=" << count_vars.size();
-  string trim = trimVar(backup_solvers[0], count_vars);
-  unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
-  cout << "secret size=" << secret_vars.size() << std::endl;
-  cout << "count size=" << count_vars.size()
-       << ",unrelated vars=" << unrelated_number_countvars << std::endl;
   auto start = cpuTimeTotal();
   auto checkunion = backup_solvers[0]->solve();
   auto time1 = (cpuTimeTotal() - start);
@@ -1375,6 +1369,12 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
     std::cerr << "solve is false" << std::endl;
     return false;
   }
+  cout << "count size=" << count_vars.size();
+  string trim = trimVar(backup_solvers[0], count_vars);
+  unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
+  cout << "secret size=" << secret_vars.size() << std::endl;
+  cout << "count size=" << count_vars.size()
+       << ",unrelated vars=" << unrelated_number_countvars << std::endl;
   std::cout << "solve is ok" << std::endl;
   start = cpuTimeTotal();
   auto checkinter = solver->solve();
