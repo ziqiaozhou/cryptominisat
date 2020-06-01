@@ -1873,7 +1873,7 @@ bool Searcher::clean_clauses_if_needed()
     assert(decisionLevel() == 0);
     assert(qhead == trail.size());
     #endif
-    if (!ok) {
+    if (!ok || !propagate_any_order_fast().isNULL()) {
         return ok = false;
     }
     const size_t newZeroDepthAss = trail.size() - lastCleanZeroDepthAssigns;
