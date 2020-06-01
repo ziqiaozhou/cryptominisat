@@ -209,6 +209,7 @@ void Count::AddVariableDiff(SATSolver *solver,
   int len = -1;
   vector<Lit> watches;
   assert(all_vars.size() > 0);
+  int nvar = 0;
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
@@ -216,6 +217,10 @@ void Count::AddVariableDiff(SATSolver *solver,
       assert(len == lits.size());
     }
     len = lits.size();
+    nvar++;
+    if (nvar > 2) {
+      break;
+    }
   }
   static int outtimes = 0;
   outtimes++;
@@ -230,12 +235,17 @@ void Count::AddVariableDiff(SATSolver *solver,
     clause.push_back(newWatch);
     watches.push_back(Lit(newWatch, true));
     bool xor_bool = true;
+     nvar = 0;
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
       if (lits[i].sign())
         xor_bool = !xor_bool;
+      nvar++;
+      if (nvar > 2) {
+        break;
+      }
     }
     solver->add_xor_clause(clause, xor_bool);
     finalout << "x" << (xor_bool ? "" : "-");
@@ -325,6 +335,7 @@ void Count::AddVariableSame(SATSolver *solver,
     return;
   }
   assert(all_vars.size() > 0);
+  int nvar = 0;
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
@@ -332,6 +343,10 @@ void Count::AddVariableSame(SATSolver *solver,
       assert(len == lits.size());
     }
     len = lits.size();
+    nvar++;
+    if (nvar == 2) {
+      break;
+    }
   }
   string diff_file = out_dir_ + "//" + out_file_ + ".testsamehash";
   std::ofstream finalout(diff_file);
@@ -339,6 +354,7 @@ void Count::AddVariableSame(SATSolver *solver,
     vector<unsigned> clause;
     bool xor_bool = false;
     cout << "add same ";
+     nvar = 0;
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
@@ -349,6 +365,10 @@ void Count::AddVariableSame(SATSolver *solver,
         cout << xor_bool << " ";
       }
       cout << lits[i] << " " << lits[i].sign() << " " << xor_bool << "\t";
+      nvar++;
+      if (nvar == 2) {
+        break;
+      }
     }
     cout << "\n";
     solver->add_xor_clause(clause, xor_bool);
@@ -655,7 +675,7 @@ bool Count::readVictimModel(SATSolver *&solver) {
     for (auto lit : lits.second)
       sampling_vars.push_back(lit.var());
   solver->set_sampling_vars(&sampling_vars);
-  //simplify(solver);
+  // simplify(solver);
   string victim_cnf_file = out_dir_ + "//" + out_file_ + ".simp";
   std::ofstream finalout(victim_cnf_file);
   solver->dump_irred_clauses_ind_only(&finalout);
@@ -1364,7 +1384,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   auto start = cpuTimeTotal();
   auto checkunion = backup_solvers[0]->solve();
   auto time1 = (cpuTimeTotal() - start);
-  std::cout << "checking time=" << time1  << std::endl;
+  std::cout << "checking time=" << time1 << std::endl;
   if (checkunion == l_False) {
     std::cerr << "solve is false" << std::endl;
     return false;
@@ -1378,19 +1398,19 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   std::cout << "solve is ok" << std::endl;
   start = cpuTimeTotal();
   auto checkinter = solver->solve();
-  if(checkinter==l_False){
-    solution_counts[0]=0;
-    hash_count=0;
-    for(size_t i=0;i<backup_solution_counts.size();++i){
-      backup_hash_count[i]=(backup_left[i]+backup_right[i])/2;
-      backup_solution_counts[i][backup_hash_count[i]]=max_sol_;
+  if (checkinter == l_False) {
+    solution_counts[0] = 0;
+    hash_count = 0;
+    for (size_t i = 0; i < backup_solution_counts.size(); ++i) {
+      backup_hash_count[i] = (backup_left[i] + backup_right[i]) / 2;
+      backup_solution_counts[i][backup_hash_count[i]] = max_sol_;
     }
     RecordCountInter(solution_counts, hash_count, backup_solution_counts,
                      backup_hash_count, secret_rnd, 0);
     return true;
   }
   auto time2 = (cpuTimeTotal() - start) - time1;
-  std::cout << "checking time="  << time2 << std::endl;
+  std::cout << "checking time=" << time2 << std::endl;
 
   bool count_inter_first = false;
   simplify(solver);

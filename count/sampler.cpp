@@ -11,10 +11,16 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver2,
   size_t len = -1;
   vector<Lit> watches;
   assert(all_vars.size() > 0);
+  int nvar = 0;
+
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
     len = lits.size();
+    nvar++;
+    if (nvar == 2) {
+      break;
+    }
   }
   string diff_file = out_dir_ + "//" + out_file_ + ".AddVariableDiffHelperHash";
   std::ofstream finalout(diff_file);
@@ -27,12 +33,17 @@ vector<Lit> Sampler::AddVariableDiffHelper(SATSolver *solver2,
     clause.push_back(new_watch);
     watches.push_back(Lit(new_watch, true));
     bool xor_bool = true;
+    nvar = 0;
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
       if (lits[i].sign())
         xor_bool = !xor_bool;
+      nvar++;
+      if (nvar == 2) {
+        break;
+      }
     }
     solver2->add_xor_clause(clause, xor_bool);
     finalout << "x" << (xor_bool ? "" : "-");
@@ -46,10 +57,15 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
                                    map<string, vector<Lit>> &all_vars) {
   size_t len = 0;
   vector<Lit> clause;
+  int nvar = 0;
   for (auto id_lits : all_vars) {
     auto id = id_lits.first;
     auto lits = id_lits.second;
     len = lits.size();
+    nvar++;
+    if (nvar == 2) {
+      break;
+    }
   }
   auto same_watch = solver->nVars();
   solver->new_var();
@@ -64,12 +80,19 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
     finalout << Lit(new_watch, true) << " " << Lit(same_watch, true) << "\n";
     solver->add_clause({Lit(new_watch, true), Lit(same_watch, true)});
     bool xor_bool = false;
+    nvar=0;
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
       clause.push_back(lits[i].var());
       if (lits[i].sign())
         xor_bool = !xor_bool;
+      if (lits[i].sign())
+        xor_bool = !xor_bool;
+      nvar++;
+      if (nvar == 2) {
+        break;
+      }
     }
     solver->add_xor_clause(clause, xor_bool);
     finalout << "x" << (xor_bool ? "" : "-");
@@ -293,9 +316,10 @@ void Sampler::run() {
   readInAFileToCache(solver, inputfile);
   setSecretVars();
   setCountVars();
+
   if (sample_noninterference_ > 0) {
     AddVariableSame(solver, all_observe_lits);
-    // AddVariableSame(solver, all_declass_lits);
+    AddVariableSame(solver, all_declass_lits);
     sample_sol_f = new std::ofstream(out_dir_ + "//" + out_file_ + ".same.csv",
                                      std::ofstream::out | std::ofstream::app);
     if (record_full_)
