@@ -1370,7 +1370,7 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   auto start = cpuTimeTotal();
   auto checkunion = backup_solvers[0]->solve();
   auto time1 = (cpuTimeTotal() - start);
-  std::cout << "checking time=" << time1 << time2 << std::endl;
+  std::cout << "checking time=" << time1  << std::endl;
   if (checkunion == l_False) {
     std::cerr << "solve is false" << std::endl;
     return false;
@@ -1379,6 +1379,8 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   start = cpuTimeTotal();
   auto checkinter = solver->solve();
   auto time2 = (cpuTimeTotal() - start) - time1;
+  std::cout << "checking time="  << time2 << std::endl;
+
   bool count_inter_first = false;
   simplify(solver);
   simplify(backup_solvers[0]);
