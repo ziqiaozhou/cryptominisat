@@ -1873,7 +1873,9 @@ bool Searcher::clean_clauses_if_needed()
     assert(decisionLevel() == 0);
     assert(qhead == trail.size());
     #endif
-
+    if (!ok) {
+        return ok = false;
+    }
     const size_t newZeroDepthAss = trail.size() - lastCleanZeroDepthAssigns;
     if (newZeroDepthAss > 0
         && simpDB_props < 0
