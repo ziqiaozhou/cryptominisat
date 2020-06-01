@@ -1378,6 +1378,17 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   std::cout << "solve is ok" << std::endl;
   start = cpuTimeTotal();
   auto checkinter = solver->solve();
+  if(checkinter==l_False){
+    solution_counts[0]=0;
+    hash_count=0;
+    for(size_t i=0;i<backup_solution_counts.size();++i){
+      backup_hash_count[i]=(backup_left[i]+backup_right[i])/2;
+      backup_solution_counts[i][backup_hash_count[i]]=max_sol_;
+    }
+    RecordCountInter(solution_counts, hash_count, backup_solution_counts,
+                     backup_hash_count, secret_rnd, 0);
+    return true;
+  }
   auto time2 = (cpuTimeTotal() - start) - time1;
   std::cout << "checking time="  << time2 << std::endl;
 
