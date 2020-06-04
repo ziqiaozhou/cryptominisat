@@ -3,12 +3,12 @@
 #include <boost/lexical_cast.hpp>
 using boost::lexical_cast;
 template <class T> void print_map(std::map<std::string, vector<T>> &map) {
-  for (auto var : map) {
+  /*for (auto var : map) {
     cout << var.first << " ";
     for (auto i : var.second)
       cout << i << " ";
     cout << "\n";
-  }
+  }*/
 }
 void Compose::add_compose_options() {
   composeOptions_.add_options()(
@@ -313,6 +313,7 @@ void Compose::incremental_compose() {
   current_trans_symbol_vars.erase("s0");
   current_trans_symbol_vars.erase("s1");
   std::string state_path;
+
   for (int i = start_cycle_; i < cycles_; ++i) {
     // compose;
     if (i > start_cycle_) {
@@ -324,11 +325,10 @@ void Compose::incremental_compose() {
       readInAFile(init_solver, state_path);
       init_symbol_vars = symbol_vars;
     }
-    std::string state_path = out_dir_;
     std::cerr << "cycle" << i << "\n";
     std::string prev_state = "s" + std::to_string(i);
     std::string current_state = "s" + std::to_string(i + 1);
-    state_path = state_path + "//" + current_state + ".cnf";
+    state_path = out_dir_ + "//" + current_state + ".cnf";
     current_trans_symbol_vars[prev_state] = trans_symbol_vars["s0"];
     current_trans_symbol_vars[current_state] = trans_symbol_vars["s1"];
     createNextState(init_solver, current_trans_symbol_vars, init_symbol_vars,
