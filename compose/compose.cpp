@@ -346,14 +346,15 @@ void Compose::incremental_compose() {
            << " symbol size=" << init_symbol_vars.size() << "\n";
       init_solver->set_sampling_vars(&sampling_vars);
       init_solver->simplify();
-      std::ofstream finalout(state_path);
       if (init_solver->solve() == l_False) {
         std::cout << "solving is false";
       }
-      init_solver->dump_irred_clauses_ind_only(&finalout);
-      // restore to the old var map after dumping
-      finalout.close();
+
     }
+    std::ofstream finalout(state_path);
+    init_solver->dump_irred_clauses_ind_only(&finalout);
+    // restore to the old var map after dumping
+    finalout.close();
     // init_solver->renumber_variables(true);
     if (conf.verbosity >= 0) {
       cout << "after renumber: init_symbol_vars\n";
@@ -373,7 +374,7 @@ void Compose::run() {
 }
 int main(int argc, char **argv) {
   Compose compose(argc, argv);
-  compose.conf.verbosity = 1;
+  //compose.conf.verbosity = 0;
   compose.conf.verbStats = 1;
   compose.conf.preprocess = 1;
   // compose.conf.doRenumberVars = false;
