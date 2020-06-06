@@ -235,7 +235,7 @@ void Count::AddVariableDiff(SATSolver *solver,
     clause.push_back(newWatch);
     watches.push_back(Lit(newWatch, true));
     bool xor_bool = true;
-     nvar = 0;
+    nvar = 0;
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
@@ -354,7 +354,7 @@ void Count::AddVariableSame(SATSolver *solver,
     vector<unsigned> clause;
     bool xor_bool = false;
     cout << "add same ";
-     nvar = 0;
+    nvar = 0;
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
@@ -1109,7 +1109,8 @@ map<int, int> Count::count_once(SATSolver *solver,
         continue;
       } else if (nsol == 0) {
         right = hash_count;
-        left = std::min(left, right - int(floor(log2(max_sol_))) - 2);
+        left = std::max(
+            0, std::min(left, right - int(floor(log2(max_sol_))) * 2 - 2));
       }
     } else {
       if (timeout_nice_hash_counts.count(nice_hash_count) == 0)
