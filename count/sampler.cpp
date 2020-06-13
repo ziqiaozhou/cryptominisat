@@ -180,7 +180,7 @@ vector<Lit> Sampler::getCISSModelLit(SATSolver *solver) {
     if (symbol_vars.count(label) == 0)
       continue;
     for (auto l : symbol_vars[label]) {
-      ret.push_back(Lit(l.var(), model[l.var()] == (l.sign()?l_True:l_False)));
+      ret.push_back(Lit(l.var(), model[l.var()] == l_False));
     }
   }
   return ret;
