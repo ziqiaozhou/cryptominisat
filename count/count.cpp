@@ -742,7 +742,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   }
   string randomBits = "";
   std::set<string> randomBitsSet;
-  if (num_xor_cls == vars.size()) {
+  if (false && num_xor_cls == vars.size()) {
     // only pick one value
     ratio = 1.0 / num_xor_cls;
     xor_decay = 1.0;
