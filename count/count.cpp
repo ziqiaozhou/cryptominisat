@@ -312,8 +312,14 @@ void Count::setCountVars() {
     for (auto lit : control_lits) {
       all_count_vars[id_lits.first].push_back(lit.var());
     }
-    for (auto lit : all_observe_lits[id]) {
-      all_count_vars[id_lits.first].push_back(lit.var());
+    if (count_direction_ == "in") {
+      for (auto lit : all_secret_lits[id]) {
+        all_count_vars[id_lits.first].push_back(lit.var());
+      }
+    } else {
+      for (auto lit : all_observe_lits[id]) {
+        all_count_vars[id_lits.first].push_back(lit.var());
+      }
     }
     for (auto lit : all_other_lits[id]) {
       all_count_vars[id_lits.first].push_back(lit.var());
@@ -597,6 +603,10 @@ void Count::add_count_options() {
                               po::value(&mode_)->default_value("block"),
                               "mode: nonblock-> backtrack, block -> block");
   countOptions_.add_options()(
+      "count_direction", po::value(&count_direction_)->default_value("inout"),
+      "inout: C,I,O, in: C,I,S");
+
+  countOptions_.add_options()(
       "use_overlap_coefficient",
       po::value(&use_overlap_coefficient_)->default_value(true),
       "Valid when inter_mode=2, False: use Y1 V Y2 as denominator, True: use "
@@ -608,7 +618,8 @@ void Count::add_count_options() {
       "inter_mode", po::value(&inter_mode_)->default_value(2),
       "1-> secret_1 and secret_2, observe_1 and observe_2, 0: single,  2: "
       "JaccardHat with diff set if use_overlap_coefficient=false, "
-      "JaccardHat with symmetric diff set if use_overlap_coefficient=true, 3: "
+      "JaccardHat with symmetric diff set if use_overlap_coefficient=true, "
+      "3: "
       "JaccardHat with Same Other");
   countOptions_.add_options()(
       "record_solution", po::value(&record_solution_)->default_value(true),
@@ -742,7 +753,7 @@ string Count::Sample(SATSolver *solver2, std::vector<unsigned> vars,
   }
   string randomBits = "";
   std::set<string> randomBitsSet;
-  if ( num_xor_cls == vars.size()) {
+  if (num_xor_cls == vars.size()) {
     // only pick one value
     ratio = 1.0 / num_xor_cls;
     xor_decay = 1.0;
@@ -1099,7 +1110,8 @@ map<int, int> Count::count_once(SATSolver *solver,
       } else if (nsol < 0) {
         if (timeouts < 3 && (hash_count - left > 1)) {
           hash_count--;
-          cout << "timeout..... Let's check smaller hashcount to see some luck";
+          cout << "timeout..... Let's check smaller hashcount to see some "
+                  "luck";
         } else {
           left = hash_count;
           hash_count++;

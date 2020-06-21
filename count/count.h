@@ -168,7 +168,7 @@ protected:
   int num_xor_cls_;
   int max_sol_;
   int original_max_sol;
-
+  std::string count_direction_;
   int backtrack_;
   int max_count_times_;
   bool record_solution_;
