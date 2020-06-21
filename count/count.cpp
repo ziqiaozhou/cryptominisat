@@ -1407,8 +1407,13 @@ bool Count::after_secret_sample_count(SATSolver *solver, string secret_rnd) {
   unrelated_number_countvars = std::count(trim.begin(), trim.end(), 'u');
   cout << "secret size=" << secret_vars.size() << std::endl;
   cout << "count size=" << count_vars.size()
-       << ",unrelated vars=" << unrelated_number_countvars << std::endl;
+       << ",unrelated vars=" << unrelated_number_countvars << trim << std::endl;
   std::cout << "solve is ok" << std::endl;
+  cout << "trimed count vars:";
+  for (auto v : count_vars) {
+    cout << v << "\t";
+  }
+  cout << std::endl;
   start = cpuTimeTotal();
   auto checkinter = solver->solve();
   if (checkinter == l_False) {
