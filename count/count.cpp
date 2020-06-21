@@ -1100,10 +1100,10 @@ map<int, int> Count::count_once(SATSolver *solver,
         } else {
           hash_count = new_hash_count;
         }
-        if (!solution_counts.count(left)) {
-          left = std::max(
-              left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
-        }
+
+        left = std::max(left, hash_count -
+                                  int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
+
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
         continue;
@@ -1121,7 +1121,7 @@ map<int, int> Count::count_once(SATSolver *solver,
         continue;
       } else if (nsol == 0) {
         right = hash_count;
-        if (!solution_counts.count(left)) {
+        if (solution_counts.begin()->second==0) {
           left = std::max(
               0, std::min(left, right - int(floor(log2(max_sol_))) * 2 - 2));
         }
