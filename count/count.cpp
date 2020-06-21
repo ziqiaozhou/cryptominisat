@@ -1072,7 +1072,6 @@ map<int, int> Count::count_once(SATSolver *solver,
     } else {
       break;
     }
-
     nsol = solution_counts[hash_count];
     cout << "hash_count=" << hash_count
          << ", nsol=" << solution_counts[hash_count] << std::endl;
@@ -1080,7 +1079,6 @@ map<int, int> Count::count_once(SATSolver *solver,
     if (nsol >= max_sol_) {
       left = hash_count + 1;
     } else if (nsol < max_sol_ * 0.6) {
-
       if (nsol > 0 && timeout_nice_hash_counts.count(hash_count) == 0)
         nice_hash_counts.insert(hash_count);
       else if (nsol < 0) {
@@ -1102,8 +1100,10 @@ map<int, int> Count::count_once(SATSolver *solver,
         } else {
           hash_count = new_hash_count;
         }
-        left = std::max(left, hash_count -
-                                  int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
+        if (!solution_counts.count(left)) {
+          left = std::max(
+              left, hash_count - int(floor(log2(max_sol_ * 1.0 / nsol))) - 1);
+        }
         cout << "hash_count=" << hash_count << ", nsol=" << nsol
              << "left=" << left << "right=" << right << std::endl;
         continue;
@@ -1121,8 +1121,10 @@ map<int, int> Count::count_once(SATSolver *solver,
         continue;
       } else if (nsol == 0) {
         right = hash_count;
-        left = std::max(
-            0, std::min(left, right - int(floor(log2(max_sol_))) * 2 - 2));
+        if (!solution_counts.count(left)) {
+          left = std::max(
+              0, std::min(left, right - int(floor(log2(max_sol_))) * 2 - 2));
+        }
       }
     } else {
       if (timeout_nice_hash_counts.count(nice_hash_count) == 0)
@@ -1172,7 +1174,7 @@ map<int, int> Count::count_once(SATSolver *solver,
     long start = cpuTimeTotal();
     Sample(solver, target_count_vars, hash_count, count_watch, added_count_lits,
            count_rhs, lit_Undef, true);
-    cout << "sample time cost=" << cpuTimeTotal() - start << std::endl;
+    cout << "retry sample time cost=" << cpuTimeTotal() - start << std::endl;
     solution_lits.clear();
     solution_strs.clear();
     assump.clear();
