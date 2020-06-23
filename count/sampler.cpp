@@ -390,8 +390,8 @@ void Sampler::run() {
     hash_count = right - 10;
   nTotalSolutions = 0;
   perf=0;
+  start = now();
   for (int t = 0; t < nsample; ++t) {
-    start = now();
     ciss_assump.clear();
     ciss_added_vars.clear();
     ciss_rhs.clear();
@@ -444,7 +444,7 @@ void Sampler::run() {
     solver->simplify();
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
     double du=duration(start);
-    perf=perf*nTotalSolutions/(nTotalSolutions+nsol)+du/(nTotalSolutions+nsol);
+    perf=du/(nTotalSolutions+nsol);
     nTotalSolutions+=nsol;
     cout << "sampling_rate:\t"<<perf<<"\t second per sol"<<std::endl;
     cout << hash_count << "nsol=" << nsol << std::endl;
