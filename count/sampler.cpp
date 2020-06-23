@@ -297,14 +297,14 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
             RecordSampleSolSame(cissmodel);
             // std::cout<<"complementary_solver->solve(&sol_lits) == l_True\n";
             solutions--;
+            if (total_sol > 20 * maxSolutions && duration(t0)>120) {
+              break;
+            }
             continue;
           }
         }
       }
       RecordSampleSol(cissmodel);
-    }
-    if (total_sol > 20 * maxSolutions && duration(t0)>120) {
-      break;
     }
   }
   // Remove clauses added
