@@ -1,6 +1,7 @@
 #ifndef SAMPLE_H
 #define SAMPLE_H
 #include "count.h"
+#include <sys/time.h>
 class Sampler : public Count {
 public:
   explicit Sampler(int argc, char **argv)
@@ -63,5 +64,8 @@ private:
   SATSolver *complementary_solver;
   bool useOtherAlt;
   bool record_full_;
+  struct timeval start;
+  int nTotalSolutions;
+  double perf;
 };
 #endif

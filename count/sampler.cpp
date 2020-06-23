@@ -80,7 +80,7 @@ Lit Sampler::AddVariableSameHelper(SATSolver *solver,
     finalout << Lit(new_watch, true) << " " << Lit(same_watch, true) << "\n";
     solver->add_clause({Lit(new_watch, true), Lit(same_watch, true)});
     bool xor_bool = false;
-    nvar=0;
+    nvar = 0;
     for (auto id_vars : all_vars) {
       auto id = id_vars.first;
       auto &lits = id_vars.second;
@@ -316,7 +316,6 @@ void Sampler::run() {
   readInAFileToCache(solver, inputfile);
   setSecretVars();
   setCountVars();
-
   if (sample_noninterference_ > 0) {
     AddVariableSame(solver, all_observe_lits);
     AddVariableSame(solver, all_declass_lits);
@@ -389,7 +388,10 @@ void Sampler::run() {
     hash_count = num_xor_cls_;
   else
     hash_count = right - 10;
+  nTotalSolutions = 0;
+  perf=0;
   for (int t = 0; t < nsample; ++t) {
+    start = now();
     ciss_assump.clear();
     ciss_added_vars.clear();
     ciss_rhs.clear();
@@ -441,6 +443,10 @@ void Sampler::run() {
     // trimVar(solver,sample_vars);
     solver->simplify();
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
+    double du=duration(start);
+    perf=perf*nTotalSolutions/(nTotalSolutions+nsol)+du/(nTotalSolutions+nsol);
+    nTotalSolutions+=nsol;
+    cout << "sampling_rate:\t"<<perf<<"\t second per sol"<<std::endl;
     cout << hash_count << "nsol=" << nsol << std::endl;
     if (nsol >= max_sol_) {
       left = hash_count + 1;

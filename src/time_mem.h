@@ -36,6 +36,7 @@ THE SOFTWARE.
 // note: MinGW64 defines both __MINGW32__ and __MINGW64__
 #if defined (_MSC_VER) || defined (__MINGW32__) || defined(_WIN32)
 #include <ctime>
+
 static inline double cpuTime(void)
 {
     return (double)clock() / CLOCKS_PER_SEC;
@@ -80,6 +81,7 @@ static inline double cpuTimeTotal(void)
 // size and resident set size, and return the results in KB.
 //
 // On failure, returns 0.0, 0.0
+
 static inline uint64_t memUsedTotal(double& vm_usage)
 {
    //double& vm_usage
@@ -135,5 +137,17 @@ static inline size_t memUsedTotal(double& vm_usage)
     return 0;
 }
 #endif
-
+static inline timeval now(void){
+  struct timeval start;
+  gettimeofday(&start, NULL);
+  return start;
+}
+static inline double duration(const timeval& start){
+  struct timeval end=now();
+  double time_taken;
+  time_taken = (end.tv_sec - start.tv_sec) * 1e6;
+  time_taken = (time_taken + (end.tv_usec -
+                              start.tv_usec)) * 1e-6;
+  return time_taken;
+}
 #endif //TIME_MEM_H
