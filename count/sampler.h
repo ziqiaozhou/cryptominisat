@@ -67,5 +67,6 @@ private:
   struct timeval start;
   int nTotalSolutions;
   double perf;
+  int nESolver;
 };
 #endif

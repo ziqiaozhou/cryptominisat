@@ -278,7 +278,6 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
     solutions++;
     total_sol++;
     if (total_sol > 20 * maxSolutions) {
-      solutions = total_sol;
       break;
     }
     if (solutions < maxSolutions) {
@@ -310,6 +309,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   }
   // Remove clauses added
   solver->add_clause({Lit(act_var, false)});
+  nESolver = total_sol;
   return solutions;
 }
 
@@ -388,9 +388,9 @@ void Sampler::run() {
   vector<bool> ciss_rhs, c_rhs, s_rhs, salt_rhs, i_rhs, ialt_rhs;
   std::cout << "used_vars.size()=" << used_vars.size() << std::endl;
   int left = 0, right = CISS.size(), hash_count;
-  if (num_xor_cls_ > 0){
+  if (num_xor_cls_ > 0) {
     hash_count = num_xor_cls_;
-  }else
+  } else
     hash_count = right - 10;
   nTotalSolutions = 0;
   perf = 0;
@@ -448,20 +448,20 @@ void Sampler::run() {
     solver->simplify();
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
     double du = duration(start);
-    if (nsol < (max_sol_ * 2)) {
-      perf = du / (nTotalSolutions + nsol);
-      nTotalSolutions += nsol;
-      cout << "sampling_rate:\t" << perf << "\t second per sol" << std::endl;
-      cout << hash_count << "nsol=" << nsol << std::endl;
-    }
-    if (nsol >= max_sol_) {
+
+    perf = du / (nTotalSolutions + nsol);
+    nTotalSolutions += nsol;
+    cout << "sampling_rate:\t" << perf << "\t second per sol" << std::endl;
+    cout << hash_count << "nsol=" << nsol << std::endl;
+
+    if (nsol >= max_sol_ || nESolver >= (max_sol_ * 20)) {
       left = hash_count + 1;
       hash_count = (left + right) / 2;
     } else if (nsol == 0) {
       right = hash_count - 1;
       hash_count = (left + right) / 2;
     } else if (nsol < max_sol_ * 0.4) {
-      hash_count = hash_count - floor(log2(max_sol_ / nsol));
+      hash_count = hash_count - floor(log2(max_sol_ / nsol)) + 1;
       left = hash_count;
       right = hash_count;
     } else {
