@@ -257,6 +257,7 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
   bool only_ind = true;
   vector<Lit> new_assumps(assumps);
   solver->new_var();
+  struct timeval t0=now();
   uint32_t act_var = solver->nVars() - 1;
   new_assumps.push_back(Lit(act_var, true));
   if (new_assumps.size() > 1)
@@ -277,9 +278,6 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
     }
     solutions++;
     total_sol++;
-    if (total_sol > 20 * maxSolutions) {
-      break;
-    }
     if (solutions < maxSolutions) {
       vector<Lit> lits, solution;
       for (const uint32_t var : target_count_vars) {
@@ -305,7 +303,9 @@ int64_t Sampler::bounded_sol_generation(SATSolver *solver,
       }
       RecordSampleSol(cissmodel);
     }
-    solutions += solver->n_seareched_solutions();
+    if (total_sol > 20 * maxSolutions && duration(t0)>120) {
+      break;
+    }
   }
   // Remove clauses added
   solver->add_clause({Lit(act_var, false)});
@@ -448,7 +448,6 @@ void Sampler::run() {
     solver->simplify();
     auto nsol = bounded_sol_generation(solver, CISS, max_sol_, ciss_assump);
     double du = duration(start);
-
     perf = du / (nTotalSolutions + nsol);
     nTotalSolutions += nsol;
     cout << "sampling_rate:\t" << perf << "\t second per sol" << std::endl;
