@@ -174,7 +174,7 @@ vector<uint32_t> Sampler::GetVars(string label) {
 vector<Lit> Sampler::getCISSModelLit(SATSolver *solver) {
   vector<Lit> ret;
   vector<string> labels = {CONTROLLED_, OTHER_ + "_0", SECRET_ + "_0",
-                           SECRET_ + "_1"};
+                           SECRET_ + "_1",OBSERVABLE_+"_0"};
   auto &model = solver->get_model();
   for (auto label : labels) {
     if (symbol_vars.count(label) == 0)
