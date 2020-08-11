@@ -1,4 +1,4 @@
-# Copyright (c) 2017, Mate Soos
+# Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,7 @@
 include_directories(
     ${PROJECT_BINARY_DIR}/cmsat5-src
 )
+add_sanitize_flags()
 
 # Minimal DRAT-enabled CMS binary
 add_executable(minimal_cms

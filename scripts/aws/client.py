@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2018  Mate Soos
+# Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -299,7 +299,7 @@ class solverThread (threading.Thread):
 
         useful_lemma_ids = []
         with addlemm.Query(dbfname) as q:
-            useful_lemma_ids = addlemm.parse_lemmas(lemmafname, q.runID)
+            useful_lemma_ids = addlemm.parse_lemmas(lemmafname)
             q.add_goods(useful_lemma_ids)
 
         logging.info("Num good IDs: %d",

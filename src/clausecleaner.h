@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,8 @@ class ClauseCleaner
         void clean_implicit_clauses();
         void remove_and_clean_all();
         bool clean_xor_clauses(vector<Xor>& xors);
+        bool clean_clause(Clause& c);
+        bool full_clean(Clause& cl);
 
     private:
         bool clean_one_xor(Xor& x);
@@ -78,7 +80,6 @@ class ClauseCleaner
         void clean_clauses_inter(vector<ClOffset>& cs);
 
         bool satisfied(const Watched& watched, Lit lit);
-        bool clean_clause(Clause& c);
         vector<ClOffset> delayed_free;
 
         Solver* solver;

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2018  Mate Soos
+# Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -71,8 +71,8 @@ Use-cases:
 # to give options to the solver
 ./launch_server.py --folder with_opts --opt \"--ml=1,--keepglue=4\""
 
- # to upload features_to_reconf.cpp
-aws s3 cp ../../src/features_to_reconf.cpp s3://msoos-solve-data/solvers/
+ # to upload satzilla_features_to_reconf.cpp
+aws s3 cp ../../src/satzilla_features_to_reconf.cpp s3://msoos-solve-data/solvers/
 
 """
     parser = optparse.OptionParser(usage=usage, formatter=PlainHelpFormatter())

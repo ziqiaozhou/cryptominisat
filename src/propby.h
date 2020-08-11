@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,11 @@ THE SOFTWARE.
 
 namespace CMSat {
 
-enum PropByType {null_clause_t = 0, clause_t = 1, binary_t = 2};
+enum PropByType {null_clause_t = 0, clause_t = 1, binary_t = 2
+    #ifdef USE_GAUSS
+    , xor_t = 3
+    #endif
+};
 
 class PropBy
 {
@@ -67,6 +71,16 @@ class PropBy
             assert(offset == get_offset());
             #endif*/
         }
+
+#ifdef USE_GAUSS
+        //XOR
+        PropBy(const uint32_t matrix_num, const uint32_t row_num):
+            data1(matrix_num)
+            , type(xor_t)
+            , data2(row_num)
+        {
+        }
+#endif
 
         //Binary prop
         PropBy(const Lit lit, const bool redStep) :
@@ -152,6 +166,22 @@ class PropBy
             assert(type == binary_t);
             #endif
             return Lit::toLit(data1);
+        }
+
+        uint32_t get_matrix_num() const
+        {
+            #ifdef DEBUG_PROPAGATEFROM
+            assert(type == xor_t);
+            #endif
+            return data1;
+        }
+
+        uint32_t get_row_num() const
+        {
+            #ifdef DEBUG_PROPAGATEFROM
+            assert(type == xor_t);
+            #endif
+            return data2;
         }
 
         ClOffset get_offset() const

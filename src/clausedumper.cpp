@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2018, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -256,7 +256,6 @@ void ClauseDumper::dump_irred_clauses(std::ostream *out) {
       std::cout << "dump symbol\n";
       dump_symbol_vars(out);
       dump_irred_cls_for_preprocessor(out, false);
-
 
     }
   }

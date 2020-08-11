@@ -1,5 +1,4 @@
-# Original work Copyright (c) 2017, Mate Soos
-# Modified work Copyright (c) 2017, Pierre Vignet
+# Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -77,7 +76,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
        ARGS setup.py build_ext --inplace
        DEPENDS cryptominisat5
    )
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND NOT DEFINED ENV{NIX_CC})
     execute_process(COMMAND xcrun --show-sdk-path
         OUTPUT_VARIABLE PY_OSX_SDK_PATH
         OUTPUT_STRIP_TRAILING_WHITESPACE)

@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2019, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,14 +33,14 @@ class SLS {
 public:
     SLS(Solver* solver);
     ~SLS();
-    lbool run(const uint32_t num_simplify_calls);
+    lbool run(const uint32_t num_sls_called);
 
 private:
     Solver* solver;
 
     lbool run_walksat();
     lbool run_yalsat();
-    lbool run_ccnr();
+    lbool run_ccnr(const uint32_t num_sls_called);
     uint64_t approx_mem_needed();
 };
 

@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -90,6 +90,14 @@ inline Lit getUpdatedLit(Lit toUpdate, const vector< uint32_t >& mapper)
 
 inline uint32_t getUpdatedVar(uint32_t toUpdate, const vector< uint32_t >& mapper)
 {
+    return mapper.at(toUpdate);
+}
+
+inline uint32_t getUpdatedVarMaxToMax(uint32_t toUpdate, const vector< uint32_t >& mapper)
+{
+    if (toUpdate == std::numeric_limits<uint32_t>::max()) {
+        return std::numeric_limits<uint32_t>::max();
+    }
     return mapper.at(toUpdate);
 }
 

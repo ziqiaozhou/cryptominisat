@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -84,7 +84,7 @@ class ClauseAllocator {
             return (Clause*)(&dataStart[offset]);
         }
 
-        void clauseFree(Clause* c); ///Frees memory and associated clause number
+        void clauseFree(Clause* c);
         void clauseFree(ClOffset offset);
 
         void consolidate(
@@ -96,7 +96,11 @@ class ClauseAllocator {
         size_t mem_used() const;
 
     private:
-        void update_offsets(vector<ClOffset>& offsets);
+        void update_offsets(
+            vector<ClOffset>& offsets,
+            ClOffset* newDataStart,
+            ClOffset*& new_ptr
+        );
         void move_one_watchlist(
             watch_subarray& ws, ClOffset* newDataStart, ClOffset*& new_ptr);
 

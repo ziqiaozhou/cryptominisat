@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2018  Mate Soos
+# Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -96,7 +96,7 @@ sudo -H -u ubuntu bash -c 'git checkout {revision}'
 sudo -H -u ubuntu bash -c 'git submodule init'
 sudo -H -u ubuntu bash -c 'git submodule update'
 cd /home/ubuntu/
-# sudo -H -u ubuntu bash -c 'aws s3 cp s3://msoos-solve-data/solvers/features_to_reconf.cpp /home/ubuntu/cryptominisat/src/ --region={region}'
+# sudo -H -u ubuntu bash -c 'aws s3 cp s3://msoos-solve-data/solvers/satzilla_features_to_reconf.cpp /home/ubuntu/cryptominisat/src/ --region={region}'
 
 # Get credentials
 cd /home/ubuntu/

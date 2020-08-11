@@ -1,6 +1,5 @@
 /*
-Copyright (c) 2010-2015 Mate Soos
-Copyright (c) Kuldeep S. Meel, Daniel J. Fremont
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,7 +38,7 @@ int main(int argc, char** argv)
     try {
         Main main(argc, argv);
         main.conf.verbosity = 1;
-        main.conf.verbStats = 1;
+        main.conf.verbStats = 2;
         main.parseCommandLine();
 
         signal(SIGINT, SIGINT_handler);

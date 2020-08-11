@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -40,7 +40,7 @@ template <class T, class T2 = uint64_t>
 class AvgCalc {
     T2      sum;
     size_t  num;
-    #ifdef STATS_NEEDED
+    #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
     double  sumSqare;
     #endif
     #ifdef AVGCALC_NEED_MIN_MAX
@@ -52,7 +52,7 @@ public:
     AvgCalc(void) :
         sum(0)
         , num(0)
-        #ifdef STATS_NEEDED
+        #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
         , sumSqare(0)
         #endif
         #ifdef AVGCALC_NEED_MIN_MAX
@@ -66,7 +66,7 @@ public:
         sum /= val;
         min /= val;
         max /= val;
-        #ifdef STATS_NEEDED
+        #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
         sumSqare /= val*val;
         #endif
 
@@ -79,7 +79,7 @@ public:
         num += other.num;
         min = std::min(min, other.min);
         max = std::min(min, other.max);
-        #ifdef STATS_NEEDED
+        #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
         sumSqare += other.sumSqare;
         #endif
 
@@ -92,7 +92,7 @@ public:
         num += other.num;
         min = std::min(min, other.min);
         max = std::min(min, other.max);
-        #ifdef STATS_NEEDED
+        #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
         sumSqare += other.sumSqare;
         #endif
 
@@ -108,7 +108,7 @@ public:
         sum += x;
         num++;
 
-        #ifdef STATS_NEEDED
+        #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
         sumSqare += (double)x*(double)x;
         #endif
         #ifdef AVGCALC_NEED_MIN_MAX
@@ -134,7 +134,7 @@ public:
         return max;
     }
     #endif
-    #ifdef STATS_NEEDED
+    #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
     double var() const
     {
         if (num == 0)
@@ -181,7 +181,7 @@ public:
         sum += other.sum;
         num += other.num;
 
-        #ifdef STATS_NEEDED
+        #if defined(STATS_NEEDED) || defined(FINAL_PREDICTOR)
         sumSqare += other.sumSqare;
         #endif
         #ifdef AVGCALC_NEED_MIN_MAX

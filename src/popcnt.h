@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,15 +23,9 @@ THE SOFTWARE.
 #ifndef POPCNT__H
 #define POPCNT__H
 
-
-#if defined (_MSC_VER)
-#include <intrin.h>
-#endif
-
-#if defined (_MSC_VER)
-#define my_popcnt(x) __popcnt(x)
-#else
-#define my_popcnt(x) __builtin_popcount(x)
+#ifdef _MSC_VER
+#  include <nmmintrin.h>
+#  define __builtin_popcountll _mm_popcnt_u64
 #endif
 
 #endif //POPCNT__H

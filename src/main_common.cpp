@@ -1,6 +1,6 @@
 /*************************************************************
 MiniSat       --- Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
-CryptoMiniSat --- Copyright (c) 2014, Mate Soos
+CryptoMiniSat --- Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -50,33 +50,6 @@ void MainCommon::handle_drat_option()
             }
             dratf = dratfTmp;
         }
-    }
-
-    if (!conf.otfHyperbin) {
-        if (conf.verbosity) {
-            cout
-            << "c OTF hyper-bin is needed for BProp in DRAT, turning it back"
-            << endl;
-        }
-        conf.otfHyperbin = true;
-    }
-
-    if (conf.doFindXors) {
-        if (conf.verbosity) {
-            cout
-            << "c XOR manipulation is not supported in DRAT, turning it off"
-            << endl;
-        }
-        conf.doFindXors = false;
-    }
-
-    if (conf.doCompHandler) {
-        if (conf.verbosity) {
-            cout
-            << "c Component finding & solving is not supported during DRAT, turning it off"
-            << endl;
-        }
-        conf.doCompHandler = false;
     }
 }
 

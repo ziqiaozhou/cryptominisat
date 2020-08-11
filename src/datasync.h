@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,10 @@ THE SOFTWARE.
 #include "solvertypes.h"
 #include "watched.h"
 #include "watcharray.h"
+#ifdef USE_MPI
+#include "mpi.h"
+#endif //USE_MPI
+
 
 namespace CMSat {
 
@@ -31,8 +35,9 @@ class Solver;
 class DataSync
 {
     public:
-        DataSync(Solver* solver, SharedData* sharedData);
+        DataSync(Solver* solver, SharedData* sharedData, bool is_mpi);
         bool enabled();
+        void set_shared_data(SharedData* sharedData);
         void new_var(const bool bva);
         void new_vars(const size_t n);
         bool syncData();
@@ -78,7 +83,34 @@ class DataSync
         Solver* solver;
         SharedData* sharedData;
 
+
+        //MPI
+        bool is_mpi;
+        #ifdef USE_MPI
+        bool syncFromMPI();
+        void syncToMPI();
+        void getNeedToInterruptFromMPI();
+        bool sync_mpi_unit(
+            const lbool otherVal,
+            const uint32_t var,
+            SharedData* shared,
+            uint32_t& thisGotUnitData,
+            uint32_t& thisSentUnitData
+        );
+        vector<uint32_t> syncMPIFinish;
+        MPI_Request   sendReq;
+        uint32_t*     mpiSendData;
+
+        int           mpiRank = 0;
+        int           mpiSize = 0;
+        uint32_t      mpiRecvUnitData;
+        uint32_t      mpiRecvBinData;
+        uint32_t      mpiSentBinData;
+        #endif
+
+
         //misc
+        uint32_t numCalls = 0;
         vector<uint16_t>& seen;
         vector<Lit>& toClear;
         vector<uint32_t> outer_to_without_bva_map;

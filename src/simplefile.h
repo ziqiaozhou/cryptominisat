@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -76,7 +76,7 @@ public:
         if (d.size() == 0)
             return;
 
-        put(&d[0], d.size() * sizeof(T));
+        put(d.data(), d.size() * sizeof(T));
     }
 
     template<class T>

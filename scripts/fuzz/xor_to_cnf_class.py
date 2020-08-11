@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2014  Mate Soos
+# Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -43,7 +43,7 @@ class XorToCNF:
 
         return maxvar
 
-    def convert(self, infilename, outfilename):
+    def convert(self, infilename, outfilename, num_extra_cls=0):
         assert isinstance(self.cutsize, int)
         if self.cutsize <= 2:
             print("ERROR: The cut size MUST be larger or equal to 3")
@@ -51,7 +51,9 @@ class XorToCNF:
 
         maxvar, numcls, extravars_needed, extracls_needed = self.get_stats(infilename)
         fout = open(outfilename, "w")
-        fout.write("p cnf %d %d\n" % (maxvar + extravars_needed, numcls + extracls_needed))
+        fout.write("p cnf %d %d\n" %
+                   (maxvar + extravars_needed,
+                    numcls + extracls_needed + num_extra_cls))
         fin = open(infilename, "r")
         atvar = maxvar
         for line in fin:

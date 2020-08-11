@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -838,7 +838,7 @@ size_t BVA::mem_used() const
     size_t mem = 0;
     mem += bva_tmp_lits.capacity()*sizeof(Lit);
     mem += m_cls_lits.capacity()*sizeof(m_cls_lits_and_red);
-    for(auto m: m_cls_lits) {
+    for(const auto& m: m_cls_lits) {
         mem += m.lits.capacity()*sizeof(Lit);
     }
     mem += to_remove.capacity()* sizeof(Lit);

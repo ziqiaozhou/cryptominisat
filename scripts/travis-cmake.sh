@@ -58,7 +58,7 @@ check_license CMakeLists.txt
 check_license ./src
 check_license ./tests/
 check_license ./scripts/fuzz/
-check_license ./scripts/learn/
+check_license ./scripts/crystal/
 check_license ./scripts/aws/
 
 check_license_fnames tests/ CMakeLists.txt
@@ -245,6 +245,21 @@ case $CMS_CONFIG in
             "${SOURCE_DIR}"
     ;;
 
+    MINGW32)
+        rm -rf ${SOURCE_DIR}/utils/gtest
+        if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install libboost-program-options-dev; fi
+        eval cmake -DENABLE_PYTHON_INTERFACE=OFF \
+                   -DNOVALGRIND=ON \
+                   -DNOZLIB=ON \
+                   -DONLY_SIMPLE=ON \
+                   -DSTATICCOMPILE=ON \
+                   -DIPASIR=ON \
+                   -MIT=ON \
+                   -DCMAKE_BUILD_TYPE=Release \
+                   -D CMAKE_SYSTEM_NAME=Windows \
+                   "${SOURCE_DIR}"
+    ;;   
+
     *)
         echo "\"${CMS_CONFIG}\" configuration not recognised"
         exit 1
@@ -408,7 +423,7 @@ fi
 if [ "$CMS_CONFIG" != "ONLY_SIMPLE" ] && [ "$CMS_CONFIG" != "ONLY_SIMPLE_STATIC" ] && [ "$CMS_CONFIG" != "WEB" ] && [ "$CMS_CONFIG" != "NOPYTHON" ] && [ "$CMS_CONFIG" != "INTREE_BUILD" ] && [ "$CMS_CONFIG" != "STATS" ] && [ "$CMS_CONFIG" != "SQLITE" ] ; then
     cd ../scripts/fuzz/
     which ${MYPYTHON}
-    ${MYPYTHON} ./fuzz_test.py --novalgrind --small --fuzzlim 30
+    ${MYPYTHON} ./fuzz_test.py --fuzzlim 30
 fi
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then

@@ -1,5 +1,5 @@
 /******************************************
-Copyright (c) 2016, Mate Soos
+Copyright (C) 2009-2020 Authors of CryptoMiniSat, see AUTHORS file
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,7 +39,8 @@ struct impliedby : public ::testing::Test {
         SolverConf conf;
         //conf.verbosity = 20;
         s = new SATSolver(&conf);
-        s->set_no_bva();
+        s->set_bva(0);
+        s->set_no_bve();
         s->new_vars(30);
     }
     ~impliedby()
