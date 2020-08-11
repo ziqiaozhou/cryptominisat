@@ -136,12 +136,12 @@ void Compose::readInAFileToCache(SATSolver *solver2, const string &filename) {
   }
 #ifndef USE_ZLIB
   FILE *in = fopen(filename.c_str(), "rb");
-  DimacsParser<StreamBuffer<FILE *, FN>> parser(
+  DimacsParser<StreamBuffer<FILE *, FN>, SATSolver> parser(
       solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
 #else
   gzFile in = gzopen(filename.c_str(), "rb");
 
-  DimacsParser<StreamBuffer<gzFile, GZ>> parser(
+  DimacsParser<StreamBuffer<gzFile, GZ>, SATSolver> parser(
       solver2, &debugLib, conf.verbosity, &trans_clauses, &trans_xor_clauses);
 #endif
 
@@ -185,10 +185,6 @@ void Compose::readInAFileToCache(SATSolver *solver2, const string &filename) {
         sampling_vars.push_back(lit.var());
     }
   }
-  jaccard_vars.swap(parser.jaccard_vars);
-  jaccard_vars2.swap(parser.jaccard_vars2);
-  ob_vars.swap(parser.ob_vars);
-  attack_vars.swap(parser.attack_vars);
   if (sampling_vars.empty()) {
     if (only_sampling_solution) {
       std::cout << "ERROR: only independent vars are requested in the "
