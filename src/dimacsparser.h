@@ -486,6 +486,9 @@ bool DimacsParser<C, S>::parse_and_add_clause(C& in)
         return false;
     }
     lineNum++;
+	if (clauses) {
+		clauses->push_back(lits);
+	}
     solver->add_clause(lits);
     norm_clauses_added++;
     return true;
@@ -513,6 +516,9 @@ bool DimacsParser<C, S>::parse_and_add_xor_clause(C& in)
             rhs ^= true;
         }
     }
+	if (xor_clauses) {
+		xor_clauses->push_back(std::make_pair(vars, rhs));
+	}
     solver->add_xor_clause(vars, rhs);
     xor_clauses_added++;
     return true;
